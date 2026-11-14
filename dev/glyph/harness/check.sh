@@ -1,9 +1,9 @@
 #!/bin/sh
 # check.sh ROLE [PANE] [WIDTH] [TAG] [ACTIVE]: copies the look's mod, swaps Herdr's live data
 # for the fixed sample, and runs `herdr-app check --print-spec` on that copy.
-# Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu or blank; for menu, PANE
+# Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu, blank or goto; for menu, PANE
 # is the tab's id. ACTIVE is the project on show (sp9: one showing its empty page).
-# Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, HOVER, SURE.
+# Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, HOVER, SURE, FIND.
 export S=$(cd "$(dirname "$0")/.." && pwd)
 export L=$(cd "$S/../../glyph" && pwd)
 ROLE=$1; PANE=${2:-p3}; WIDTH=${3:-160}; TAG=${4:-$ROLE}; ACTIVE=${5:-sp2}
@@ -48,6 +48,13 @@ for f in glob.glob(d + "/*.js"):
     if os.environ.get("SURE") and f.endswith("/menu.js"):
         assert s.count("this.sure = false; //") == 1 and s.count("this.at = 0;") == 1
         s = s.replace("this.sure = false; //", "this.sure = true; //").replace("this.at = 0;", "this.at = 2;")
+    # FIND=words: the Go-to list with those words typed. SURE=1: a first close press on the picked tab (goto.js).
+    if os.environ.get("FIND") and f.endswith("/goto.js"):
+        assert s.count('this.filter = "";') == 1
+        s = s.replace('this.filter = "";', "this.filter = %s;" % json.dumps(os.environ["FIND"]))
+    if os.environ.get("SURE") and f.endswith("/goto.js"):
+        assert s.count("this.sure = null;    //") == 1
+        s = s.replace("this.sure = null;    //", "this.sure = { id: this.list().sel?.id, at: Date.now() }; //")
     # DRAG=from:to[:nowidths]: pretend a tab is held and has been moved (bar.js only).
     if os.environ.get("DRAG") and f.endswith("/bar.js"):
         parts = os.environ["DRAG"].split(":"); F, T = int(parts[0]), int(parts[1])

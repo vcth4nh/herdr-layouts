@@ -23,6 +23,8 @@ shot() {
 }
 for n in states fold fold-compact page; do shot $n 1710,1073; done
 for n in menu menu-sure; do shot $n 200,116; done
+# The Go-to list: as it opens, with a word typed, and with a first close press on its picked tab.
+for n in goto goto-find goto-sure; do python3 tools/spec2html.py $P/$n.html --only body --body $O/$n.txt --w 560 --h 572; shot $n 560,572; done
 python3 ../../tools/crop.py $P/states.png $P/states-bar.png 512 0 1900 170 1
 python3 ../../tools/crop.py $P/fold.png $P/fold-rail.png 0 0 540 1100 2
 python3 ../../tools/crop.py $P/fold.png $P/fold-bar.png 512 0 1900 170 1

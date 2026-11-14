@@ -97,7 +97,8 @@ export const shared = (k) => (k in SHARED ? SHARED[k] : k === "new-menu.agents" 
 export const CALLS = [];
 export const run = (name, args) => { CALLS.push(["run", name, args]); return null; };
 export const openOverlay = (spec) => { CALLS.push(["openOverlay", spec]); return "ov1"; };
-export const setAgentOrder = noop, closeOverlay = noop;
+export const setAgentOrder = noop;
+export const closeOverlay = (id) => { CALLS.push(["closeOverlay", id]); return null; };
 export const notify = (n) => { CALLS.push(["notify", n]); return "n1"; };
 // The pane with the keyboard: the shown tab's first one, unless a test says otherwise.
 export const FOCUS = { pane: undefined };
@@ -113,6 +114,7 @@ export const keys = () => [
   { section: "layout:glyph", action: "glyph.rename", keys: "f2" }, { section: "layout:glyph", action: "glyph.close", keys: "cmd-w" }, { section: "layout:glyph", action: "glyph.close-pane", keys: "cmd-shift-w" },
   { section: "layout:glyph", action: "glyph.new", keys: "cmd-t" }, { section: "layout:glyph", action: "glyph.new-claude", keys: "cmd-shift-c" }, { section: "layout:glyph", action: "glyph.new-codex", keys: "cmd-shift-o" },
   { section: "global", action: "space.new", keys: "cmd-shift-n" },
+  { section: "layout:glyph", action: "glyph.goto", keys: "cmd-p" },
 ];
 export const theme = () => THEME;
 export const layout = () => LAYOUT;

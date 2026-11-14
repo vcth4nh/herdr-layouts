@@ -1,4 +1,5 @@
-// The top strip. Left: the shown project (its tile and name; click to find another),
+// The top strip. Left: the shown project (its tile and name; click for the list you type
+// in to go to a tab, goto.js, which the search button at the far end opens too),
 // then its tabs: each is its logo and its title (the name you gave it, else what its
 // agent says it is doing; a tab with nothing to say yet is its logo alone). The titles
 // share the strip: short ones stay whole, long ones shorten together, and when there is
@@ -16,12 +17,12 @@
 // project on show as an empty page (blank.js), which goes once you look elsewhere. When
 // the project on show closes, the next one shows its first tab.
 // Keys bound to this layout in keys.json ("layout:glyph") arrive as commands:
-//   rename, close, close-pane, new, new-<program key> (new-claude, new-codex, ...).
+//   rename, close, close-pane, new, new-<program key> (new-claude, new-codex, ...), goto.
 
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { theme, run, layout, settings, spaces, panes, focused, machines, shared, setShared, notify, window as win, openOverlay, knownAgents, nextCommand } from "herdr";
-import { model, jump, tabTip, find, tabMenu, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM } from "./data.js";
+import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM } from "./data.js";
 import { ICON, INK, DISPLAY, alpha, mix, logo, inkOf, danger, orb, tile, iconButton, textWidth } from "./ui.js";
 
 const stop = (_e, cx) => cx.stop_propagation();
@@ -97,7 +98,8 @@ export class Bar {
     else if (name === "shut") {
       const asked = shared(SHUT);
       if (asked?.id && Date.now() - asked.at < GONE) this.shut(m, asked.id, cx);
-    } else if (name === "new") newTab(s);
+    } else if (name === "goto") openGoto();
+    else if (name === "new") newTab(s);
     else if (name.startsWith("new-")) this.start(s, name.slice(4), cx);
   }
 
@@ -429,7 +431,7 @@ export class Bar {
     const crumb = !s ? div() : h_flex().id("crumb").h(32).flex_none().pl(5).pr(10).gap(8).items_center().rounded(10).cursor_pointer()
       .hover((x) => x.bg(t.hover))
       .on_mouse_down("left", stop)
-      .on_click(() => run("mod.open", { name: "picker" }))
+      .on_click(() => openGoto())
       .on_mouse_down("right", spaceMenu)
       .child(tile(t, { name: s.name, hue: s.hue, active: true, size: 22 }))
       .child(div().max_w(280).truncate().text_size(13.5).font_family(DISPLAY).font_semibold().text_color(t.foreground).child(s.label))
@@ -621,7 +623,7 @@ export class Bar {
       .when(n.done > 0, (el) => el.child(wants("done", "check", `${n.done} finished: go to the next`)))
       .child(side("files", "files", "Files"))
       .child(side("changes", "diff", "Changes"))
-      .child(iconButton(t, { id: "search", icon: "search", tip: "Find a project or tab", onClick: () => run("mod.open", { name: "picker" }) }))
+      .child(iconButton(t, { id: "search", icon: "search", tip: withKey("Go to a tab", keyFor("glyph.goto")), onClick: () => openGoto() }))
       // Where the system draws no window buttons (Linux, Windows), these are them.
       .when(Boolean(w?.buttons), (el) => el
         .child(iconButton(t, { id: "win-min", icon: "minus", tip: "Minimize", onClick: () => run("window.minimize") }))

@@ -15,7 +15,7 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { theme, run, hc, layout, window as win, openOverlay, agents, setAgentOrder, updates } from "herdr";
-import { model, goTab, goSub, jump, tabTip, subTip, since, find, tabMenu } from "./data.js";
+import { model, here as hereName, goTab, goSub, jump, tabTip, subTip, since, find, tabMenu } from "./data.js";
 import { ICON, DISPLAY, alpha, orb, tile, iconButton } from "./ui.js";
 
 const COMPACT = 160, WIDE = 256;
@@ -272,7 +272,7 @@ export class Rail {
     const w = win();
     const width = find(layout(), "sidebar")?.size?.px ?? WIDE;
     const wide = width >= 200;
-    const here = w?.platform === "macos" ? "This Mac" : "This computer";
+    const here = hereName();
 
     const rows = [], idle = [];
     for (const g of m.groups) {

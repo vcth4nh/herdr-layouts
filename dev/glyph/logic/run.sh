@@ -18,7 +18,7 @@ open(d + "/kit-stub.mjs", "w").write(open(S + "/logic/kit-stub.mjs").read())
 for f in glob.glob(L + "/mods/glyph/*.js"):
     s = open(f).read()
     s = s.replace('from "herdr"', 'from "./herdr-fake.mjs"').replace('from "gpui-kit"', 'from "./kit-stub.mjs"').replace('from "gpui-base"', 'from "./kit-stub.mjs"')
-    for name in ("data", "ui", "rail", "bar", "pane", "menu", "blank"):
+    for name in ("data", "ui", "rail", "bar", "pane", "menu", "blank", "goto"):
         s = s.replace('from "./%s.js"' % name, 'from "./%s.mjs"' % name)
     open(d + "/" + os.path.basename(f).replace(".js", ".mjs"), "w").write(s)
 PY

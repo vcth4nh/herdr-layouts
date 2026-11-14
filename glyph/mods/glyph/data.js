@@ -3,7 +3,7 @@
 // program's logo and the most urgent state of its agents and their sub-agents.
 // Below that, what the parts do alike: go to a tab, start one, close one, rename one.
 
-import { spaces, panes, terminals, machines, shared, setShared, run, openOverlay, keys, window as win } from "herdr";
+import { spaces, panes, terminals, machines, shared, setShared, run, openOverlay, closeOverlay, keys, window as win } from "herdr";
 import { SHELL } from "./ui.js";
 
 export const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
@@ -44,6 +44,9 @@ function hues(sp) {
     return c.startsWith("#") ? c : HUE[c] ?? HUE.ansi6;
   };
 }
+
+// What this computer is called where the others go by their names.
+export const here = () => (win()?.platform === "macos" ? "This Mac" : "This computer");
 
 // Home as ~, on this machine or another.
 export const tilde = (p) => (p ?? "").replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, "~").replace(/^\/root(?=\/|$)/, "~");
@@ -249,6 +252,22 @@ export const withKey = (tip, key) => (key ? `${tip}  ${key}` : tip);
 // A tab's right-click menu (menu.js).
 export function tabMenu(c) {
   openOverlay({ mod: "glyph", kind: "popup", width: 200, props: { role: "menu", tab: c.id } });
+}
+
+// The list you type in to go to a tab (goto.js), where Herdr's own picker opens: under the
+// window's top edge. Asked for again while it shows, it closes, as Herdr's own does.
+// `going` is the overlay of the list on show. It is the list that says when it comes and
+// goes (shownGoto, goneGoto), and the bar that asks: copies of a mod share its modules.
+let going = null;
+export function openGoto() {
+  if (going) closeOverlay(going);
+  else openOverlay({ mod: "glyph", kind: "popup", at: "top", offset: 40, width: 560, height: 0.8, props: { role: "goto" } });
+}
+export function shownGoto(id) {
+  going = id ?? null;
+}
+export function goneGoto(id) {
+  if (going === id) going = null;
 }
 
 // Asks for a tab's name in Herdr's own dialog, with what an empty name means here: an

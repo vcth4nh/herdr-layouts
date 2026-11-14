@@ -26,6 +26,25 @@ function el(kind, arg) {
 }
 export const div = () => el("div"), svg = (p) => el("svg", p), image = (p) => el("image", p);
 export const h_flex = () => el("h_flex"), v_flex = () => el("v_flex");
+// What the kit keeps between renders: a text field's state and a scroll area's position.
+// A test types with state.type(text, cx), presses Enter in the field with state.submit(cx),
+// and reads which rows the mod asked to see in handle.asked.
+export const InputState = {
+  new: (o = {}) => {
+    const on = {};
+    let value = o.value ?? "";
+    return {
+      placeholder: o.placeholder ?? "",
+      value: () => value,
+      on: (name, fn) => { on[name] = fn; return true; },
+      focus() {},
+      type(text, cx) { value = text; on.change?.({}, cx); },
+      submit(cx) { on.submit?.({}, cx); },
+    };
+  },
+};
+export const Input = { new: (state) => el("Input", state) };
+export const ScrollHandle = { new: () => ({ asked: [], scroll_to_item(i) { this.asked.push(i); } }) };
 export class View {}
 export function walk(root, fn) {
   const node = root?.__node;

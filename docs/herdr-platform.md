@@ -10,6 +10,7 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-14). Rec
 - To share a row's width fairly, give the row a definite width (`flex_1`) and give each item `flex_grow(1).flex_basis(0).max_w(<its own width>)`.
 - Slides: `.relative().left(n).transition("left", {duration, easing})` animates between renders. The animation is tied to the element's id.
 - There is no z-order: whatever must be on top has to be drawn last.
+- A popup opened without a fixed size is as tall as what it holds. A scrolling area (`overflow_y_scrollbar`) adds no height of its own: with only `max_h` it collapsed to nothing (seen 2026-11-14). Give it a height, the sum of its rows up to a cap, as the shipped `picker` does.
 
 ## Input
 
@@ -17,6 +18,8 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-14). Rec
 - When one mod fills several roles, `<mod>.<command>` keys go to whichever copy awaits `nextCommand()`, as the shipped `win98` does.
 - A `layout:<name>` section in `keys.json` binds keys only while that layout shows, and wins over `global`. Settings has no key editor; `keys.json` is where keys are set.
 - `herdr-app do <mod>.<command>` sends a mod the same command its key would. That tests what a key does without pressing it.
+- `openOverlay` takes `at: "top"` with `offset: n` for a popup under the window's top edge, as the shipped `terminals-bar` opens `picker`. `herdr.d.ts` lists only `"pointer"` and `{x, y}`.
+- Popups stack: a second `openOverlay` leaves the first one open under it. `overlay.close` with no id closed the top popup. `herdr-app commands` says it closes "the top dialog or popup"; what it does to a window was not tried.
 - An error thrown inside the loop around `nextCommand()` ends the loop, and every key bound to the mod stops working until it reloads. Catch errors inside the loop.
 
 ## Data
@@ -46,7 +49,8 @@ Checked on 2026-11-14 with throwaway tabs.
 ## Mod code
 
 - `cx.notify()` throws during `render`. The manual allows it from an event handler or a task, and says nothing about running commands in `render`. glyph's bar runs its own follow-up commands from a timer (`look()` in bar.js).
-- Copies of a mod share its module code, but each has its own instance and `localStorage`. To pass something from one copy to another, use `setShared` (`closeTab` in glyph's data.js).
+- Copies of a mod share its module code, but each has its own instance and `localStorage`. To pass something from one copy to another, use `setShared` (`closeTab` in glyph's data.js), which also redraws every copy. A module-level variable is shared by the copies too, and redraws nothing (`going` in glyph's data.js).
+- A copy in an overlay gets `close()` on its exported View when the overlay goes, whoever closed it: glyph's Go-to list was closed with `herdr-app do overlay.close` and had cleared `going` by the next command (2026-11-14).
 
 ## Can't be done (checked)
 
@@ -83,5 +87,7 @@ Checked on 2026-11-14 against Herdr's manual ("Layouts and mods other people mad
   `dev/glyph/tools/drag-pass.sh` and `live-pass.sh` do this.
 - Commands that end tabs can be tried on throwaway tabs in the real window, since `herdr-app do` returns the ids of what it made and `herdr-app status` and `ls` say what is shown. `dev/glyph/tools/close-pass.py` does this. It changes what the window shows while it runs.
 - `herdr-app check <dir>` writes the app's `gpui-kit.d.ts` and `jsconfig.json` into `<dir>`. Both are gitignored here.
+- `herdr-app status` lists the open overlays by their mod's name, toasts among them. `shot` shows them.
+- `--print-spec` prints a text field as `Input #n`, without its text or placeholder.
 - `herdr-app check <dir> --print-spec` never lays out, so `on_size_change` never fires there. State that depends on a measured size has to be set by hand (glyph's harness has `ROOM=n` for this).
 - Test instances need short `HERDR_APP_HOME` and `XDG_STATE_HOME` paths, because socket names are limited to 103 bytes. They also need their own `HC_SESSION`.

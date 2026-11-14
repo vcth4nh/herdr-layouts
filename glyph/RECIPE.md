@@ -45,6 +45,12 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 - A project whose last tab was closed shows a 56px tile, its name at 16px, and a larger dashed pill of the same launchers, centered.
 
+**Go-to list**
+
+- A popup 560px wide under the window's top edge: a search field, then every tab as a 30px row, a 20px orb and its label at 13px, in the rail's order and words.
+- Tabs sit under their project's line, a 20px tile and its name. Projects sit under their machine's line when there is more than one machine.
+- The picked row is raised (`#313244`). The list is at most 520px tall, then it scrolls.
+
 ## How it behaves
 
 **Agent states**
@@ -61,7 +67,8 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Click a rail row or a bar pill to show that tab. Click a tile or a project's name to show the project.
 - Click a sub-agent's row for Herdr's peek at its terminal, over the shown tab.
 - Click a color in the strip at the top of the rail, or the bell or the tick in the bar, to go to the next tab in that state.
-- Click the project's name in the bar, or search, for Herdr's picker.
+- Click the project's name in the bar, or search, or press ⌘P, for the Go-to list. It opens on the shown tab.
+- Type in it to narrow the list: every word typed must be in a tab's label, its agent's title, its project, its machine or its program. ↑ and ↓ move, and Enter or a click shows the picked tab. A click on a project's line shows that project. Esc or ⌘P again closes the list.
 - Scroll over the bar to step through its tabs.
 - Hover anything for its words: a tab's title, project, machine, state, how long, and how many sub-agents; a sub-agent's name, title and state.
 
@@ -81,7 +88,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 **Closing**
 
-- A plain shell closes at one press. Anything else takes two within 3 s: the first turns the tab red. This goes for ⌘W, a tab's ×, a pane header's ×, ⇧⌘W, and Close in the tab menu, whose row turns red in place.
+- A plain shell closes at one press. Anything else takes two within 3 s: the first turns the tab red. This goes for ⌘W, a tab's ×, a pane header's ×, ⇧⌘W, Close in the tab menu, whose row turns red in place, and Ctrl+D on the picked row of the Go-to list, which turns red too.
 - A pane alone in its tab closes the tab.
 - After a close, the tab after it is shown, or the one before it for the last. Closing a tab that isn't shown moves nothing.
 - Closing a project's last tab leaves the project on show as its empty page. A tab started there starts in the folder the last tab was in.
@@ -119,7 +126,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 **Mod**
 
 - `mods/glyph/`, whose `mod.json` is `{ "place": "none", "title": "Glyph" }`.
-- `main.js` picks a part from `props().role`: `rail.js`, `bar.js`, `pane.js`, `menu.js` (a popup the mod opens for a tab) or `blank.js` (a project's empty page, as a tab's only pane).
+- `main.js` picks a part from `props().role`: `rail.js`, `bar.js`, `pane.js`, `menu.js` (a popup the mod opens for a tab), `goto.js` (the Go-to list, a popup the bar opens) or `blank.js` (a project's empty page, as a tab's only pane).
 - `data.js` shapes Herdr's lists into machines, projects and tabs. `ui.js` draws the tile, the orb and the icon button.
 - `icons/`: 27 SVGs on a 24px grid with round strokes, drawn in `currentColor`. Program logos are Herdr's own, from `icons/` in Herdr's home (`~/.config/herdr-app`).
 
@@ -130,7 +137,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar).
 - Kept in the rail's `localStorage`: `seen` (since when each tab has rested) and `folded` (the folded machines). Each place the layout puts the mod is a copy with a `localStorage` of its own.
 - Commands: `tab.select`, `tab.new`, `tab.close`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
-- Herdr's own mods, opened as they are: `picker`, `menu` (the project menu), `prompt` (rename), `new-menu`, `machine-add`, `files`, `changes`.
+- Herdr's own mods, opened as they are: `menu` (the project menu), `prompt` (rename), `new-menu`, `machine-add`, `files`, `changes`.
 - `setAgentOrder` follows the rail, so `agent.next` and `agent.prev` walk it top to bottom.
 
 **Programs**
@@ -139,7 +146,7 @@ The rail runs `hc machine ls --json` every 20 s, to learn of machines without pr
 
 **Keys**
 
-`keys.json` holds a `layout:glyph` section. Each action is a command the bar waits for with `nextCommand()`: `rename`, `new`, `new-<key>` for any agent key in Herdr's program table, `close`, `close-pane`.
+`keys.json` holds a `layout:glyph` section. Each action is a command the bar waits for with `nextCommand()`: `rename`, `new`, `new-<key>` for any agent key in Herdr's program table, `close`, `close-pane`, `goto`.
 
 ## Watch out
 
@@ -169,6 +176,13 @@ The rail runs `hc machine ls --json` every 20 s, to learn of machines without pr
 - A row lasts as long as its terminal. A program an agent runs through `hc run` and waits for has a row until it exits, so rows come and go.
 - A sub-agent that was given a pane (`terminal.keep`, or keep in the peek) is a pane like any other and has no row. What it started is listed under the tab that holds its pane.
 - The rail keeps times for tabs only, so a resting sub-agent does not fade by age as a tab does. It is dim at once.
+
+**Go-to list**
+
+- Herdr's own picker lists an unnamed tab by its number, so the bar opens the mod's list instead. ⌘P reaches it only through the `layout:glyph` keys. Without them ⌘P still opens Herdr's picker.
+- The popup is only as tall as what it holds, and a scrolling area holds nothing by itself. The list's height is the sum of its rows, up to 520px.
+- Copies of a mod share its modules. The list notes its overlay in a variable of `data.js` when it starts and clears it when Herdr calls its `close()`. That is how the bar knows to close the list when asked for it again.
+- It lists tabs only: no sub-agents, and none of the rows Herdr's picker has for a new tab or a new project.
 
 **Keys**
 
@@ -201,3 +215,4 @@ The rail runs `hc machine ls --json` every 20 s, to learn of machines without pr
 - Closing a project's last tab leaves its empty page. A tab started there opens in the folder the last tab was in, and the page goes.
 - ⌘W on the page closes the project, and the next project shows its first tab.
 - Folding a machine hides its projects and shows the strip of their states.
+- ⌘P opens the Go-to list on the shown tab. An agent's tab nobody named is listed by its agent's title, never by its number. Typing narrows the list, and Enter shows the picked tab.

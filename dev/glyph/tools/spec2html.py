@@ -89,7 +89,8 @@ def parse(path):
             continue
         depth = (len(line) - len(line.lstrip(" "))) // 2
         text = line.strip()
-        m = re.match(r"(\w+)\s*", text)
+        # A kit control is printed with the number of the state it holds: "Input #2".
+        m = re.match(r"(\w+)\s*(?:#\d+\s*)?", text)
         kind, i, arg = m.group(1), m.end(), None
         if i < len(text) and text[i] == '"':
             arg, i = read_string(text, i)
@@ -158,7 +159,7 @@ def style(node):
         elif name == "tooltip": title = v
         elif name == "loop":
             if a and a[0] == "opacity": st.append("opacity:%g" % a[2])
-        elif name in ("id", "hover", "spin", "transition", "spring", "track_focus") or name.startswith("on_"): pass
+        elif name in ("id", "hover", "spin", "transition", "spring", "track_focus", "track_scroll") or name.startswith("on_"): pass
         else: unknown.add(name)
     return ";".join(x for x in st if x), title
 
@@ -180,6 +181,9 @@ def render(node):
     if k == "svg":
         u = data_uri(node["arg"])
         return '<div%s style="%s;background-color:currentColor;-webkit-mask:url(%s) center/100%% 100%% no-repeat;mask:url(%s) center/100%% 100%% no-repeat"></div>' % (t, st, u, u)
+    if k == "Input":
+        # What was typed is the state's, not the tree's: an empty field, its caret at the start.
+        return '<div%s style="display:flex;align-items:center;%s"><div style="width:1.5px;height:1.25em;background-color:currentColor"></div></div>' % (t, st)
     if k == "image":
         return '<img%s src="%s" style="display:block;%s">' % (t, data_uri(node["arg"]), st)
     return '<div%s style="%s">%s</div>' % (t, st, "".join(render(c) for c in node["children"]))
