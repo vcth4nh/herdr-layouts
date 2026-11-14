@@ -2,7 +2,9 @@
 // a fixed sample flock, with every state on show.
 const ROLE = "__ROLE__";
 const ACTIVE = "__ACTIVE__";
-// Copies under way and one that failed, as the transfer window started them.
+// Copies under way and one that failed, as the transfer window started them: false, true,
+// or "direct" for one that goes straight between two other machines, which are then the
+// two the window shows.
 const COPYING = __COPIES__;
 const THEME = __THEME__;
 const LAYOUT = __LAYOUT__;
@@ -99,6 +101,7 @@ const FILES = {
   "bravo:/home/me": [["fieldnotes"], ["kettle"], ["notes.txt", 120]],
   "bravo:/home/me/kettle": [],
   "charlie:/home/me": [["scratch"]],
+  "foxtrot:/home/me": [["lantern"]],
 };
 // A folder as that machine's sh would print it for copy.js (LIST there, read by parse), or null.
 const listed = (on, path) => {
@@ -111,9 +114,49 @@ const MACHINES = [
   { name: "alpha", state: "connected", target: "alpha", via: false }, { name: "bravo", state: "connected", target: "bravo", via: false },
   { name: "charlie", state: "connected", target: "fly ssh console -a charlie -C", via: true }, { name: "delta-2", state: "needs_login", target: "delta-2", via: false },
   { name: "echo", state: "unreachable", target: "echo", via: false }, { name: "foxtrot", state: "connected", target: "me@10.0.0.7:2222", via: false }];
-// For check.sh's LISTED hook: the transfer window as it is once its folders have been read.
+// How this computer's ssh gets to three of them, the host keys it has on record, and the
+// OpenSSH each one runs.
+const NET = {
+  alpha: { target: "alpha", user: "me", host: "alpha.lan", port: "22", ip: "10.0.0.5", keys: ["ssh-ed25519 AAAAC3alpha"], ssh: "OpenSSH_9.6p1" },
+  bravo: { target: "bravo", user: "me", host: "bravo.lan", port: "22", ip: "10.0.0.6", keys: ["ssh-rsa AAAAB3bravo", "ssh-ed25519 AAAAC3bravo"], ssh: "OpenSSH_10.2p1" },
+  foxtrot: { target: "me@10.0.0.7", user: "me", host: "10.0.0.7", port: "2222", ip: null, keys: ["ecdsa-sha2-nistp256 AAAAE2foxtrot"], ssh: "OpenSSH_8.2p1" },
+};
+// What a machine's ssh says when it tries another's address with nothing to show. Any other
+// try times out: alpha gets to bravo by its number only, bravo gets to foxtrot, and nothing
+// gets to alpha.
+const SAYS = {
+  "alpha>bravo.lan": "ssh: Could not resolve hostname bravo.lan: Name or service not known",
+  "alpha>10.0.0.6": "me@10.0.0.6: Permission denied (publickey,password).",
+  "alpha>10.0.0.7": "me@10.0.0.7: Permission denied (publickey).",
+  "bravo>10.0.0.7": "me@10.0.0.7: Permission denied (publickey,password).",
+};
+// ssh, ssh-keygen and the name lookup, as copy.js asks them (reach and probe there).
+const net = (command, args, on) => {
+  const good = (stdout, stderr = "") => ({ code: 0, stdout, stderr });
+  if (command === "ssh" && args[0] === "-V") return good("", `${NET[on]?.ssh ?? "OpenSSH_9.6p1"} Ubuntu-3ubuntu13, OpenSSL 3.0.13\n`);
+  if (command === "ssh" && args[0] === "-G") {
+    const target = args[args.length - 1], k = Object.values(NET).find((x) => x.target === target);
+    return good(`user ${k?.user ?? "me"}\nhostname ${k?.host ?? target}\nport ${k?.port ?? "22"}\nuserknownhostsfile /Users/me/.ssh/known_hosts /Users/me/.ssh/known_hosts2\nglobalknownhostsfile /etc/ssh/ssh_known_hosts\n`);
+  }
+  if (command === "ssh-keygen") {
+    const k = Object.values(NET).find((x) => (x.port === "22" ? x.host : `[${x.host}]:${x.port}`) === args[1]);
+    return k && args[3] === "/Users/me/.ssh/known_hosts" ? good(`# Host ${args[1]} found: line 3\n${k.keys.map((key) => `${args[1]} ${key}`).join("\n")}\n`) : { code: 1, stdout: "", stderr: "" };
+  }
+  if (command === "sh") {
+    const k = Object.values(NET).find((x) => x.host === args[3]);
+    return good(k?.ip ? `${k.ip}       ${k.host}\n` : "");
+  }
+  const to = args[args.length - 2], addr = to.split("@")[1], port = args[args.indexOf("-p") + 1];
+  return { code: 255, stdout: "", stderr: `${SAYS[`${on}>${addr}`] ?? `ssh: connect to host ${addr} port ${port}: Connection timed out`}\n` };
+};
+// For check.sh's LISTED hook: the transfer window as it is once its folders have been read,
+// and for its DIRECT hook, what it has learned of the way between alpha and bravo.
 globalThis.__list = listed;
 globalThis.__fleet = MACHINES.map((k) => ({ ...k, temporary: false }));
+globalThis.__hops = [
+  { on: "alpha", far: "bravo", ok: true, user: "me", addr: "10.0.0.6", port: "22", pin: "ssh-ed25519 AAAAC3bravo" },
+  { on: "bravo", far: "alpha", why: "connect to host 10.0.0.5 port 22: Connection timed out" },
+];
 if (COPYING) for (const address of ["t90", "t91"]) TERMS.push({ address, state: "live", status: null, parent: null, name: null, program: { key: "program", name: "scp", icon: null, tint: true, tile: null, color: null, shell: false, agent: false }, report: { state: null, title: null } });
 const noop = () => null;
 export const spaces = () => SPACES;
@@ -125,8 +168,10 @@ export const machines = () => [null, "alpha", "bravo", "charlie", "delta-2", "ec
 export const SHARED = {
   "glyph.blank": { sp9: { name: "garden-planner", folder: "/Users/me/code/garden-planner" } },
   // Where the transfer window's right side was left.
-  "glyph.side": { on: "alpha", path: "/home/me/acme-shop-backend" },
-  ...(COPYING ? { "glyph.copies": [
+  "glyph.side": COPYING === "direct" ? { on: "bravo", path: "/home/me" } : { on: "alpha", path: "/home/me/acme-shop-backend" },
+  ...(COPYING === "direct" ? { "glyph.copies": [
+    { id: "alpha/t93", from: "alpha", to: "bravo", dir: "/home/me", name: "trace-retry.log", n: 1, one: true, at: now - 8000, direct: "bravo" },
+  ] } : COPYING ? { "glyph.copies": [
     { id: "t90", from: null, to: "alpha", dir: "/home/me/acme-shop-backend", name: "stock-2026-11.parquet", n: 1, one: true, at: now - 20000 },
     { id: "t91", from: "alpha", to: "bravo", dir: "/home/me/kettle", name: "logs", n: 3, one: false, at: now - 50000 },
     { id: "t92", from: "bravo", to: null, dir: "/Users/me/Downloads", name: "notes.txt", n: 1, one: true, at: now - 90000, failed: "scp: /home/me/notes.txt: Permission denied" },
@@ -178,9 +223,11 @@ export const hc = async (args = []) => {
   if (args[0] !== "machine") return { code: 0, stdout: "{}", stderr: "" };
   return { code: 0, stdout: JSON.stringify({ machines: MACHINES }), stderr: "" };
 };
-// A machine's sh listing a folder, in the form copy.js asks for and reads (LIST, parse).
+// A machine's sh listing a folder, in the form copy.js asks for and reads (LIST, parse), or
+// what ssh has to say about getting from one machine to another (net above).
 export const exec = async (command, args = [], options = {}) => {
   ASKS.push(["exec", command, args, options]);
+  if (command !== "sh" || String(args[1]).includes("getent")) return net(command, args, options?.on ?? null);
   const out = listed(options?.on ?? null, args[3]);
   return out === null ? { code: 2, stdout: "", stderr: `sh: line 0: cd: ${args[3]}: No such file or directory\n` } : { code: 0, stdout: out, stderr: "" };
 };

@@ -11,22 +11,35 @@
 // Copies under way sit in the window's head: a turning ring, what, and where to. Click one
 // to peek at scp's own meter. One that failed stays there in peach: hover for why, click to
 // dismiss. copy.js does the copying, and the bar says how each copy ended.
+// With two other machines on show, a copy passes through this computer, unless you give it
+// a password. The window asks whether one of the two gets to the other (hops in copy.js).
+// If so, once rows are picked, a field in the head asks for that machine's password. With
+// one typed, the copy is started on one of the two and goes straight to the other: the
+// window types the password into scp's prompt there, and keeps it only until that is done.
 // Opened as a window with props { role: "transfer" }. The left side opens where you are,
 // the right where it was left.
 
 import { div, svg } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
+import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { theme, props, run, shared, setShared, notify, closeOverlay } from "herdr";
 import { model, fleet, tilde, placeOf, ARM } from "./data.js";
-import { copies, listing, startCopy, dropCopy, meter, bytes, what, base, join, nameOf } from "./copy.js";
+import { copies, listing, startCopy, dropCopy, meter, bytes, what, base, join, nameOf, hops, hopFor, feed, endCopy } from "./copy.js";
 import { ICON, INK, DISPLAY, alpha, danger, orb, tile, iconButton } from "./ui.js";
 
 // Where the right side was left: { on, path }.
 const SIDE = "glyph.side";
 // What a copy wears in its orb, where a tab wears its program's logo.
 const ARROW = { icon: ICON("arrow-right"), tint: true };
+// A copy that goes straight from one machine to the other wears a bolt.
+const BOLT = { icon: ICON("bolt"), tint: true };
 // The most dashed rows a side shows for what would land; the rest are a count.
 const GHOSTS = 4;
+// ms an answer to "do these two reach each other" is kept.
+const FRESH = 300000;
+// ms a prompt that was just typed into may still be the last thing on its screen.
+const TYPED = 5000;
+// How often, and how many times, a straight copy that just started is looked at for its prompt.
+const SOON = 500, LOOKS = 60;
 
 const mine = (_e, cx) => cx.stop_propagation();
 
@@ -36,6 +49,16 @@ export class Transfer {
     this.armed = 0;     // when the arrow was pressed once, over names that are already there
     this.meters = {};   // copy id -> how far scp says it is
     this.seen = null;   // the copies there were at the last tick
+    this.routes = new Map(); // "a\nb" (two other machines, by name) -> { asking, hops, at }: see scout()
+    // The password of a straight copy under way, for scp's prompts: copy id -> { secret,
+    // armed, left }. It is here and nowhere else, and goes once the last prompt has it.
+    this.keys = new Map();
+    this.fed = new Map(); // copy id -> when its prompt was last typed into
+    this.keyOf = null;    // the machine the password field is for
+    this.secret = InputState.new({ placeholder: "password" });
+    this.secret.set_masked(true);
+    this.secret.on("change", (_e, cx) => cx.notify());
+    this.secret.on("submit", (_e, cx) => this.send(cx));
     const m = model();
     const s = m.active;
     const left = { on: s?.machine ?? null, path: s ? placeOf(s) : "" };
@@ -60,8 +83,56 @@ export class Transfer {
       const all = await fleet();
       if (!all || JSON.stringify(all) === JSON.stringify(this.machines)) return;
       this.machines = all;
+      this.scout(cx);
       cx.notify();
     });
+  }
+
+  // The two other machines on show, by name, when they are two.
+  pair() {
+    const [a, b] = this.sides.map((s) => s.on);
+    return a !== null && b !== null && a !== b ? [a, b].sort() : null;
+  }
+
+  // Asks, once in a while, whether the two machines on show get to each other.
+  scout(cx) {
+    const p = this.pair();
+    if (!p || !this.machines.length) return;
+    const key = p.join("\n"), was = this.routes.get(key);
+    if (was && (was.asking || Date.now() - was.at < FRESH)) return;
+    this.routes.set(key, { asking: true, hops: was?.hops ?? null, at: Date.now() });
+    cx.spawn(async (cx) => {
+      let list;
+      try {
+        list = await hops(p[0], p[1], this.machines);
+      } catch (e) {
+        list = [{ on: p[0], far: p[1], why: String(e?.message ?? e) }];
+      }
+      this.routes.set(key, { asking: false, hops: list, at: Date.now() });
+      this.guard();
+      cx.notify();
+    });
+  }
+
+  // The straight way for what is picked now, if there is one: see hopFor in copy.js.
+  hop(plan = this.plan()) {
+    const p = this.pair();
+    return plan && p ? hopFor(this.routes.get(p.join("\n"))?.hops, plan.src.on) : null;
+  }
+
+  // A password typed for one machine is never left in the field for another.
+  guard() {
+    const far = this.hop()?.far ?? null;
+    if (far === this.keyOf) return;
+    this.keyOf = far;
+    if (this.secret.value()) this.secret.set_value("");
+  }
+
+  // The window is closing: what it held of passwords goes with it. A copy still waiting at
+  // a prompt can be typed into from its peek, in the window opened again.
+  gone() {
+    this.keys.clear();
+    if (this.secret.value()) this.secret.set_value("");
   }
 
   // Reads a side's folder. `quiet`: once more, in place (something may have landed there).
@@ -107,6 +178,8 @@ export class Transfer {
     s.picked.clear();
     this.armed = 0;
     this.load(i, cx);
+    this.guard();
+    this.scout(cx);
     cx.notify();
   }
 
@@ -116,6 +189,7 @@ export class Transfer {
     this.sides[1 - i].picked.clear();
     if (!s.picked.delete(name)) s.picked.add(name);
     this.armed = 0;
+    this.guard();
     cx.notify();
   }
 
@@ -149,18 +223,68 @@ export class Transfer {
     this.armed = 0;
     const one = p.names.length === 1 && !p.src.entries.find((e) => e.name === p.names[0])?.dir;
     const job = { from: p.src.on, paths: p.names.map((n) => join(p.src.path, n)), to: p.dst.on, dir: p.dst.path };
+    // With a password typed, straight to the other machine. The field is emptied at once.
+    const hop = this.hop(p), secret = hop ? this.secret.value() : "";
+    if (this.secret.value()) this.secret.set_value("");
     p.src.picked.clear();
-    this.start(job, one, cx);
+    this.guard();
+    this.start(job, one, cx, secret ? hop : null, secret);
     cx.notify();
   }
 
-  start(job, one, cx) {
+  start(job, one, cx, hop = null, secret = "") {
     cx.spawn(async (cx) => {
       try {
-        await startCopy(job, this.machines, one);
+        const id = await startCopy(job, this.machines, one, hop);
+        if (hop) {
+          // Files that come from the far machine are a login each.
+          this.keys.set(id, { secret, armed: true, left: hop.on === job.from ? 1 : job.paths.length });
+          this.hurry(id, 0, cx);
+        }
       } catch (e) {
         notify({ title: "The copy did not start", body: String(e?.message ?? e), level: "error" });
       }
+      cx.notify();
+    });
+  }
+
+  // A straight copy that just started is looked at often, until its first prompt has the password.
+  hurry(id, n, cx) {
+    const k = this.keys.get(id);
+    if (!k || this.fed.has(id) || n >= LOOKS) return;
+    this.watch(id, cx);
+    cx.timer.after(SOON, (cx) => this.hurry(id, n + 1, cx));
+  }
+
+  // Looks at a copy's screen: how far it is, and whether it stands at a password prompt.
+  // A prompt gets the password this window holds for that copy, once: it is not typed
+  // again until the screen has moved on, and never after a login was refused, which ends
+  // the copy instead.
+  watch(id, cx) {
+    cx.spawn(async (cx) => {
+      let far;
+      try {
+        far = await meter(id);
+      } catch {
+        return;
+      }
+      const k = this.keys.get(id);
+      if (k && far.denied) {
+        this.keys.delete(id);
+        endCopy(id).catch(() => {});
+      } else if (k && !far.ask) k.armed = true;
+      else if (k?.armed) {
+        k.armed = false;
+        k.left -= 1;
+        if (k.left <= 0) this.keys.delete(id);
+        this.fed.set(id, Date.now());
+        feed(id, k.secret).catch(() => {});
+      }
+      // Asking, with nothing here to answer: the pill says so, and its peek takes the typing.
+      const asking = far.ask && !this.keys.has(id) && Date.now() - (this.fed.get(id) ?? 0) > TYPED;
+      const was = this.meters[id];
+      if (far.line === was?.line && asking === Boolean(was?.asking)) return;
+      this.meters[id] = { ...far, asking };
       cx.notify();
     });
   }
@@ -186,18 +310,13 @@ export class Transfer {
     const now = list.map((c) => c.id + (c.failed ? "!" : "")).join(" ");
     if (this.seen !== null && now !== this.seen) this.sides.forEach((s, i) => { if (!s.loading) this.load(i, cx, true); });
     this.seen = now;
-    for (const id of Object.keys(this.meters)) if (!list.some((c) => c.id === id && !c.failed)) delete this.meters[id];
-    for (const c of list) {
-      if (c.failed) continue;
-      cx.spawn(async (cx) => {
-        try {
-          const far = await meter(c.id);
-          if (far.line === this.meters[c.id]?.line) return;
-          this.meters[c.id] = far;
-          cx.notify();
-        } catch {}
-      });
-    }
+    const live = (id) => list.some((c) => c.id === id && !c.failed);
+    for (const id of Object.keys(this.meters)) if (!live(id)) delete this.meters[id];
+    // A copy that ended takes its password with it.
+    for (const id of [...this.keys.keys()]) if (!live(id)) this.keys.delete(id);
+    for (const id of [...this.fed.keys()]) if (!live(id)) this.fed.delete(id);
+    for (const c of list) if (!c.failed) this.watch(c.id, cx);
+    this.scout(cx);
   }
 
   render() {
@@ -207,6 +326,12 @@ export class Transfer {
     const red = danger(t);
     const plan = this.plan();
     const armed = Boolean(plan?.clash.length) && Date.now() - this.armed < ARM;
+    // Two other machines on show: what is known of the straight way between them, the one
+    // the picked rows would take, and whether a password is typed for it.
+    const two = this.pair();
+    const route = two ? this.routes.get(two.join("\n")) : null;
+    const hop = this.hop(plan);
+    const typed = Boolean(hop) && this.secret.value().length > 0;
 
     // A machine among the others: the one a side shows is raised.
     const chip = (i, g) => {
@@ -332,7 +457,8 @@ export class Transfer {
       : !go ? "The other side can't be read yet"
       : armed ? `Again to replace ${many(plan.clash.length)}`
       : [`Copy ${plan.names.length === 1 ? plan.names[0] : many(plan.names.length)} to ${where(plan.dst)}`,
-        plan.clash.length ? `${many(plan.clash.length)} already there: two presses replace` : ""].filter(Boolean).join("  ·  ");
+        plan.clash.length ? `${many(plan.clash.length)} already there: two presses replace` : "",
+        !two ? "" : typed ? `straight from ${plan.src.on}, with ${hop.far}'s password` : "through this computer"].filter(Boolean).join("  ·  ");
     const arrow = div().id("send").flex_none().size(38).rounded_full().flex().items_center().justify_center()
       .when(!plan, (el) => el.border_1().border_dashed().border_color(t.input).text_color(t.dim))
       .when(Boolean(plan) && !go, (el) => el.bg(t.raised).text_color(t.dim))
@@ -343,13 +469,42 @@ export class Transfer {
       .on_click((_e, cx) => this.send(cx))
       .child(svg(ICON(!plan ? "transfer" : plan.from === 0 ? "arrow-right" : "arrow-left")).size(plan ? 18 : 16));
 
+    // Straight between the two machines on show. A turning ring while it is being asked
+    // about; then a bolt, faint when neither gets to the other. With rows picked and a way
+    // for them: the machine whose password it takes, and the field for it.
+    const direct = () => {
+      const [a, b] = two;
+      const able = Boolean(route?.hops?.some((h) => h.ok));
+      const tip = !route?.hops ? `Asking whether ${a} and ${b} get to each other`
+        : !able ? [`Copies between ${a} and ${b} pass through this computer`, ...route.hops.map((h) => `${h.on} to ${h.far}: ${h.why}`)].join("  ·  ")
+        : !hop ? `${a} and ${b} get to each other: pick files, then type a password here to copy them straight across`
+        : [`With ${hop.user}'s password on ${hop.far}, the copy goes straight from ${plan.src.on} to ${plan.dst.on}`,
+          `scp is started on ${hop.on} and is given it at its prompt`, "it is kept nowhere", "left empty, the copy passes through this computer"].join("  ·  ");
+      return h_flex().id("direct").flex_none().h(26).gap(6).items_center()
+        .child(h_flex().id("direct-way").flex_none().h(24).px(4).gap(5).items_center().rounded(7).tooltip(tip)
+          .text_color(typed ? t.accent : t.muted)
+          .when(Boolean(route?.hops) && !able, (el) => el.opacity(0.45))
+          .child(route?.hops ? svg(ICON("bolt")).size(14).flex_none() : svg(ICON("ring")).size(13).flex_none().text_color(t.working).spin(1300))
+          .when(Boolean(hop), (el) => el
+            .child(svg(ICON("server")).size(12).flex_none().text_color(t.dim))
+            .child(div().max_w(110).truncate().text_size(12).font_family(DISPLAY).font_semibold().text_color(t.foreground).child(hop.far))))
+        .when(Boolean(hop), (el) => el.child(h_flex().id("direct-key").flex_none().w(150).h(24).px(7).items_center().rounded(7).bg(t.background)
+          .border_1().border_color(typed ? t.accent : t.border)
+          .on_mouse_down("left", mine)
+          .child(Input.new(this.secret).flex_1().h_full().text_size(12).text_color(t.foreground))));
+    };
+
     // A copy under way, or one that failed.
     const pill = (c) => {
       const far = this.meters[c.id];
-      const route = `${nameOf(c.from)} → ${nameOf(c.to)}  ·  ${tilde(c.dir)}`;
+      // At a password prompt, with nothing in this window to answer it.
+      const asking = !c.failed && Boolean(far?.asking);
+      const route = `${nameOf(c.from)} → ${nameOf(c.to)}${c.direct ? ", direct" : ""}  ·  ${tilde(c.dir)}`;
       return h_flex().id(`copy-${c.id}`).h(26).flex_none().pl(1).pr(9).gap(5).items_center().rounded(13).cursor_pointer()
         .hover((x) => x.bg(t.hover))
-        .tooltip(c.failed ? [what(c), route, c.failed, "click to dismiss"].join("  ·  ") : [what(c), route, far?.line].filter(Boolean).join("  ·  "))
+        .tooltip(c.failed ? [what(c), route, c.failed, "click to dismiss"].join("  ·  ")
+          : asking ? [what(c), route, `it is asking for ${c.direct ?? "a"}${c.direct ? "'s" : ""} password: click to type it`].join("  ·  ")
+          : [what(c), route, far?.line].filter(Boolean).join("  ·  "))
         .on_mouse_down("left", mine)
         .on_click((_e, cx) => {
           if (c.failed) {
@@ -357,8 +512,8 @@ export class Transfer {
             cx.notify();
           } else run("terminal.peek", { terminal: c.id });
         })
-        .child(orb(t, { size: 16, program: ARROW, status: c.failed ? "blocked" : "working" }))
-        .child(div().max_w(150).truncate().text_size(12).text_color(c.failed ? t.blocked : t.foreground).child(what(c)))
+        .child(orb(t, { size: 16, program: c.direct ? BOLT : ARROW, status: c.failed || asking ? "blocked" : "working" }))
+        .child(div().max_w(150).truncate().text_size(12).text_color(c.failed || asking ? t.blocked : t.foreground).child(what(c)))
         .child(svg(ICON(c.to === null ? "laptop" : "server")).size(12).flex_none().text_color(t.dim))
         .child(div().max_w(90).truncate().text_size(11.5).text_color(t.dim).child(nameOf(c.to)))
         .when(Boolean(c.one) && !c.failed && far?.pct != null, (el) => el.child(div().flex_none().text_size(11.5).font_family(DISPLAY).font_semibold().text_color(t.working).child(`${far?.pct}%`)));
@@ -369,6 +524,7 @@ export class Transfer {
       .child(h_flex().flex_none().h(40).pl(14).pr(7).gap(8).items_center()
         .child(svg(ICON("transfer")).size(15).flex_none().text_color(t.dim))
         .child(h_flex().id("copies").flex_1().min_w(0).h_full().gap(2).items_center().overflow_x_hidden().children(copies().map(pill)))
+        .when(Boolean(two), (el) => el.child(direct()))
         .child(iconButton(t, { id: "transfer-close", icon: "x", tip: "Close", glyph: 13, onClick: () => closeOverlay(p.overlay) })))
       .child(h_flex().flex_1().min_h(0).px(12).pb(12).gap(8)
         .child(side(0))

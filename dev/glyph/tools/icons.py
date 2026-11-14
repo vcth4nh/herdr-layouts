@@ -28,6 +28,7 @@ ICONS = {
     "transfer": stroke('<path d="M4 8.5h15.5M15.5 4.5l4 4-4 4"/><path d="M20 15.5H4.5M8.5 11.5l-4 4 4 4"/>', 2),
     "arrow-right": stroke('<path d="M4.5 12h15M13.5 6l6 6-6 6"/>', 2.4),
     "arrow-left": stroke('<path d="M19.5 12h-15M10.5 6l-6 6 6 6"/>', 2.4),
+    "bolt": stroke('<path d="M13.5 2.8 5 13.6h6.4l-.9 7.6L19 10.4h-6.4z"/>', 2),
     "diff": stroke('<path d="M12 4v9M7.5 8.5h9M7.5 19.5h9"/>', 2),
     "split-right": stroke('<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M12 4.5v15"/>'),
     "split-down": stroke('<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 12h18"/>'),

@@ -36,4 +36,6 @@ one - transfer p3 256 transfer-reading sp2
 one "LISTED=1" transfer p3 256 transfer sp2
 one "LISTED=1 COPIES=1 PICK=0:stock-2026-11.parquet,suppliers.csv,README.md,fixtures" transfer p3 256 transfer-picked sp2
 one "LISTED=1 COPIES=1 SURE=1 PICK=0:stock-2026-11.parquet,suppliers.csv,README.md,fixtures" transfer p3 256 transfer-sure sp2
+one "LISTED=1 COPIES=direct DIRECT=1 PICK=0:Makefile,logs" transfer p3 256 transfer-direct alpha/sp4
+one "LISTED=1 COPIES=direct DIRECT=typed PICK=0:Makefile,logs" transfer p3 256 transfer-direct-typed alpha/sp4
 one "COPIES=1" bar p3 256 bar-copies sp2

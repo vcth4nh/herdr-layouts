@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Transfer } from "./transfer.mjs";
 import { Bar } from "./bar.mjs";
-import { LIST, parse, scpArgs, bytes, settle } from "./copy.mjs";
+import { LIST, parse, scpArgs, bytes, settle, reach, hops, hopFor, directArgs, meter } from "./copy.mjs";
 import { byId, walk } from "./kit-stub.mjs";
 import { CALLS, ASKS, SHARED, spaces, terminals } from "./herdr-fake.mjs";
 
@@ -24,6 +24,8 @@ const settled = () => new Promise((r) => setTimeout(r, 10));
 const runs = () => CALLS.filter((c) => c[0] === "run").map((c) => [c[1], c[2]]);
 const said = () => CALLS.filter((c) => c[0] === "notify").map((c) => [c[1].level, c[1].title]);
 const asked = (verb) => ASKS.filter((a) => a[0] === "hc" && a[1][0] === verb).map((a) => a[1]);
+// The folders read: a machine's sh asked for a listing (not what ssh is asked about another machine).
+const reads = () => ASKS.filter((a) => a[0] === "exec" && a[1] === "sh" && !String(a[2][1]).includes("getent"));
 const under = (node) => { const all = []; const go = (n) => { if (n.id) all.push(n.id); for (const c of n.children) if (c?.__node) go(c.__node); }; go(node); return all; };
 const text = (node) => { const out = []; const go = (n) => { for (const c of n.children) { if (typeof c === "string") out.push(c); else if (c?.__node) go(c.__node); } }; go(node); return out.join(" "); };
 const icons = (node) => { const out = []; walk({ __node: node }, (n) => { if (n.kind === "svg") out.push(n.arg.split("/").pop().replace(".svg", "")); }); return out; };
@@ -102,12 +104,12 @@ eq([text(byId(root, "c1-1")), text(byId(root, "c0-0")), text(byId(root, "c0-3"))
 ASKS.length = 0;
 click(root, "m0-echo");
 click(root, "m0-delta-2");
-eq(ASKS.filter((a) => a[0] === "exec").length, 0, "a click on a machine out of reach reads nothing");
+eq(reads().length, 0, "a click on a machine out of reach reads nothing");
 click(root, "m0-bravo");
 await settled();
 root = w.render();
 eq([at()[0], rows(root, 0)], [["bravo", "/home/me"], ["fieldnotes", "kettle", "notes.txt"]], "another machine: its home");
-eq(ASKS.filter((a) => a[0] === "exec").map((a) => [a[1], a[2][0], a[2][3], a[3]]), [["sh", "-c", "", { on: "bravo" }]], "asked of that machine's own sh");
+eq(reads().map((a) => [a[1], a[2][0], a[2][3], a[3]]), [["sh", "-c", "", { on: "bravo" }]], "asked of that machine's own sh");
 ok(Boolean(byId(root, "p0-home").props.bg) && under(byId(root, "side0")).includes("p0-bravo/sp6"), "home's tile is filled there; that machine's projects are its places");
 // A folder: its chevron opens it, and so does a double-click.
 click(root, "in0-kettle");
@@ -257,11 +259,11 @@ ASKS.length = 0;
 SHARED["glyph.copies"] = [SHARED["glyph.copies"][1]];
 w.tick(cx);
 await settled();
-eq([ASKS.filter((a) => a[0] === "exec").map((a) => [a[3].on ?? null, a[2][3]]), [...w.sides[0].picked]], [[["alpha", SHOP], [null, API]], ["Makefile"]], "after a copy ends the folders are read again, and what is picked stays");
+eq([reads().map((a) => [a[3].on ?? null, a[2][3]]), [...w.sides[0].picked]], [[["alpha", SHOP], [null, API]], ["Makefile"]], "after a copy ends the folders are read again, and what is picked stays");
 ASKS.length = 0;
 w.tick(cx);
 await settled();
-eq(ASKS.filter((a) => a[0] === "exec").length, 0, "and not again until something changes");
+eq(reads().length, 0, "and not again until something changes");
 CALLS.length = 0;
 click(w.render(), "transfer-close");
 eq(CALLS, [["closeOverlay", "ov7"]], "the x closes the window");
@@ -281,6 +283,169 @@ w = new Transfer(cx);
 await settled();
 await settled();
 eq([at()[1], w.sides[1].error], [["bravo", "/home/me"], null], "a remembered folder that is gone gives way to home");
+spaces().forEach((s) => { s.active = s.id === "sp2"; });
+
+// Straight between two other machines. First what copy.js learns: how this computer's ssh
+// gets to a machine, and which of two machines gets to the other's password prompt.
+const SEALED = (pin) => ["-F", "none", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=/dev/null", "-o", "GlobalKnownHostsFile=/dev/null",
+  "-o", `KnownHostsCommand=/bin/echo * ${pin}`, "-o", "PubkeyAuthentication=no", "-o", "IdentityAgent=none",
+  "-o", "PreferredAuthentications=password,keyboard-interactive", "-o", "ControlMaster=no", "-o", "ControlPath=none"];
+const BRAVO = "ssh-ed25519 AAAAC3bravo";
+const toBravo = { on: "alpha", far: "bravo", ok: true, user: "me", addr: "10.0.0.6", port: "22", pin: BRAVO };
+{
+  ASKS.length = 0;
+  eq(await reach("bravo"), { user: "me", name: "bravo.lan", port: "22", addrs: ["bravo.lan", "10.0.0.6"], pin: BRAVO }, "a machine: its user, name and port as ssh has them, the number found for the name, and the ed25519 key on record");
+  eq(await reach("me@10.0.0.7:2222"), { user: "me", name: "10.0.0.7", port: "2222", addrs: ["10.0.0.7"], pin: "ecdsa-sha2-nistp256 AAAAE2foxtrot" }, "a target with a port; a number is not looked up");
+  eq(await reach("delta-2"), { user: "me", name: "delta-2", port: "22", addrs: ["delta-2"], pin: null }, "a machine with no host key on record here, and no number found for its name");
+  // bravo was learned of when the window above showed it, so only the other two are asked about here.
+  const execs = ASKS.filter((a) => a[0] === "exec").map((a) => [a[1], ...a[2].filter((x) => !x.includes("getent"))]);
+  eq(execs, [["ssh", "-G", "-p", "2222", "--", "me@10.0.0.7"], ["ssh-keygen", "-F", "[10.0.0.7]:2222", "-f", "/Users/me/.ssh/known_hosts"],
+    ["ssh", "-G", "--", "delta-2"], ...["/Users/me/.ssh/known_hosts", "/Users/me/.ssh/known_hosts2", "/etc/ssh/ssh_known_hosts"].map((f) => ["ssh-keygen", "-F", "delta-2", "-f", f]), ["sh", "-c", "glyph", "delta-2"]],
+    "asked of this computer's ssh, of each of its lists of known hosts, and for the name's number");
+  ASKS.length = 0;
+  await reach("bravo");
+  eq(ASKS.length, 0, "what was learned is kept a while");
+  const fleet = globalThis.__fleet;
+  ASKS.length = 0;
+  eq(await hops("alpha", "bravo", fleet), [toBravo, { on: "bravo", far: "alpha", why: "connect to host 10.0.0.5 port 22: Connection timed out" }], "alpha gets to bravo's prompt, by its number; bravo does not get to alpha");
+  const tries = ASKS.filter((a) => a[0] === "exec" && a[1] === "ssh" && a[3].on === "alpha" && a[2][0] !== "-V");
+  eq(tries.map((a) => a[2]), ["me@bravo.lan", "me@10.0.0.6"].map((to) => [...SEALED(BRAVO), "-n", "-o", "BatchMode=yes", "-o", "ConnectTimeout=6", "-p", "22", "--", to, "true"]),
+    "asked of alpha's own ssh: no settings, no key, the one host key, and nothing to log in with");
+  eq(await hops("alpha", "foxtrot", fleet), [{ on: "alpha", far: "foxtrot", why: "it takes no password" }, { on: "foxtrot", far: "alpha", why: "its scp is OpenSSH 8.2, and 9 or later is needed" }], "a machine that takes no password, and one whose scp is too old");
+  eq((await hops("bravo", "foxtrot", fleet))[0], { on: "bravo", far: "foxtrot", ok: true, user: "me", addr: "10.0.0.7", port: "2222", pin: "ecdsa-sha2-nistp256 AAAAE2foxtrot" }, "another port");
+  eq((await hops("alpha", "charlie", fleet)).map((h) => h.why), ["charlie is not reached over ssh", "charlie is not reached over ssh"], "a machine reached by a command");
+  eq((await hops("alpha", "echo", fleet))[0].why, "this computer has no host key on record for it", "a machine this computer has no host key for");
+  const a = { on: "a", far: "b", ok: true }, b = { on: "b", far: "a", ok: true }, no = { on: "a", far: "b", why: "x" };
+  eq([hopFor([a, b], "a"), hopFor([a, b], "b"), hopFor([no, b], "a"), hopFor([no, { ...b, ok: false }], "a"), hopFor(null, "a")], [a, b, b, null, null], "started where the files are when it can be, else where they go");
+  const head = ["scp", "-r", ...SEALED(BRAVO), "-o", "ConnectTimeout=20", "-o", "NumberOfPasswordPrompts=1", "-P", "22", "--"];
+  eq(directArgs({ from: "alpha", paths: ["/home/me/a b.txt", "/home/me/c [1]"], to: "bravo", dir: "/srv/in {y}" }, toBravo), [...head, "/home/me/a b.txt", "/home/me/c [1]", "me@10.0.0.6:/srv/in {y}/"],
+    "started where the files are: every path as it is written");
+  eq(directArgs({ from: "bravo", paths: ["/home/me/a[1] *.txt", "/home/me/b"], to: "alpha", dir: "/home/me" }, toBravo), [...head, "me@10.0.0.6:/home/me/a\\[1\\] \\*.txt", "me@10.0.0.6:/home/me/b", "/home/me/"],
+    "started where they go: each one fetched from the far machine, its pattern letters escaped");
+  const screen = async (out) => { globalThis.__hc = (args) => (args[0] === "read" ? { code: 0, stdout: out, stderr: "" } : null); const m = await meter("t1"); globalThis.__hc = null; return [m.ask, m.denied]; };
+  eq([await screen("me@10.0.0.6's password: \n"), await screen("(me@10.0.0.6) Password:\n\n"), await screen("scp: /home/me/x: Permission denied\r\nx.txt  40%  1MB\n"), await screen("me@10.0.0.6: Permission denied (publickey,password).\r\nme@10.0.0.6's password: ")],
+    [[true, false], [true, false], [false, false], [true, true]], "a screen that stands at a password prompt, and one where a login was refused (a file that may not be read is not that)");
+}
+
+// The window with two other machines on show.
+spaces().forEach((s) => { s.active = s.id === "alpha/sp4"; });
+SHARED["glyph.side"] = { on: "bravo", path: "/home/me" };
+delete SHARED["glyph.copies"];
+globalThis.__props = { role: "transfer", overlay: "ov8" };
+w = new Transfer(cx);
+root = w.render();
+eq([icons(byId(root, "direct-way")), byId(root, "direct-way").props.tooltip[0], Boolean(byId(root, "direct-key"))], [["ring"], "Asking whether alpha and bravo get to each other", false], "two other machines: the window asks whether they get to each other");
+await settled();
+root = w.render();
+eq([w.secret.masked, w.secret.placeholder], [true, "password"], "the password field hides what is typed");
+eq([icons(byId(root, "direct-way")), byId(root, "direct-way").props.tooltip[0], Boolean(byId(root, "direct-key"))],
+  [["bolt"], "alpha and bravo get to each other: pick files, then type a password here to copy them straight across", false], "they do: a bolt, and no field until something is picked");
+press(root, "e0-Makefile");
+root = w.render();
+eq([text(byId(root, "direct-way")), Boolean(byId(root, "direct-key")), byId(root, "direct-key").children[0].__node.kind], ["bravo", true, "Input"], "with a row picked: the machine whose password it takes, and the field");
+eq(byId(root, "direct-way").props.tooltip[0], "With me's password on bravo, the copy goes straight from alpha to bravo  ·  scp is started on alpha and is given it at its prompt  ·  it is kept nowhere  ·  left empty, the copy passes through this computer", "it says what the password is for");
+eq(byId(root, "send").props.tooltip[0], "Copy Makefile to bravo  ·  ~  ·  through this computer", "no password: the arrow says the copy passes through this computer");
+// Left empty, the copy is the one there always was.
+ASKS.length = 0;
+click(root, "send");
+await settled();
+eq(asked("run").map((a) => a.slice(0, 12)), [["run", "--bg", "--no-parent", "--no-notify", "--json", "--label", "glyph.copy=1", "--", "scp", "-3", "-r", "-o"]], "left empty: through this computer, as before");
+// With a password: started on the machine the files are on, and the password typed at its prompt.
+let screenNow = "";
+const sent = [];
+globalThis.__hc = (args) => {
+  if (args[0] === "run") return { code: 0, stdout: JSON.stringify({ address: `alpha/t${7 + sent.length}`, state: "live" }), stderr: "" };
+  if (args[0] === "read") return { code: 0, stdout: screenNow, stderr: "" };
+  return null;
+};
+delete SHARED["glyph.copies"];
+press(w.render(), "e0-Makefile");
+w.secret.type("pw -one", cx);
+root = w.render();
+eq([byId(root, "send").props.tooltip[0], byId(root, "direct-key").props.border_color[0], byId(root, "direct-way").props.text_color[0]],
+  ["Copy Makefile to bravo  ·  ~  ·  straight from alpha, with bravo's password", "#cba6f7", "#cba6f7"], "a password typed: the arrow says the copy goes straight, and the bolt lights up");
+ASKS.length = 0; timers.length = 0; screenNow = "";
+w.secret.submit(cx);
+await settled();
+eq(asked("run"), [["run", "--on", "alpha", "--bg", "--no-parent", "--no-notify", "--json", "--label", "glyph.copy=1", "--", "scp", "-r", ...SEALED(BRAVO), "-o", "ConnectTimeout=20", "-o", "NumberOfPasswordPrompts=1", "-P", "22", "--", `${SHOP}/Makefile`, "me@10.0.0.6:/home/me/"]],
+  "Enter in the field starts it: scp on alpha, in a terminal of hc's there");
+eq(SHARED["glyph.copies"].map(({ at: _at, ...c }) => c), [{ id: "alpha/t7", from: "alpha", to: "bravo", dir: "/home/me", name: "Makefile", n: 1, one: true, direct: "bravo" }], "it is listed, with the machine it logs in to");
+eq([w.secret.value(), JSON.stringify(SHARED).includes("pw -one"), w.keys.get("alpha/t7")], ["", false, { secret: "pw -one", armed: true, left: 1 }], "the field is emptied, and the password is held by the window alone, for that copy");
+eq([asked("send"), timers.length], [[], 1], "no prompt yet: nothing is typed, and the screen is looked at again soon");
+screenNow = "me@10.0.0.6's password: ";
+timers.splice(0).forEach((fn) => fn(cx));
+await settled();
+eq([asked("send"), w.keys.size], [[["send", "--force", "--", "alpha/t7", "pw -one"]], 0], "at the prompt: typed once, and let go of");
+timers.splice(0).forEach((fn) => fn(cx));
+w.tick(cx);
+await settled();
+root = w.render();
+eq([asked("send").length, asked("kill").length, timers.length], [1, 0, 0], "the prompt still on the screen is not typed into twice");
+eq([icons(byId(root, "copy-alpha/t7")).includes("bolt"), byId(root, "copy-alpha/t7").props.tooltip[0]], [true, "Makefile  ·  alpha → bravo, direct  ·  ~  ·  me@10.0.0.6's password:"], "its pill wears the bolt");
+screenNow = "Makefile                 40%   1MB  11.2MB/s   00:07 ETA\n";
+w.tick(cx);
+await settled();
+eq(text(byId(w.render(), "copy-alpha/t7")), "Makefile bravo 40%", "then scp's percent, as for any copy");
+// A window that holds no password for a copy at its prompt says so, and the peek takes the typing.
+screenNow = "me@10.0.0.6's password: ";
+w.fed.clear();
+w.tick(cx);
+await settled();
+root = w.render();
+eq([asked("send").length, byId(root, "copy-alpha/t7").props.tooltip[0]], [1, "Makefile  ·  alpha → bravo, direct  ·  ~  ·  it is asking for bravo's password: click to type it"], "a prompt this window has no password for: the pill asks");
+CALLS.length = 0;
+click(root, "copy-alpha/t7");
+eq(runs(), [["terminal.peek", { terminal: "alpha/t7" }]], "a click peeks at its terminal, where it can be typed");
+// Files that come from the far machine are a login each: every prompt gets the password, once.
+delete SHARED["glyph.copies"]; sent.push(1);
+press(w.render(), "e1-fieldnotes");
+press(w.render(), "e1-kettle");
+root = w.render();
+eq([text(byId(root, "direct-way")), byId(root, "send").props.tooltip[0]], ["bravo", "Copy 2 items to alpha  ·  ~/acme-shop-backend  ·  through this computer"], "the other way round: bravo does not get to alpha, so alpha would fetch, with bravo's password again");
+w.secret.type("pw two", cx);
+ASKS.length = 0; timers.length = 0; screenNow = "";
+click(w.render(), "send");
+await settled();
+eq(asked("run").map((a) => [a.slice(0, 3), a.slice(a.lastIndexOf("--") + 1)]), [[["run", "--on", "alpha"], ["me@10.0.0.6:/home/me/fieldnotes", "me@10.0.0.6:/home/me/kettle", `${SHOP}/`]]], "started on alpha, which fetches each one from bravo");
+eq(w.keys.get("alpha/t8"), { secret: "pw two", armed: true, left: 2 }, "two logins to come");
+const look = async (out) => { screenNow = out; w.tick(cx); await settled(); return asked("send").length; };
+eq([await look("me@10.0.0.6's password: "), await look("me@10.0.0.6's password: "), await look("fieldnotes/a.md 100% 2KB\n"), w.keys.get("alpha/t8")?.left, await look("fieldnotes/a.md 100% 2KB\nme@10.0.0.6's password: "), w.keys.size],
+  [1, 1, 1, 1, 2, 0], "each prompt is typed into once, and after the last the password is let go of");
+// A login that was refused ends the copy: the same password is not tried again.
+delete SHARED["glyph.copies"]; sent.push(1);
+press(w.render(), "e1-fieldnotes");
+press(w.render(), "e1-kettle");
+w.secret.type("wrong", cx);
+ASKS.length = 0; timers.length = 0; screenNow = "";
+click(w.render(), "send");
+await settled();
+eq([await look("me@10.0.0.6's password: "), await look("me@10.0.0.6: Permission denied (publickey,password).\r\nscp: Connection closed\r\nme@10.0.0.6's password: "), asked("kill"), w.keys.size],
+  [1, 1, [["kill", "alpha/t9"]], 0], "refused: the copy is ended, and nothing more is typed");
+// The password in the field is for one machine: it goes when the field would be for another, or for none.
+press(w.render(), "e0-Makefile");
+w.secret.type("for bravo", cx);
+press(w.render(), "e0-Makefile");
+eq([w.secret.value(), Boolean(byId(w.render(), "direct-key"))], ["", false], "nothing picked any more: the field goes, and what was typed with it");
+press(w.render(), "e0-Makefile");
+w.secret.type("for bravo", cx);
+click(w.render(), "m1-foxtrot");
+await settled();
+root = w.render();
+eq([w.secret.value(), byId(root, "direct-way").props.opacity?.[0], byId(root, "direct-way").props.tooltip[0]],
+  ["", 0.45, "Copies between alpha and foxtrot pass through this computer  ·  alpha to foxtrot: it takes no password  ·  foxtrot to alpha: its scp is OpenSSH 8.2, and 9 or later is needed"], "another machine on show: the field is emptied. Two that do not get to each other: a faint bolt that says why");
+eq([[...w.sides[0].picked], Boolean(byId(root, "direct-key")), byId(root, "send").props.tooltip[0].endsWith("through this computer")], [["Makefile"], false, true], "and, with the row still picked, no field for them");
+click(w.render(), "m1-local");
+await settled();
+eq(Boolean(byId(w.render(), "direct")), false, "this computer on one side: nothing about a straight way");
+// The window closing takes its passwords with it.
+click(w.render(), "m1-bravo");
+await settled();
+press(w.render(), "e0-Makefile");
+w.secret.type("held", cx);
+w.keys.set("alpha/t99", { secret: "held", armed: true, left: 1 });
+w.gone();
+eq([w.secret.value(), w.keys.size], ["", 0], "closing the window lets go of every password");
+globalThis.__hc = null;
 spaces().forEach((s) => { s.active = s.id === "sp2"; });
 
 // The bar: its button, its key, and how each copy ended.
@@ -332,10 +497,31 @@ bar.render();
 bar.look(cx);
 await settled();
 eq(asked("get").map((a) => a[1]), ["t75"], "one hc still calls live is asked again later");
+// A straight copy whose login was refused says so by the machine's name; a host key that is
+// not the one on record is said as ssh says it.
+globalThis.__hc = (args) => {
+  if (args[0] === "get") return { code: 0, stdout: JSON.stringify({ state: "finished", exit_code: 1 }), stderr: "" };
+  const screens = { "alpha/t80": "me@10.0.0.6: Permission denied (publickey,password).\r\nscp: Connection closed\r\n", "alpha/t81": "Host key verification failed.\r\nscp: Connection closed\r\n", "alpha/t82": "me@10.0.0.6's password: \r\n" };
+  if (args[0] === "read") return { code: 0, stdout: screens[args[1]], stderr: "" };
+  return null;
+};
+SHARED["glyph.copies"] = ["alpha/t80", "alpha/t81", "alpha/t82"].map((id) => copy(id, { from: "alpha", to: "bravo", direct: "bravo" }));
+for (const c of SHARED["glyph.copies"]) await settle(c);
+eq(SHARED["glyph.copies"].map((c) => c.failed), ["bravo did not take the password", "Host key verification failed.", "ended at bravo's password prompt"],
+  "a straight copy that was refused says which machine refused; a wrong host key is told as ssh tells it; one ended at its prompt says that");
+// A copy dismissed while hc was being asked how it ended is not told.
+SHARED["glyph.copies"] = [];
+CALLS.length = 0;
+await settle(copy("alpha/t80", { direct: "bravo" }));
+eq([said(), SHARED["glyph.copies"]], [[], []], "one that is no longer listed: nothing is said");
+SHARED["glyph.copies"] = [copy("t74", { failed: "x" }), copy("t75")];
 // settle() by itself: hc out of reach changes nothing.
 globalThis.__hc = (args) => (args[0] === "get" ? { code: 1, stdout: "", stderr: "core did not answer" } : null);
 await settle(copy("t75"));
 eq(SHARED["glyph.copies"].map((c) => c.id), ["t74", "t75"], "hc out of reach: the copy stays listed");
+globalThis.__hc = (args) => (args[0] === "get" ? { code: 3, stdout: "", stderr: '{"error":{"kind":"machine_unreachable","message":"alpha is connecting"}}' } : null);
+await settle(copy("t75"));
+eq(SHARED["glyph.copies"].map((c) => c.id), ["t74", "t75"], "a machine that can't be asked just now: its copy stays listed too");
 globalThis.__hc = null;
 
 console.log(`${passed} passed, ${failed} failed`);

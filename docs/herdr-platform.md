@@ -43,6 +43,15 @@ Checked on 2026-11-14 with hc 0.1.20.
 - A mod's `exec` ends a program after 10 minutes at most (`herdr.d.ts`). A program started with `hc run --bg --no-parent` has no such limit and is herdr-core's, which keeps terminals alive when the window closes. It has no pane and no parent, so glyph's rail gives it no row. `terminal.peek` on one was not tried.
 - `scp -3` run on this computer copies between any two ssh machines hc knows, through here. With OpenSSH 9 or later scp speaks SFTP: every path is taken as written, except a source on another machine, which is matched there as a pattern (escape `\ * ? [ ] { }`). glyph's `copy.js` builds on this.
 - A mod's `exec` keeps NUL bytes in a program's output, on this computer and through `on` (glyph's folder listing splits on them).
+- `hc run --on <machine>` starts a program in a terminal of that machine's herdr-core, addressed `machine/t7`. From this computer `hc read`, `send`, `kill`, `get` and `rm` take that address, and a mod's `hc()` does the same. Such a terminal, started with `--no-parent`, was not in the output of `herdr-app ls` while it ran.
+- `hc send <t> <text>` types the text and Enter into the terminal's program. Sent to a prompt that had turned echo off, the text was not on the screen afterwards, and in no file under `~/.local/state/herdr-core` or `~/.config/herdr-core`, on this computer and on a Linux machine. `hc send --force -- <t> <text>` takes a text that starts with `-`.
+- `hc kill <t>` ends the program. `hc get` then gives `state: "finished"` and `reason: "killed"`, with `exit_code` 1 for an scp that stood at a prompt, and `exit_code` null with `signal` 1 for a `sleep`.
+- scp in SFTP mode (OpenSSH 10.2):
+  - It does not expand braces in a source on another machine: `host:/dir/{a,b}` was looked for as one name.
+  - Three sources fetched from another machine were three logins, one after the other. Three local sources sent to another machine were one.
+- ssh can be told the one host key to accept, with nothing read or written on the machine that runs it: `-o StrictHostKeyChecking=yes -o UserKnownHostsFile=/dev/null -o GlobalKnownHostsFile=/dev/null -o "KnownHostsCommand=/bin/echo * <type> <key>"` (OpenSSH 9.6, 10.2 and 10.3). With another key it ends with "Host key verification failed." The `*` reached `echo` as written, so the command is not run through a shell. A command without its full path was not tried.
+- An ssh that may not ask anything says how far it got. With `BatchMode=yes` and `PubkeyAuthentication=no` it ends with `Permission denied (publickey,password).`: the machine was reached, its host key accepted, and those are the logins it takes. glyph's `copy.js` reads this to learn whether one machine can log in to another by password.
+- An ssh started without a terminal can wait forever on a key agent that wants an answer from a person (seen once, through `hc exec`). `-o PubkeyAuthentication=no -o IdentityAgent=none` keeps it from asking, and `-F none` keeps that machine's ssh settings out of it.
 
 ## Tabs and projects
 
@@ -62,6 +71,7 @@ Checked on 2026-11-14 with throwaway tabs.
 - `cx.notify()` throws during `render`. Herdr's manual (`~/.config/herdr-app/AGENTS.md`) allows it from an event handler or a task, and says nothing about running commands in `render`. glyph's bar runs its own follow-up commands from a timer (`look()` in bar.js).
 - Copies of a mod share its module code, but each has its own instance and `localStorage`. To pass something from one copy to another, use `setShared` (`closeTab` in glyph's data.js), which also redraws every copy. A module-level variable is shared by the copies too, and redraws nothing (`going` in glyph's data.js).
 - A copy in an overlay gets `close()` on its exported View when the overlay goes, whoever closed it: glyph's Go-to list was closed with `herdr-app do overlay.close` and had cleared `going` by the next command (2026-11-14).
+- `InputState.set_masked(true)` draws a field's text as dots. A field in a window overlay showed its placeholder, and dots for a value set from code (2026-11-14). Whether a click gives it the keyboard there was not tried.
 - The app's JavaScript sorts text by letter codes, even through `localeCompare` with options: "README.md" came before "import.py" in `herdr-app check`, where Node puts it after (2026-11-14). Sort names with a comparison of your own (`byName` in glyph's copy.js).
 
 ## Can't be done (checked)
