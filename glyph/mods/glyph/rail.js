@@ -2,8 +2,9 @@
 // each project is a square tile in its hue beside its name, and each of the project's
 // tabs is a row: a round logo (its ring says how it is doing) and the few words that
 // tell it from the others. Click a row to go there, right-click for its menu; click a
-// tile or a name for the project. The strip on top is every tab by state (needs you,
-// finished, working, idle): click a color to visit the next one in it.
+// tile or a name for the project. The sub-agents a tab's agents started are smaller
+// rows under it: click one to peek at it. The strip on top is every tab by state (needs
+// you, finished, working, idle): click a color to visit the next one in it.
 // A machine's line folds its projects away and back (click its name): folded, the line
 // shows how its tabs are doing as one small strip, so nothing that needs you is hidden.
 // Machines with nothing running share one row of dashed pills at the end: click one to
@@ -14,7 +15,7 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { theme, run, hc, layout, window as win, openOverlay, agents, setAgentOrder, updates } from "herdr";
-import { model, goTab, jump, tabTip, since, find, tabMenu } from "./data.js";
+import { model, goTab, goSub, jump, tabTip, subTip, since, find, tabMenu } from "./data.js";
 import { ICON, DISPLAY, alpha, orb, tile, iconButton } from "./ui.js";
 
 const COMPACT = 160, WIDE = 256;
@@ -193,6 +194,24 @@ export class Rail {
       .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(ink).child(c.label));
   }
 
+  // A sub-agent as a smaller line under its tab's: a hook from the one that started it,
+  // its logo and its name. One at work or in trouble is as bright as a tab; one at rest
+  // is dim, since what it did is its parent's to tell. Click it to look at it.
+  sub(t, k) {
+    const quiet = !k.status || k.status === "idle";
+    const ink = k.status === "blocked" ? t.blocked : quiet ? t.dim : t.foreground;
+    // The hook hangs from the middle of its parent's logo: 13px in under a tab's, and 21px
+    // further for each sub-agent between.
+    return h_flex().h(24).flex_none().ml(-4).pl(13 + (k.depth - 1) * 21).items_center()
+      .child(div().self_start().flex_none().w(8).h(13).mt(-1).mr(3).border_l(1.5).border_b(1.5).rounded_bl(6).border_color(t.input))
+      .child(h_flex().id(`sub-${k.id}`).h(24).flex_1().min_w(0).pr(9).gap(4).items_center().rounded(12).cursor_pointer()
+        .hover((x) => x.bg(t.hover))
+        .tooltip(subTip(k))
+        .on_click(() => goSub(k))
+        .child(orb(t, { size: 16, program: k.program, status: k.status, fade: 0.6 }))
+        .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(ink).child(k.label)));
+  }
+
   space(t, s, wide, now, width) {
     const select = () => run("space.select", { id: s.id });
     const menu = () => openOverlay({ mod: "menu", kind: "popup", width: 200, height: 260, props: { tab: "space", target: { id: s.id } } });
@@ -226,7 +245,7 @@ export class Rail {
           .on_click(select)
           .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); menu(); })
           .child(s.label))
-        .children(s.tabs.map((c) => this.row(t, c, s, now))));
+        .children(s.tabs.flatMap((c) => [this.row(t, c, s, now), ...c.subs.list.map((k) => this.sub(t, k))])));
   }
 
   foot(t, wide) {

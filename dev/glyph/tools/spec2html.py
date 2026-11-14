@@ -107,7 +107,7 @@ def px(v): return "%gpx" % v
 SIMPLE = {
     "flex": "display:flex", "flex_none": "flex:none", "flex_1": "flex:1 1 0%", "flex_wrap": "flex-wrap:wrap",
     "flex_col": "flex-direction:column", "flex_row": "flex-direction:row",
-    "items_center": "align-items:center", "items_start": "align-items:flex-start", "items_end": "align-items:flex-end",
+    "items_center": "align-items:center", "items_start": "align-items:flex-start", "items_end": "align-items:flex-end", "self_start": "align-self:flex-start",
     "justify_center": "justify-content:center", "justify_between": "justify-content:space-between", "justify_end": "justify-content:flex-end",
     "size_full": "width:100%;height:100%", "w_full": "width:100%", "h_full": "height:100%",
     "rounded_full": "border-radius:9999px", "absolute": "position:absolute", "relative": "position:relative",
@@ -123,7 +123,7 @@ VALUE = {
     "pl": "padding-left", "pr": "padding-right", "pt": "padding-top", "pb": "padding-bottom",
     "ml": "margin-left", "mr": "margin-right", "mt": "margin-top", "mb": "margin-bottom",
     "text_size": "font-size", "border": "border-width", "border_b": "border-bottom-width", "border_t": "border-top-width",
-    "border_l": "border-left-width", "border_r": "border-right-width",
+    "border_l": "border-left-width", "border_r": "border-right-width", "rounded_bl": "border-bottom-left-radius",
 }
 unknown = set()
 

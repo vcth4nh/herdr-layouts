@@ -62,7 +62,7 @@ Paths below are relative to `dev/glyph/`. Every script finds that folder and the
 - `tools/preview-states.sh` does the same for the states of `harness/all.sh`: a folded machine, a tab and a pane header waiting for their second close press, the tab menu asking again, and a project's empty page. `spec2html.py --body F` draws a mod pane's tree where the terminal would be.
 - `logic/run.sh TEST.mjs` puts the mod next to `logic/kit-stub.mjs`, a gpui-kit/gpui-base stub whose builders record ids, props and handlers. A test calls the handlers with made-up events and reads what the fake `run`/`openOverlay` were asked to do. This is the only testing clicks, drags and menus have had.
   - `bar-test.mjs`: 60 passed (2026-11-14).
-  - `rail-test.mjs`: 30 passed (2026-11-14). It covers the rail, the fold, the tab menu and the pane header. Its menu section needs the menu role and a tab: `ROLE=menu PANE=alpha/tb8 sh logic/run.sh rail-test.mjs`.
+  - `rail-test.mjs`: 38 passed (2026-11-14). It covers the rail, sub-agent rows, the fold, the tab menu and the pane header. Its menu section needs the menu role and a tab: `ROLE=menu PANE=alpha/tb8 sh logic/run.sh rail-test.mjs`.
   - `close-test.mjs`: 59 passed (2026-11-14). It covers the bar's closing, the empty page, the first tab of the next project and the start keys: `ACTIVE=sp2 sh logic/run.sh close-test.mjs`. The fake app does nothing by itself, so the test changes the fleet after each command the way Herdr was seen to ("Tabs and projects" in the platform doc).
 - `tools/await-then-drag.sh` waits until the window is drawing, then runs drag-pass.sh once.
 - `tools/drag-pass.sh` and `tools/live-pass.sh` are the filmed live stand-ins. drag-pass plays a pretended drag. live-pass plays every state, then the wider rail. Both restore the real files from `glyph/` in a `trap`.
@@ -80,10 +80,11 @@ Paths below are relative to `dev/glyph/`. Every script finds that folder and the
   - The pane header and all four states.
   - A pretended drag filmed in the real strip (stand-in bar.js, 3 s): the lifted tab stayed on top, the others slid under it and aside, and it returned cleanly at the end.
   - The chevrons on the machines' lines, the shell logo on the plain-terminal launcher, a tab red after its first close press, and a project's empty page.
+  - Sub-agent rows under a real tab: two helpers started with `hc run`, each on its hook, one at work (the arc, a bright name) and one resting (dim).
 - **Checked in the real app by commands** (`dev/glyph/tools/close-pass.py`: 21 passed, 2026-11-14):
   - One press closes a shell and two close a running program. A second press after 3 s counts as a first.
   - The tab after the closed one is shown, or the one before it for the last tab.
   - A last tab leaves its project on its empty page, with the name and folder kept. A new tab from the page starts in that folder. Leaving the page, or the close key on it, closes the project.
   - When the shown project closes, from Herdr's own close or the close key on its page, the next project shows its first tab.
-- **Seen only offline:** a "needs you" row in the labelled rail, the logos-only rail with larger machine names, the strip's fall-back to logos, the tab menu and its red Close row, the rename dialog's new hint, a folded machine with its strip, and the pane header's red ×.
-- **Never tried with a real pointer or key press:** hover tooltips, clicks, right-click menus, a real drag, scrolling the strip, F2 and the other bound keys (the live pass sends their commands, not the keys), folding a machine, the launchers on the empty page. If something is reported broken, start there.
+- **Seen only offline:** a "needs you" row in the labelled rail, the logos-only rail with larger machine names, the strip's fall-back to logos, the tab menu and its red Close row, the rename dialog's new hint, a folded machine with its strip, the pane header's red ×, and the rows of a blocked sub-agent and of one started by another sub-agent.
+- **Never tried with a real pointer or key press:** hover tooltips, clicks (a sub-agent row's peek among them), right-click menus, a real drag, scrolling the strip, F2 and the other bound keys (the live pass sends their commands, not the keys), folding a machine, the launchers on the empty page. If something is reported broken, start there.

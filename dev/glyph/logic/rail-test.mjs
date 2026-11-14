@@ -4,7 +4,7 @@ import { Rail } from "./rail.mjs";
 import { PaneHead } from "./pane.mjs";
 import { Menu } from "./menu.mjs";
 import { byId, walk } from "./kit-stub.mjs";
-import { CALLS, SHARED, panes } from "./herdr-fake.mjs";
+import { CALLS, SHARED, panes, terminals, layout } from "./herdr-fake.mjs";
 
 let failed = 0, passed = 0;
 const ok = (cond, what) => { if (cond) passed++; else { failed++; console.log("FAIL:", what); } };
@@ -17,6 +17,9 @@ const cx = {
 };
 const runs = () => CALLS.filter((c) => c[0] === "run").map((c) => [c[1], c[2]]);
 const ids = (root) => { const all = []; walk(root, (n) => { if (n.id) all.push(n.id); }); return all; };
+// The ids under a node byId() found, and the node that holds the one with that id.
+const under = (node) => { const all = []; const go = (n) => { if (n.id) all.push(n.id); for (const c of n.children) if (c?.__node) go(c.__node); }; go(node); return all; };
+const holder = (root, id) => { let found = null; walk(root, (n) => { if (n.children.some((c) => c?.__node?.id === id)) found = n; }); return found; };
 const text = (node) => { const out = []; const go = (n) => { for (const c of n.children) { if (typeof c === "string") out.push(c); else if (c?.__node) go(c.__node); } }; go(node); return out.join(" "); };
 
 // The rail before and after `hc machine ls` answers.
@@ -41,6 +44,39 @@ ok(!byId(root, "space-new-charlie") && Boolean(byId(root, "space-new-alpha")), "
 CALLS.length = 0;
 byId(root, "tab-alpha/tb8").handlers["on_mouse_down:right"]({}, cx);
 eq(CALLS, [["openOverlay", { mod: "glyph", kind: "popup", width: 200, props: { role: "menu", tab: "alpha/tb8" } }]], "row menu");
+
+// Sub-agents: what a tab's agent started with `hc run` is a smaller row under the tab's,
+// each after the one that started it. One that has ended gets no row.
+const lines = () => under(byId(root, "row-sp3")).filter((i) => /^(tab|sub)-/.test(i));
+eq(lines(), ["tab-tb6", "sub-t6-1", "sub-t6-1-1", "sub-t6-2"], "a tab's sub-agents follow it, a nested one after its parent");
+eq(["t6-1", "t6-1-1", "t6-2"].map((a) => [text(byId(root, `sub-${a}`)), byId(root, `sub-${a}`).props.tooltip[0]]), [
+  ["lint-pass", "lint-pass  ·  Lint the zshrc  ·  working"],
+  ["fixtures", "fixtures"],
+  ["Port the aliases", "Port the aliases  ·  needs you"],
+], "a sub-agent goes by its name, else by its title; hovering says the rest");
+ok(holder(root, "sub-t6-1-1").props.pl[0] > holder(root, "sub-t6-1").props.pl[0], "a nested one is set further in");
+ok(byId(root, "tab-tb6").props.tooltip[0].endsWith("needs you  ·  3 sub-agents"), "the tab still counts them and takes their most urgent state");
+CALLS.length = 0;
+byId(root, "sub-t6-2").handlers.on_click({}, cx);
+eq(runs(), [["terminal.peek", { terminal: "t6-2" }]], "a click peeks at a sub-agent");
+// Given a pane (terminal.keep) it shows as that pane, so its row goes; what it started is
+// listed under the tab that holds the pane, the same tab or another.
+const keep = (tab) => panes().push({ pane: "p-kept", terminal: "t6-1", tab, title: "", cwd: "/Users/me", branch: null, status: "working", app: "codex", program: terminals().find((x) => x.address === "t6-1").program, focused: false, zoomed: false });
+const subsOf = (row) => under(byId(root, row)).filter((i) => i.startsWith("sub-"));
+keep("tb6");
+root = rail.render();
+eq([subsOf("row-sp3"), byId(root, "tab-tb6").props.tooltip[0].endsWith("2 sub-agents")], [["sub-t6-2", "sub-t6-1-1"], true], "kept in its tab: no row for it, the rest listed once");
+panes().pop();
+keep("tb1");
+root = rail.render();
+eq([subsOf("row-sp3"), subsOf("row-sp1"), ids(root).filter((i) => i === "sub-t6-1-1").length], [["sub-t6-2"], ["sub-t6-1-1"], 1], "kept as another tab: what it started is listed there, once");
+panes().pop();
+// The logos-only rail has no rows, so none for sub-agents: the dot on the orb stands for them.
+layout().children[0].size.px = 160;
+root = rail.render();
+ok(Boolean(byId(root, "tab-tb6")) && !ids(root).some((i) => i.startsWith("sub-")), "logos only: no sub-agent rows");
+layout().children[0].size.px = 256;
+root = rail.render();
 
 // The menu (props().tab is set by the runner's PANE).
 CALLS.length = 0;

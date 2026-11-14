@@ -51,6 +51,18 @@ export const tilde = (p) => (p ?? "").replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/
 // Agents print a status glyph (a spinner, a star) before their title.
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}~/]+/u, "").trim();
 const push = (map, key, value) => (map.get(key) ?? map.set(key, []).get(key)).push(value);
+// Whether a word only repeats its program ("Codex"): the logo says that already.
+const echoes = (program, w) => [program?.name, program?.key].some((p) => p && p.toLowerCase() === w.toLowerCase());
+// What a terminal's own title tells that its logo and its project's tile don't, or "".
+// Some agents end theirs with " | <project>" or " | <the folder they are in>" (`names`).
+// Words that only repeat the program, a folder or a user@host tell nothing, and a terminal
+// nobody titled is called by its address ("t7", "alpha/t7").
+function telling(whole, address, program, names) {
+  const tail = names.map((n) => ` | ${n}`.toLowerCase()).find((x) => whole.toLowerCase().endsWith(x));
+  const said = tail ? whole.slice(0, -tail.length).trim() : whole;
+  const unset = said === address || said === address.split("/").pop();
+  return said && !unset && !echoes(program, said) && !/^[~/]|^[A-Za-z]:\\/.test(said) && !said.includes("@") ? said : "";
+}
 
 export function duration(ms) {
   const m = Math.floor(ms / 60000);
@@ -66,18 +78,30 @@ export function model(machineInfo = []) {
   const sp = spaces(), ps = panes(), terms = terminals();
   const hue = hues(sp);
   const kept = shared(BLANK) ?? {};
-  const termBy = new Map(), kids = new Map(), byTab = new Map();
+  const termBy = new Map(), kids = new Map(), byTab = new Map(), paned = new Set();
   for (const x of terms) {
     termBy.set(x.address, x);
     if (x.parent && x.state === "live") push(kids, x.parent, x);
   }
-  for (const p of ps) push(byTab, p.tab, p);
-  // Every live sub-agent under a terminal, however deep.
-  const below = (address, seen = new Set()) => (kids.get(address) ?? []).flatMap((k) => {
-    if (seen.has(k.address)) return [];
-    seen.add(k.address);
-    return [k, ...below(k.address, seen)];
-  });
+  for (const p of ps) {
+    push(byTab, p.tab, p);
+    if (p.terminal) paned.add(p.terminal);
+  }
+  // Every live sub-agent under a terminal, however deep, each right after the one that
+  // started it. One that was given a pane (terminal.keep) is not among them: it shows as
+  // that pane, in whichever tab, and what it started is listed there.
+  const below = (s, address, depth = 1) => (kids.get(address) ?? []).flatMap((k) => (paned.has(k.address) ? [] : [sub(s, k, depth), ...below(s, k.address, depth + 1)]));
+  // A sub-agent as a line under its tab shows it. It goes by the name it was started
+  // with, else by what it says it is doing, else by its program.
+  const sub = (s, k, depth) => {
+    const own = telling(clean(k.report?.title), k.address, k.program, [s.name, ...tilde(k.cwd).split("/").filter(Boolean)]);
+    return {
+      id: k.address, depth, program: k.program ?? null, own,
+      // It reports to its parent: its "done" is not news, its error is.
+      status: k.status === "error" ? "blocked" : k.status === "done" ? "idle" : k.status ?? null,
+      label: k.name || own || k.template || k.program?.name || k.address,
+    };
+  };
 
   const tab = (s, c) => {
     const mine = byTab.get(c.id) ?? [];
@@ -94,33 +118,17 @@ export function model(machineInfo = []) {
       if (!lead || (agent && !had) || (agent === had && rank(p.status) > rank(lead.status))) lead = p;
     }
     let status = c.status ?? null;
-    const subs = { count: 0, status: null };
-    for (const p of mine) {
-      if (!p.terminal) continue;
-      for (const k of below(p.terminal)) {
-        // A sub-agent reports to its parent: its "done" is not news, its error is.
-        const st = k.status === "error" ? "blocked" : k.status === "done" ? "idle" : k.status;
-        subs.count += 1;
-        if (rank(st) > rank(subs.status)) subs.status = st;
-      }
-    }
+    // `list` is what the rail's lines show; `count` and `status` are the orb's dot.
+    const subs = { count: 0, status: null, list: [] };
+    for (const p of mine) if (p.terminal) subs.list.push(...below(s, p.terminal));
+    subs.count = subs.list.length;
+    for (const k of subs.list) if (rank(k.status) > rank(subs.status)) subs.status = k.status;
     if (rank(subs.status) > rank(status)) status = subs.status;
     const term = lead ? termBy.get(lead.terminal) : null;
     const path = tilde(lead?.cwd).split("/").filter(Boolean);
     const folder = path[path.length - 1] ?? "";
-    // Some agents end their title with " | <project>" or " | <the folder they are in>":
-    // the tile and the pane's header already say which.
-    const whole = clean(term?.report?.title) || clean(lead?.title);
-    const tail = [s.name, ...path].map((n) => ` | ${n}`.toLowerCase()).find((x) => whole.toLowerCase().endsWith(x));
-    const said = tail ? whole.slice(0, -tail.length).trim() : whole;
-    // Words that only repeat the program ("Codex") or the folder say nothing a logo doesn't,
-    // and a terminal nobody titled is called by its address ("t7", "alpha/t7").
-    const echo = (w) => [lead?.program?.name, lead?.program?.key].some((p) => p && p.toLowerCase() === w.toLowerCase());
-    const address = lead?.terminal ?? "";
-    const unset = said === address || said === address.split("/").pop();
-    const named = c.named && !echo(c.name);
-    const telling = said && !unset && !echo(said) && !/^[~/]|^[A-Za-z]:\\/.test(said) && !said.includes("@");
-    const own = telling ? said : "";
+    const own = telling(clean(term?.report?.title) || clean(lead?.title), lead?.terminal ?? "", lead?.program, [s.name, ...path]);
+    const named = c.named && !echoes(lead?.program, c.name);
     const title = named ? c.name : own;
     return {
       id: c.id, index: c.index, name: c.name, named, active: c.active, shown: s.active && c.active,
@@ -182,6 +190,11 @@ export function goTab(c) {
     run("space.select", { id: c.space.id });
     run("tab.select", { id: c.id });
   }
+}
+
+// Look at a sub-agent: it has no pane, so in Herdr's peek, over the shown tab.
+export function goSub(k) {
+  run("terminal.peek", { terminal: k.id });
 }
 
 // The program a new plain terminal runs, as a shell tab shows it: asked of one that is open,
@@ -275,6 +288,12 @@ export function tabTip(c, now, seen) {
   const how = c.status === "blocked" ? "needs you" : c.status === "done" ? "finished" : c.status === "working" ? `working${ago}` : c.status === "idle" ? `idle${ago}` : "";
   const subs = c.subs.count ? `${c.subs.count} sub-agent${c.subs.count === 1 ? "" : "s"}` : "";
   return [what, where, how, subs].filter(Boolean).join("  ·  ");
+}
+
+// A sub-agent's words: its name, what it says it is doing, and how it is doing.
+export function subTip(k) {
+  const how = k.status === "blocked" ? "needs you" : k.status === "working" ? "working" : k.status === "idle" ? "idle" : "";
+  return [k.label, k.own !== k.label ? k.own : "", how].filter(Boolean).join("  ·  ");
 }
 
 export function find(node, id) {

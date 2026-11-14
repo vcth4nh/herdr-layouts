@@ -14,12 +14,21 @@ const P = {
 };
 let n = 0;
 const PANES = [], TERMS = [];
+// What a terminal started with `hc run`, and what those started: { prog, status, name, title,
+// gone, kids }. Each is addressed after its parent ("t6-1", "t6-1-1").
+function kids(parent, cwd, list = []) {
+  list.forEach((k, i) => {
+    const address = `${parent}-${i + 1}`, status = k.status ?? null;
+    TERMS.push({ address, state: k.gone ? "exited" : "live", status, parent, name: k.name ?? null, template: null, cwd, program: P[k.prog ?? "codex"], report: { state: status, title: k.title ?? null } });
+    kids(address, cwd, k.kids);
+  });
+}
 function tab(space, name, prog, status, title, ago, extra = {}) {
   n += 1;
   const id = `${space.machine ? space.machine + "/" : ""}tb${n}`, pane = `p${n}`, term = `${space.machine ? space.machine + "/" : ""}t${n}`;
   PANES.push({ pane, terminal: term, tab: id, title: extra.untitled ? term : title ? `✳ ${title}` : P[prog].name, cwd: space.cwd, branch: space.branch, status, app: prog, program: P[prog], focused: Boolean(extra.active) && space.active, zoomed: false, movable: false });
   TERMS.push({ address: term, state: "live", status, parent: null, program: P[prog], report: { state: status, title: title ?? null } });
-  for (const k of extra.kids ?? []) TERMS.push({ address: `${term}-k${k}`, state: "live", status: k, parent: term, program: P.codex });
+  kids(term, space.cwd, extra.kids);
   return { id, index: space.tabs.length + 1, name: name ?? String(space.tabs.length + 1), named: Boolean(name), active: Boolean(extra.active), status, panes: 1, zoomed: false, settled: false, settled_at: null,
     changed_at: ago == null ? null : now - ago * 60000, working_since: status === "working" && ago != null ? now - ago * 60000 : null };
 }
@@ -38,7 +47,13 @@ space("sp2", "inventory-and-order-reports", null, "main", "/Users/me/code/invent
   ["notes", "shell", null, null, null],
   [null, "python", null, null, null],
 ]);
-space("sp3", "~", null, null, "/Users/me", ACTIVE === "sp3", [[null, "claude", "working", "Tidy the shell config", 12, { active: true, kids: ["working", "error"] }]]);
+// Its agent started three helpers: one named, at work, with a program of its own; one that
+// goes by its title and hit an error; and one that has ended, which gets no row.
+space("sp3", "~", null, null, "/Users/me", ACTIVE === "sp3", [[null, "claude", "working", "Tidy the shell config", 12, { active: true, kids: [
+  { status: "working", name: "lint-pass", title: "Lint the zshrc", kids: [{ prog: "python", name: "fixtures" }] },
+  { prog: "claude", status: "error", title: "✳ Port the aliases" },
+  { status: "idle", name: "old-run", gone: true },
+] }]]);
 space("alpha/sp4", "acme-shop-backend", "alpha", "order-queue", "/home/me/acme-shop-backend", ACTIVE === "alpha/sp4", [
   [null, "claude", "idle", "Design overview", 800],
   ["acme.cpp", "codex", "working", "Fuzz the config loader", 2],

@@ -22,9 +22,10 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Each machine with projects has a 26px line: a 10px chevron, a laptop or server icon, its name at 12.5px, a hairline, and a 18px "+". One machine alone gets no line.
 - Under it, each project is a 36px tile beside its name at 13px. The shown project also has a 3px bar at the rail's edge.
 - Each tab is a 28px row: a 20px orb and a label at 12.5px. The shown tab's row is raised (`#313244`).
+- Each sub-agent is a 24px row under its tab's: a hook in `#45475a` hanging from the logo of whatever started it, a 16px orb and a name at 12px. A sub-agent is a terminal that one of the tab's agents started with Herdr's `hc run`, a helper agent or a plain program, and that has no pane.
 - Machines with nothing running share one row of dashed pills at the end.
 - A 42px foot has four icon buttons: settings, add a machine, new project, and one that switches the rail between 256px and 160px.
-- Narrower than 200px, the rows go and each project's orbs wrap beside its tile.
+- Narrower than 200px, the rows go, sub-agents' too, and each project's orbs wrap beside its tile.
 
 **Bar**
 
@@ -53,18 +54,21 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Done: a green (`#a6e3a1`) ring with a tick badge.
 - Idle: no ring. The logo fades to 75% after 15 minutes of rest and to 50% after two hours.
 - A tab takes the most urgent state of its agents and their sub-agents. Sub-agents add one small dot in their most urgent color.
+- A sub-agent's row shows working and blocked as a tab does, and its error counts as blocked. Finished or idle, the row is dim.
 
 **Going places**
 
 - Click a rail row or a bar pill to show that tab. Click a tile or a project's name to show the project.
+- Click a sub-agent's row for Herdr's peek at its terminal, over the shown tab.
 - Click a color in the strip at the top of the rail, or the bell or the tick in the bar, to go to the next tab in that state.
 - Click the project's name in the bar, or search, for Herdr's picker.
 - Scroll over the bar to step through its tabs.
-- Hover anything for its words: a tab's title, project, machine, state, how long, and sub-agents.
+- Hover anything for its words: a tab's title, project, machine, state, how long, and how many sub-agents; a sub-agent's name, title and state.
 
 **Tabs**
 
 - A tab's title is the name it was given, else its agent's own title, else nothing. The rail falls back to its folder or program.
+- A sub-agent goes by the name it was started with (`hc run --name`), else its agent's own title, else its program.
 - Titles in the bar share the room: short ones stay whole, long ones are cut to a common width, at most 240px. With under 32px each, every tab but the shown one shows its logo only.
 - Double-click a tab, press F2, or right-click and choose Rename to name it. The dialog is Herdr's own, with the agent's title as its hint.
 - Right-click a tab for Rename, New tab and Close.
@@ -125,7 +129,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Calls: `run`, `hc`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`.
 - Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar).
 - Kept in the rail's `localStorage`: `seen` (since when each tab has rested) and `folded` (the folded machines). Each place the layout puts the mod is a copy with a `localStorage` of its own.
-- Commands: `tab.select`, `tab.new`, `tab.close`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
+- Commands: `tab.select`, `tab.new`, `tab.close`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
 - Herdr's own mods, opened as they are: `picker`, `menu` (the project menu), `prompt` (rename), `new-menu`, `machine-add`, `files`, `changes`.
 - `setAgentOrder` follows the rail, so `agent.next` and `agent.prev` walk it top to bottom.
 
@@ -159,6 +163,13 @@ The rail runs `hc machine ls --json` every 20 s, to learn of machines without pr
 - The bar runs its follow-up commands from a 120 ms timer, not from `render`. With nothing drawn it still looks about once a second.
 - An error inside the loop around `nextCommand()` would end every key. The loop catches it and posts a notice.
 
+**Sub-agents**
+
+- Only terminals get rows. A helper that runs inside its agent's own process, such as Claude Code's Agent tool, is not a terminal, and Herdr reports nothing about it.
+- A row lasts as long as its terminal. A program an agent runs through `hc run` and waits for has a row until it exits, so rows come and go.
+- A sub-agent that was given a pane (`terminal.keep`, or keep in the peek) is a pane like any other and has no row. What it started is listed under the tab that holds its pane.
+- The rail keeps times for tabs only, so a resting sub-agent does not fade by age as a tab does. It is dim at once.
+
 **Keys**
 
 - `keys.json` is written for macOS. Whoever installs the layout merges its section by hand into their own `~/.config/herdr-app/keys.json`, after the mod is in place: ⌘T and ⌘W go to the bar, and a bar that doesn't know a command ignores it.
@@ -173,7 +184,7 @@ The rail runs `hc machine ls --json` every 20 s, to learn of machines without pr
 
 - The launcher pill shows at most four agents.
 - The rail's default must stay labelled. A rail of logos alone did not say which agent was which.
-- Not built: git ahead and behind counts, dragging to reorder projects, a custom toast. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
+- Not built: git ahead and behind counts, dragging to reorder projects, a custom toast, a menu on a sub-agent's row (the peek has keep and close). Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
 - Built and checked on macOS with herdr-app 0.1.15. The window buttons for Linux and Windows have never been drawn there.
 - The mod runs under any theme, but the hues, the ink on filled tiles and the focus border were picked for a dark one.
 
@@ -183,6 +194,7 @@ The rail runs `hc machine ls --json` every 20 s, to learn of machines without pr
 - With projects on two machines, each has a line with its name, and machines with nothing running share one dashed row.
 - An agent at work shows the turning blue arc. One that needs you pulses peach and raises the bell's count. One that finished wears the green ring and raises the tick's count.
 - Clicking a rail row shows that tab. F2 opens the rename dialog with the agent's own title as its hint.
+- An agent that runs `hc run --bg --name helper claude "…"` gets a row named helper under its tab, with the turning arc while the helper works. Clicking the row opens Herdr's peek at it.
 - Dragging a pill moves the tab to where it stood when released.
 - ⌘W on a shell closes it. ⌘W on an agent turns its tab red, and a second ⌘W within 3 s closes it.
 - After a close the tab after it is shown.

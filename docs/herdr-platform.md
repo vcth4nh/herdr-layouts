@@ -27,6 +27,8 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-14). Rec
 - Agent titles can start with status glyphs, and Codex's end with " | <project or folder>".
 - `hc machine ls` lists machines.
 - A tab started with `argv` reports that program, not the shell it runs in: `program.shell` is false while `cat` runs.
+- A terminal an agent started with `hc run` is in `terminals()` with `parent` set to its starter's address, and with `name` if it was started with `--name`. It has no pane, so `panes()` leaves it out. `herdr-app ls` lists it under its parent's `sub_agents`.
+- `hc ls` and `herdr-app ls` list terminals only. A helper inside an agent's own process (Claude Code's Agent tool) was in neither while it ran (checked 2026-11-14).
 
 ## Tabs and projects
 
