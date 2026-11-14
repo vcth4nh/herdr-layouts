@@ -3,7 +3,7 @@
 // program's logo and the most urgent state of its agents and their sub-agents.
 // Below that, what the parts do alike: go to a tab, start one, close one, rename one.
 
-import { spaces, panes, terminals, machines, shared, setShared, run, openOverlay, closeOverlay, keys, window as win } from "herdr";
+import { spaces, panes, terminals, machines, shared, setShared, run, hc, openOverlay, closeOverlay, keys, window as win } from "herdr";
 import { SHELL } from "./ui.js";
 
 export const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
@@ -48,6 +48,18 @@ function hues(sp) {
 // What this computer is called where the others go by their names.
 export const here = () => (win()?.platform === "macos" ? "This Mac" : "This computer");
 
+// Every machine herdr-core knows (`hc machine ls`): its name, whether it can be reached,
+// and how ssh reaches it. Null when the list can't be had.
+export async function fleet() {
+  try {
+    const r = await hc(["machine", "ls", "--json"]);
+    if (r.code !== 0) return null;
+    return (JSON.parse(r.stdout).machines ?? []).map((k) => ({ name: k.name, state: k.state, temporary: Boolean(k.temporary), target: k.target ?? null, via: Boolean(k.via) }));
+  } catch {
+    return null;
+  }
+}
+
 // Home as ~, on this machine or another.
 export const tilde = (p) => (p ?? "").replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, "~").replace(/^\/root(?=\/|$)/, "~");
 
@@ -75,8 +87,8 @@ export function duration(ms) {
   return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
 }
 
-// machineInfo: `hc machine ls` (the rail polls it), for machines without projects and
-// for whether each can be reached. Others pass nothing.
+// machineInfo: fleet() (the rail and the transfer window poll it), for machines without
+// projects and for whether each can be reached. Others pass nothing.
 export function model(machineInfo = []) {
   const sp = spaces(), ps = panes(), terms = terminals();
   const hue = hues(sp);
@@ -149,7 +161,7 @@ export function model(machineInfo = []) {
 
   const list = sp.map((s) => {
     // `label` is the name as written out: a lone "~" reads as Home, like its tile's house.
-    const m = { id: s.id, index: s.index, name: s.name, label: s.name === "~" ? "Home" : s.name, machine: s.machine ?? null, branch: s.branch ?? null, active: s.active, hue: hue(s.id), tabs: [] };
+    const m = { id: s.id, index: s.index, name: s.name, label: s.name === "~" ? "Home" : s.name, machine: s.machine ?? null, branch: s.branch ?? null, folder: s.folder ?? "", active: s.active, hue: hue(s.id), tabs: [] };
     const all = (s.tabs ?? []).map((c) => ({ ...tab(s, c), space: m }));
     // `tabs` is what the lists show; an empty page is not one of them.
     m.tabs = all.filter((c) => !c.blank);
@@ -184,6 +196,12 @@ export function model(machineInfo = []) {
   const counts = { blocked: 0, done: 0, working: 0, idle: 0, total: 0 };
   for (const c of flat) if (c.status in counts) { counts[c.status] += 1; counts.total += 1; }
   return { groups, spaces: list, flat, counts, active: list.find((s) => s.active) ?? null, remote: ordered.length > 1 };
+}
+
+// The folder a project is in, on its machine: where its shown tab is, else another of its
+// tabs, else where it was left (an empty page) or made. "" is that machine's home.
+export function placeOf(s) {
+  return s.tabs.find((c) => c.active)?.cwd ?? s.tabs.find((c) => c.cwd)?.cwd ?? (shared(BLANK)?.[s.id]?.folder || s.folder || "");
 }
 
 // Go to a tab wherever it is.

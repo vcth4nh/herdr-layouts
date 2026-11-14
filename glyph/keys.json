@@ -6,6 +6,7 @@
     "cmd-shift-o": "glyph.new-codex",
     "cmd-w": "glyph.close",
     "cmd-shift-w": "glyph.close-pane",
+    "cmd-shift-t": "glyph.transfer",
     "cmd-p": "glyph.goto"
   }
 }

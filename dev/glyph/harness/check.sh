@@ -1,9 +1,10 @@
 #!/bin/sh
 # check.sh ROLE [PANE] [WIDTH] [TAG] [ACTIVE]: copies the look's mod, swaps Herdr's live data
 # for the fixed sample, and runs `herdr-app check --print-spec` on that copy.
-# Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu, blank or goto; for menu, PANE
+# Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu, blank, transfer or goto; for menu, PANE
 # is the tab's id. ACTIVE is the project on show (sp9: one showing its empty page).
-# Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, HOVER, SURE, FIND.
+# Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, HOVER, SURE,
+# COPIES, LISTED, PICK, FIND.
 export S=$(cd "$(dirname "$0")/.." && pwd)
 export L=$(cd "$S/../../glyph" && pwd)
 ROLE=$1; PANE=${2:-p3}; WIDTH=${3:-160}; TAG=${4:-$ROLE}; ACTIVE=${5:-sp2}
@@ -21,6 +22,8 @@ theme = {**t["colors"], "cursor": t["cursor"], **{f"ansi{i}": c for i, c in enum
 lay = json.load(open(L + "/layouts/glyph.json"))
 lay["children"][0]["size"]["px"] = int(width)
 fake = open(S + "/harness/herdr-fake.js").read().replace("__ROLE__", role).replace("__PANE__", pane).replace("__ACTIVE__", active)
+# COPIES=1: copies under way and one that failed, as the transfer window started them.
+fake = fake.replace("__COPIES__", "true" if os.environ.get("COPIES") else "false")
 fake = fake.replace("__THEME__", json.dumps(theme)).replace("__LAYOUT__", json.dumps(lay))
 open(d + "/herdr-fake.js", "w").write(fake)
 for f in glob.glob(d + "/*.js"):
@@ -55,6 +58,24 @@ for f in glob.glob(d + "/*.js"):
     if os.environ.get("SURE") and f.endswith("/goto.js"):
         assert s.count("this.sure = null;    //") == 1
         s = s.replace("this.sure = null;    //", "this.sure = { id: this.list().sel?.id, at: Date.now() }; //")
+    # LISTED=1: the transfer window with its folders and the machines read (the check ends before
+    # they answer). PICK=side:name,name: those rows picked. SURE=1: its arrow pressed once.
+    # With COPIES: how far the first copy is (transfer.js).
+    if os.environ.get("LISTED") and f.endswith("/transfer.js"):
+        head = "    this.load(0, cx);\n    this.load(1, cx);\n"
+        names = 'import { copies, listing,'
+        assert s.count(head) == 1 and s.count(names) == 1
+        seed = "    this.machines = globalThis.__fleet;\n    for (const s of this.sides) Object.assign(s, parse(globalThis.__list(s.on, s.path)), { lenient: false });\n"
+        if os.environ.get("PICK"):
+            i, picked = os.environ["PICK"].split(":", 1)
+            seed += "    for (const n of %s) this.sides[%d].picked.add(n);\n" % (json.dumps(picked.split(",")), int(i))
+        s = s.replace(head, seed).replace(names, 'import { parse, copies, listing,')
+        if os.environ.get("SURE"):
+            assert s.count("this.armed = 0;     //") == 1
+            s = s.replace("this.armed = 0;     //", "this.armed = Date.now(); //")
+        if os.environ.get("COPIES"):
+            assert s.count("this.meters = {};   //") == 1
+            s = s.replace("this.meters = {};   //", 'this.meters = { t90: { line: "stock-2026-11.parquet 42% 59MB 11.2MB/s 00:07 ETA", pct: 42 } }; //')
     # DRAG=from:to[:nowidths]: pretend a tab is held and has been moved (bar.js only).
     if os.environ.get("DRAG") and f.endswith("/bar.js"):
         parts = os.environ["DRAG"].split(":"); F, T = int(parts[0]), int(parts[1])

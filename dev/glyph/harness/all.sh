@@ -32,3 +32,8 @@ one - goto p3 256 goto sp2
 one "FIND=codex" goto p3 256 goto-find sp2
 one "SURE=1" goto p3 256 goto-sure alpha/sp4
 one "FIND=zzz" goto p3 256 goto-none sp2
+one - transfer p3 256 transfer-reading sp2
+one "LISTED=1" transfer p3 256 transfer sp2
+one "LISTED=1 COPIES=1 PICK=0:stock-2026-11.parquet,suppliers.csv,README.md,fixtures" transfer p3 256 transfer-picked sp2
+one "LISTED=1 COPIES=1 SURE=1 PICK=0:stock-2026-11.parquet,suppliers.csv,README.md,fixtures" transfer p3 256 transfer-sure sp2
+one "COPIES=1" bar p3 256 bar-copies sp2

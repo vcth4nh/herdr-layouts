@@ -131,7 +131,8 @@ export function mono(name) {
   return (first[0] + [...words[1]][0]).toUpperCase();
 }
 
-// o: { id, name, hue, active, size, tip, onClick, onMenu }. "~" (home) gets a house.
+// o: { id, name, hue, active, size, sign, tip, onClick, onMenu }. "~" (home) gets a house;
+// `sign` is drawn in place of the two letters (a place that is no project).
 export function tile(t, o) {
   const size = o.size ?? 36;
   const home = o.name === "~";
@@ -140,7 +141,7 @@ export function tile(t, o) {
   if (o.onClick) el = control(el, o).hover((s) => s.bg(o.active ? hue : alpha(hue, "40")));
   return el.bg(o.active ? hue : alpha(hue, "26")).text_color(o.active ? INK : hue)
     .text_size(Math.max(9, Math.round(size * 0.36))).font_family(DISPLAY).font_bold()
-    .child(home ? svg(ICON("home")).size(Math.round(size * 0.5)) : mono(o.name));
+    .child(home ? svg(ICON("home")).size(Math.round(size * 0.5)) : o.sign ?? mono(o.name));
 }
 
 // An icon-only control. o: { id, icon, tip, size, glyph, on, color, onClick }

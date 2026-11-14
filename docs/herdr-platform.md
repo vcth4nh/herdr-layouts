@@ -32,6 +32,17 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-14). Rec
 - A tab started with `argv` reports that program, not the shell it runs in: `program.shell` is false while `cat` runs.
 - A terminal an agent started with `hc run` is in `terminals()` with `parent` set to its starter's address, and with `name` if it was started with `--name`. It has no pane, so `panes()` leaves it out. `herdr-app ls` lists it under its parent's `sub_agents`.
 - `hc ls` and `herdr-app ls` list terminals only. A helper inside an agent's own process (Claude Code's Agent tool) was in neither while it ran (checked 2026-11-14).
+- `hc ls --json` gives a short record for each terminal (`address`, `agent`, `cwd`, `state`, `exit_code`, `reason`), without its labels or `argv`. `hc get <t> --json` has those. `hc ls --label k=v` keeps the terminals with that label, and `--all` adds the finished ones, which stay until `hc rm`. `hc get` on a terminal that is gone exits 3.
+- `hc machine ls --json` gives each machine's `target` (what ssh is given: a Host, `user@host` or `user@host:port`) and `via` (false for a machine reached over ssh; one added with `--via` was not looked at).
+
+## Files between machines
+
+Checked on 2026-11-14 with hc 0.1.20.
+
+- hc has no command that copies from one machine to another. `hc file write`, `hc put` and the input and output of `hc exec` carry at most 8 MB a call, and `hc file read` is for text.
+- A mod's `exec` ends a program after 10 minutes at most (`herdr.d.ts`). A program started with `hc run --bg --no-parent` has no such limit and is herdr-core's, which keeps terminals alive when the window closes. It has no pane and no parent, so glyph's rail gives it no row. `terminal.peek` on one was not tried.
+- `scp -3` run on this computer copies between any two ssh machines hc knows, through here. With OpenSSH 9 or later scp speaks SFTP: every path is taken as written, except a source on another machine, which is matched there as a pattern (escape `\ * ? [ ] { }`). glyph's `copy.js` builds on this.
+- A mod's `exec` keeps NUL bytes in a program's output, on this computer and through `on` (glyph's folder listing splits on them).
 
 ## Tabs and projects
 
@@ -48,13 +59,14 @@ Checked on 2026-11-14 with throwaway tabs.
 
 ## Mod code
 
-- `cx.notify()` throws during `render`. The manual allows it from an event handler or a task, and says nothing about running commands in `render`. glyph's bar runs its own follow-up commands from a timer (`look()` in bar.js).
+- `cx.notify()` throws during `render`. Herdr's manual (`~/.config/herdr-app/AGENTS.md`) allows it from an event handler or a task, and says nothing about running commands in `render`. glyph's bar runs its own follow-up commands from a timer (`look()` in bar.js).
 - Copies of a mod share its module code, but each has its own instance and `localStorage`. To pass something from one copy to another, use `setShared` (`closeTab` in glyph's data.js), which also redraws every copy. A module-level variable is shared by the copies too, and redraws nothing (`going` in glyph's data.js).
 - A copy in an overlay gets `close()` on its exported View when the overlay goes, whoever closed it: glyph's Go-to list was closed with `herdr-app do overlay.close` and had cleared `going` by the next command (2026-11-14).
+- The app's JavaScript sorts text by letter codes, even through `localeCompare` with options: "README.md" came before "import.py" in `herdr-app check`, where Node puts it after (2026-11-14). Sort names with a comparison of your own (`byName` in glyph's copy.js).
 
 ## Can't be done (checked)
 
-- No cursor trail or any cursor animation (checked 2026-11-14). A theme file is colors only (`background`, `foreground`, `selection`, `cursor`, `ansi`, `colors`). The look keys are `theme`, `colors`, `font`, `font_size`, `ui_font`, `terminal_padding` and `terminal_opacity`, and no trail-like name is in the binary. A mod can't fake a trail either:
+- No cursor trail or any cursor animation (checked 2026-11-14). A theme file is colors only (`background`, `foreground`, `selection`, `cursor`, `ansi`, `colors`). The keys on a layout's root that set its look are `theme`, `colors`, `font`, `font_size`, `ui_font`, `terminal_padding` and `terminal_opacity`, and no trail-like name is in the binary. A mod can't fake a trail either:
   - Mods can't change how a terminal draws.
   - Neither `herdr.d.ts` nor `hc schema` gives the cursor's position (only its color; `hc read` returns text alone), the cell size or a pane's pixel rectangle.
   - Every way to draw over a terminal (floating block, popup/window overlay, hover header) swallows the pointer.
@@ -87,6 +99,8 @@ Checked on 2026-11-14 against Herdr's manual ("Layouts and mods other people mad
   `dev/glyph/tools/drag-pass.sh` and `live-pass.sh` do this.
 - Commands that end tabs can be tried on throwaway tabs in the real window, since `herdr-app do` returns the ids of what it made and `herdr-app status` and `ls` say what is shown. `dev/glyph/tools/close-pass.py` does this. It changes what the window shows while it runs.
 - `herdr-app check <dir>` writes the app's `gpui-kit.d.ts` and `jsconfig.json` into `<dir>`. Both are gitignored here.
+- `herdr-app status` lists overlays by their mod's name only. `overlay.close` without an id closes a dialog or a popup. It left a window overlay (`kind: "window"`) open, with no id and with the window's `key` as the id (2026-11-14). A window closes from inside, with `closeOverlay(props().overlay)`. To close one from a tool, swap in for a moment a stand-in that closes itself as it starts (`dev/glyph/tools/transfer-pass.sh`).
+- `herdr-app check <dir> --print-spec` prints the first render. What a part asked for in `init` through a task (an `exec`, an `hc`) has not answered by then, so such state has to be put in by hand too (glyph's harness has `LISTED=1`).
 - `herdr-app status` lists the open overlays by their mod's name, toasts among them. `shot` shows them.
 - `--print-spec` prints a text field as `Input #n`, without its text or placeholder.
 - `herdr-app check <dir> --print-spec` never lays out, so `on_size_change` never fires there. State that depends on a measured size has to be set by hand (glyph's harness has `ROOM=n` for this).

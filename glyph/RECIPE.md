@@ -33,7 +33,8 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - The shown project's 22px tile and name at 13.5px, and its machine if it is another one.
 - Its tabs as 32px pills: a 24px orb and a title at 12.5px. The shown tab is raised and has an ×.
 - A dashed pill of launchers: a plus, up to four installed agents' logos, the terminal logo, and three dots.
-- On the right: a peach bell with a count and a green tick with a count when any tab wants you, then Files, Changes and search.
+- On the right: a peach bell with a count and a green tick with a count when any tab wants you, then Files, Changes, the transfer button (two opposed arrows) and search.
+- While files are being copied a blue arc turns around the transfer button. A peach dot on it says a copy failed.
 - Where the system draws no window buttons (Linux, Windows), minimize, maximize and close come last.
 
 **Panes**
@@ -50,6 +51,19 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - A popup 560px wide under the window's top edge: a search field, then every tab as a 30px row, a 20px orb and its label at 13px, in the rail's order and words.
 - Tabs sit under their project's line, a 20px tile and its name. Projects sit under their machine's line when there is more than one machine.
 - The picked row is raised (`#313244`). The list is at most 520px tall, then it scrolls.
+
+**Transfer window**
+
+- A floating window, 880 by 560px, on chrome `#11111b`: a 40px head, and under it two sides with a round 38px arrow between them.
+- Each side, from the top:
+  - Every machine as a 24px chip: a laptop or server icon and its name at 12px. The machine the side shows is raised (`#313244`).
+  - 22px tiles for places on that machine: home as a house, the top folder as "/", then each project there.
+  - The way down to the folder on show, at 12px, starting from the house or from "/".
+  - The folder as a card of 26px rows: a folder or file icon, the name at 12.5px, a file's size at 11px, a folder's chevron. Folders come first, and names that start with a dot come last and dim.
+- A picked row is tinted with the accent (`#cba6f7` at 20%).
+- The arrow is dashed, with two opposed arrows, while nothing is picked. With rows picked it is filled with the accent and points at the other side.
+- The side that would take the files gets an accent border. Dashed rows on top of its list are what would land there, at most four and then a count. A row that would be replaced gets a dashed outline.
+- A copy under way is a pill in the head: a 16px orb with an arrow and the turning blue arc, its first name and how many more, the machine it goes to, and scp's percent for a single file. One that failed wears the peach ring and "!".
 
 ## How it behaves
 
@@ -106,6 +120,19 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Hover a pane's header for split right, split down and close. Zoom shows only when the tab has other panes.
 - Files and Changes in the bar open Herdr's panels beside the panes.
 
+**Moving files**
+
+- The transfer button in the bar, or ⇧⌘T, opens the transfer window. Its left side opens at the shown tab's folder. Its right side opens where it was left. The first time that is this computer's home, or from this computer the first other machine's.
+- Click a machine's chip for its home, a tile for that place, a part of the way down to go back up, and its last part to read the folder again.
+- Click a row to pick it, and more rows for more. A folder opens by its chevron or a double-click. A pick on one side lets go of what was picked on the other.
+- Click the arrow to copy what is picked into the other side's folder. It is a copy: nothing is removed from where it was.
+- When a picked name is already there, the first press turns the arrow and those rows red, and a second press within 3 s replaces them.
+- Drop files from outside Herdr (Finder) on a side to copy them into its folder. A drop replaces nothing: if a name is already there it copies nothing and says so.
+- A copy goes on when the window closes and when Herdr quits. When it ends a notice says how, and the folders on show are read again.
+- A copy that failed stays in the head. Hover it for scp's last line, click it to dismiss it.
+- Click a copy under way for Herdr's peek at its terminal: scp's own meter, and the way to end it.
+- Drag the window by its head or by any spot that is not a control. Its × closes it.
+
 ## Built from
 
 **Layout**
@@ -128,13 +155,14 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - `mods/glyph/`, whose `mod.json` is `{ "place": "none", "title": "Glyph" }`.
 - `main.js` picks a part from `props().role`: `rail.js`, `bar.js`, `pane.js`, `menu.js` (a popup the mod opens for a tab), `goto.js` (the Go-to list, a popup the bar opens) or `blank.js` (a project's empty page, as a tab's only pane).
 - `data.js` shapes Herdr's lists into machines, projects and tabs. `ui.js` draws the tile, the orb and the icon button.
-- `icons/`: 27 SVGs on a 24px grid with round strokes, drawn in `currentColor`. Program logos are Herdr's own, from `icons/` in Herdr's home (`~/.config/herdr-app`).
+- `transfer.js` is the transfer window, opened as a Herdr window overlay with props `{ "role": "transfer" }`. `copy.js` reads folders and starts, lists and ends copies.
+- `icons/`: 31 SVGs on a 24px grid with round strokes, drawn in `currentColor`. Program logos are Herdr's own, from `icons/` in Herdr's home (`~/.config/herdr-app`).
 
 **From Herdr**
 
 - Reads: `spaces`, `panes`, `terminals`, `agents`, `machines`, `focused`, `layout`, `window`, `settings`, `keys`, `updates`, `theme`, `props`, `knownAgents`.
-- Calls: `run`, `hc`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`.
-- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar).
+- Calls: `run`, `hc`, `exec`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`.
+- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left).
 - Kept in the rail's `localStorage`: `seen` (since when each tab has rested) and `folded` (the folded machines). Each place the layout puts the mod is a copy with a `localStorage` of its own.
 - Commands: `tab.select`, `tab.new`, `tab.close`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
 - Herdr's own mods, opened as they are: `menu` (the project menu), `prompt` (rename), `new-menu`, `machine-add`, `files`, `changes`.
@@ -142,11 +170,14 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 **Programs**
 
-The rail runs `hc machine ls --json` every 20 s, to learn of machines without projects and of those that need a login. The mod reaches no network and reads no file outside Herdr's home.
+- The rail runs `hc machine ls --json` every 20 s, to learn of machines without projects and of those that need a login. The transfer window does too while it is open, for how ssh reaches each machine.
+- The transfer window lists a folder by running `sh` on the machine that side shows, through Herdr's `exec`: a loop over the folder's names and `ls -lnA` for the sizes.
+- A copy is `scp -3 -r -o BatchMode=yes -o ConnectTimeout=20`, started on this computer with `hc run --bg --no-parent --no-notify --label glyph.copy=1`. The window reads its screen with `hc read`. When it ends the bar asks how with `hc get`, reads scp's last lines if it failed, and removes the terminal with `hc rm`.
+- The mod opens no connection of its own. scp connects to your machines over ssh with your keys, and reads and writes the files you pick. Besides that the mod reads the names and sizes in the folders you browse, and no file outside Herdr's home.
 
 **Keys**
 
-`keys.json` holds a `layout:glyph` section. Each action is a command the bar waits for with `nextCommand()`: `rename`, `new`, `new-<key>` for any agent key in Herdr's program table, `close`, `close-pane`, `goto`.
+`keys.json` holds a `layout:glyph` section. Each action is a command the bar waits for with `nextCommand()`: `rename`, `new`, `new-<key>` for any agent key in Herdr's program table, `close`, `close-pane`, `transfer`, `goto`.
 
 ## Watch out
 
@@ -192,13 +223,27 @@ The rail runs `hc machine ls --json` every 20 s, to learn of machines without pr
 
 - A terminal nobody titled reports its address as its title, which counts as none. So does a title that only repeats the program's name.
 - Leading status glyphs and Codex's trailing " | project" are cut.
-- An unnamed tab goes by its agent's title, not its number. That is why tabs have the mod's own right-click menu and rename hint. The project menu and ⇧F2 are Herdr's.
+- An unnamed tab goes by its agent's title, not its number. That is why tabs have the mod's own right-click menu and rename hint. The project menu and ⇧F2, which renames the project, are Herdr's.
+
+**Moving files**
+
+- scp has to be OpenSSH 9 or later on this computer: from then on it speaks SFTP and takes a path as it is written. A source name on another machine is still matched there as a pattern, so `\ * ? [ ] { }` in it are escaped.
+- A machine is reached by the ssh target `hc machine ls` gives for it. A machine added with `hc machine add --via`, which is reached by a command instead of ssh, has none, and can't be copied to or from. Two machines on different ssh ports can't be paired in one copy.
+- A copy between two other machines passes through this computer (`-3`), so the two need not reach each other, and this computer has to stay on until it ends. It is as fast as the slower of the two links.
+- scp runs with `BatchMode=yes`. A machine that would ask for a password or a passphrase fails at once, and the failed copy says so.
+- scp replaces a file of the same name without asking. The two presses are the mod's own, from the names the other side showed when it was last read. A drop is one gesture, so it replaces nothing.
+- A copy is not a tab and gets no row in the rail: its terminal has no pane and no parent. `hc ls --all --label glyph.copy=1` lists the copies hc still has.
+- The bar says how a copy ended. With another layout on show the copy still runs, and its notice comes when glyph shows again.
+- scp's percent is for the file it is on, so the pill shows it for a single file only.
+- Folders are read by the machine's own `sh`, so only Unix machines can be browsed. A folder shows its first 1000 entries. A size comes from `ls -l`, and a name with a line break in it shows none.
+- The app sorts text by letter codes, every capital before every small letter. The mod sorts names itself, whatever their case and with numbers by value.
+- Herdr's manual says a window overlay does not take the keyboard when it opens, and the mod never asks for it, so the window has no keys of its own. A layout switch closes it.
 
 **Limits**
 
 - The launcher pill shows at most four agents.
 - The rail's default must stay labelled. A rail of logos alone did not say which agent was which.
-- Not built: git ahead and behind counts, dragging to reorder projects, a custom toast, a menu on a sub-agent's row (the peek has keep and close). Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
+- Not built: git ahead and behind counts, dragging to reorder projects, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting and typing a path. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
 - Built and checked on macOS with herdr-app 0.1.15. The window buttons for Linux and Windows have never been drawn there.
 - The mod runs under any theme, but the hues, the ink on filled tiles and the focus border were picked for a dark one.
 
@@ -216,3 +261,5 @@ The rail runs `hc machine ls --json` every 20 s, to learn of machines without pr
 - ⌘W on the page closes the project, and the next project shows its first tab.
 - Folding a machine hides its projects and shows the strip of their states.
 - ⌘P opens the Go-to list on the shown tab. An agent's tab nobody named is listed by its agent's title, never by its number. Typing narrows the list, and Enter shows the picked tab.
+- The transfer button opens a window with a folder of one machine on each side. Picking a file and pressing the arrow copies it to the other side: a pill turns in the window's head and an arc around the bar's button, and a notice says "Copied" with its name once the file is in the other folder.
+- Picking a name that is already on the other side turns the arrow red at the first press, and copies at the second.

@@ -14,8 +14,8 @@
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { theme, run, hc, layout, window as win, openOverlay, agents, setAgentOrder, updates } from "herdr";
-import { model, here as hereName, goTab, goSub, jump, tabTip, subTip, since, find, tabMenu } from "./data.js";
+import { theme, run, layout, window as win, openOverlay, agents, setAgentOrder, updates } from "herdr";
+import { model, fleet, here as hereName, goTab, goSub, jump, tabTip, subTip, since, find, tabMenu } from "./data.js";
 import { ICON, DISPLAY, alpha, orb, tile, iconButton } from "./ui.js";
 
 const COMPACT = 160, WIDE = 256;
@@ -41,14 +41,12 @@ export class Rail {
 
   refreshMachines(cx) {
     cx.spawn(async (cx) => {
-      try {
-        const r = await hc(["machine", "ls", "--json"]);
-        if (r.code !== 0) return;
-        const next = (JSON.parse(r.stdout).machines ?? []).filter((k) => !k.temporary).map((k) => ({ name: k.name, state: k.state }));
-        if (JSON.stringify(next) === JSON.stringify(this.machineInfo)) return;
-        this.machineInfo = next;
-        cx.notify();
-      } catch {}
+      const all = await fleet();
+      if (!all) return;
+      const next = all.filter((k) => !k.temporary).map((k) => ({ name: k.name, state: k.state }));
+      if (JSON.stringify(next) === JSON.stringify(this.machineInfo)) return;
+      this.machineInfo = next;
+      cx.notify();
     });
   }
 

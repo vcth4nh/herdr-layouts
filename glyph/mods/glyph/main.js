@@ -3,9 +3,10 @@
 //   { "role": "rail" }  the left column: every machine, project and tab (rail.js)
 //   { "role": "bar" }   the top strip: this project's tabs, starters, alerts (bar.js)
 //   { "role": "pane" }  the header on each pane; the app adds { pane, terminal } (pane.js)
-// two it opens over the window itself:
+// three it opens over the window itself:
 //   { "role": "menu", tab }  a tab's right-click menu (menu.js)
 //   { "role": "goto" }       the list you type in to go to a tab (goto.js)
+//   { "role": "transfer" }   the window that copies files between machines (transfer.js)
 // and one it puts in a tab of its own, as that tab's only pane:
 //   { "role": "blank" }  the page of a project whose last tab was closed (blank.js)
 // Words stay only where you named something (a project, a tab, a branch, a machine).
@@ -20,12 +21,13 @@ import { PaneHead } from "./pane.js";
 import { Menu } from "./menu.js";
 import { Goto } from "./goto.js";
 import { Blank } from "./blank.js";
+import { Transfer } from "./transfer.js";
 
 export default class Glyph extends View {
   init(_props, cx) {
     const p = props() ?? {};
     const role = p.role ?? (p.pane ? "pane" : "rail");
-    this.part = role === "bar" ? new Bar(cx) : role === "pane" ? new PaneHead(cx) : role === "menu" ? new Menu(cx) : role === "goto" ? new Goto(cx) : role === "blank" ? new Blank(cx) : new Rail(cx);
+    this.part = role === "bar" ? new Bar(cx) : role === "pane" ? new PaneHead(cx) : role === "menu" ? new Menu(cx) : role === "goto" ? new Goto(cx) : role === "blank" ? new Blank(cx) : role === "transfer" ? new Transfer(cx) : new Rail(cx);
   }
 
   render(cx) {

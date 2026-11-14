@@ -9,7 +9,8 @@
 // to move it: it lifts, the others step aside as it goes, and where it stands when you
 // let go is where it lands. The dashed pill starts things: a logo is "a new tab running that",
 // the prompt is a plain terminal, the dots are the full + menu. Right: what wants you
-// (click to go to the next one), the Files and Changes panels, search.
+// (click to go to the next one), the Files and Changes panels, the window that copies
+// files between machines (transfer.js), search.
 //
 // The bar is also where a tab is closed, whoever asks (its x, the close key, a menu, a
 // pane's header): see ask() and shut(). Closing what isn't a plain shell takes two presses.
@@ -17,12 +18,14 @@
 // project on show as an empty page (blank.js), which goes once you look elsewhere. When
 // the project on show closes, the next one shows its first tab.
 // Keys bound to this layout in keys.json ("layout:glyph") arrive as commands:
-//   rename, close, close-pane, new, new-<program key> (new-claude, new-codex, ...), goto.
+//   rename, close, close-pane, new, new-<program key> (new-claude, new-codex, ...), transfer, goto.
+// The bar also says how each copy the transfer window started has ended: see mind().
 
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { theme, run, layout, settings, spaces, panes, focused, machines, shared, setShared, notify, window as win, openOverlay, knownAgents, nextCommand } from "herdr";
+import { theme, run, layout, settings, spaces, panes, terminals, focused, machines, shared, setShared, notify, window as win, openOverlay, knownAgents, nextCommand } from "herdr";
 import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM } from "./data.js";
+import { copies, settle, openTransfer, STARTING } from "./copy.js";
 import { ICON, INK, DISPLAY, alpha, mix, logo, inkOf, danger, orb, tile, iconButton, textWidth } from "./ui.js";
 
 const stop = (_e, cx) => cx.stop_propagation();
@@ -37,6 +40,7 @@ const PAGE = 4000;      // ms a project's last tab waits for the empty page to t
 const GONE = 5000;      // ms a tab asked to close counts as closed before it really is
 const LOOK = 120;       // ms between looks at what changed: see look()
 const REST = 8;         // with nothing drawn, only every so many looks really look
+const ASK = 2000;       // ms before hc is asked again how a copy ended
 
 // The room each title gets when `room` is shared out: those that need less keep their
 // own width, the rest get this much each. Infinity: all of them fit as they are.
@@ -68,6 +72,7 @@ export class Bar {
     this.last = null;       // the project and tab on show at the last look: see follow()
     this.dirty = true;      // something was drawn since the last look: see look()
     this.rests = 0;         // looks since then that found nothing drawn
+    this.settling = new Map(); // copy id -> when hc was last asked how it ended: see mind()
     this.learn(cx);
     cx.timer.every(3000, (cx) => this.learn(cx));
     cx.timer.every(LOOK, (cx) => this.look(cx));
@@ -98,7 +103,8 @@ export class Bar {
     else if (name === "shut") {
       const asked = shared(SHUT);
       if (asked?.id && Date.now() - asked.at < GONE) this.shut(m, asked.id, cx);
-    } else if (name === "goto") openGoto();
+    } else if (name === "transfer") openTransfer();
+    else if (name === "goto") openGoto();
     else if (name === "new") newTab(s);
     else if (name.startsWith("new-")) this.start(s, name.slice(4), cx);
   }
@@ -198,7 +204,32 @@ export class Bar {
     this.dirty = false;
     const m = model();
     this.tend(m, Date.now());
+    this.mind(cx);
     if (this.follow(m)) cx.notify();
+  }
+
+  // Copies the transfer window started (copy.js) go on by themselves, in terminals of
+  // their own. One whose terminal is no longer live has ended, and the bar says how, once.
+  // While hc still calls it live it is asked again a moment later.
+  mind(cx) {
+    const list = copies();
+    for (const id of this.settling.keys()) if (!list.some((c) => c.id === id)) this.settling.delete(id);
+    if (!list.length) return;
+    const now = Date.now();
+    const live = new Set(terminals().filter((x) => x.state === "live").map((x) => x.address));
+    for (const c of list) {
+      const last = this.settling.get(c.id);
+      if (c.failed || live.has(c.id) || now - c.at < STARTING || last?.busy || now - (last?.at ?? 0) < ASK) continue;
+      const ask = { at: now, busy: true };
+      this.settling.set(c.id, ask);
+      cx.spawn(async (cx) => {
+        try {
+          await settle(c);
+        } catch {}
+        ask.busy = false;
+        cx.notify();
+      });
+    }
   }
 
   // Asks an empty page to close, once: again only if it is still there much later.
@@ -593,6 +624,18 @@ export class Bar {
       });
     };
 
+    // The transfer window's button. A ring turns around it while copies are under way, and
+    // a dot says one failed.
+    const moved = copies(), lost = moved.filter((c) => c.failed).length, moving = moved.length - lost;
+    const transfer = div().relative().flex_none()
+      .when(moving > 0, (el) => el.child(div().absolute().top(0).left(0).size(28)
+        .child(svg(ICON("ring")).size(28).text_color(t.working).spin(1300))))
+      .child(iconButton(t, {
+        id: "transfer", icon: "transfer", onClick: () => openTransfer(),
+        tip: [withKey("Copy files between machines", keyFor("glyph.transfer")), moving ? `${moving} under way` : "", lost ? `${lost} failed` : ""].filter(Boolean).join("  ·  "),
+      }))
+      .when(lost > 0, (el) => el.child(div().absolute().top(3).right(3).size(6).rounded_full().bg(t.blocked)));
+
     const n = m.counts;
     return h_flex().id("strip").size_full().min_w(0).pl(lights).pr(10).gap(6).items_center().bg(t.chrome)
       // A held tab is let go wherever on the strip the button comes up; see leave()
@@ -623,6 +666,7 @@ export class Bar {
       .when(n.done > 0, (el) => el.child(wants("done", "check", `${n.done} finished: go to the next`)))
       .child(side("files", "files", "Files"))
       .child(side("changes", "diff", "Changes"))
+      .child(transfer)
       .child(iconButton(t, { id: "search", icon: "search", tip: withKey("Go to a tab", keyFor("glyph.goto")), onClick: () => openGoto() }))
       // Where the system draws no window buttons (Linux, Windows), these are them.
       .when(Boolean(w?.buttons), (el) => el

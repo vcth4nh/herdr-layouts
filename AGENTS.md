@@ -15,6 +15,7 @@ Read these before changing anything:
 - Never raise, hide or activate the user's Herdr window. Activation lands later and covers their screen.
 - Don't drive the user's pointer.
 - Ask before running `dev/glyph/tools/close-pass.py`. It switches the Herdr window to a throwaway project for over a minute, and keys typed in Herdr meanwhile land in its shells.
+- `dev/glyph/tools/copy-pass.sh` and `transfer-pass.sh` copy throwaway files to the machines named to them, in a folder of their own under `/tmp` that they remove. Name only machines the user has said may be used, or ask. `transfer-pass.sh` also puts the transfer window over the Herdr window for about twenty seconds.
 - File each new note in the doc that covers it (README.md lists them), and state each fact once.
 - Notes about the user (habits, preferences, quotes, the state of their machine) stay out of the repo. Keep them in your own private memory if you have one.
 - Sample data (the harness fleet, tests, mock transcripts) uses invented names. Never copy real machine, project or tab names into the repo.

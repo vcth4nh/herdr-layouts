@@ -2,6 +2,8 @@
 // a fixed sample flock, with every state on show.
 const ROLE = "__ROLE__";
 const ACTIVE = "__ACTIVE__";
+// Copies under way and one that failed, as the transfer window started them.
+const COPYING = __COPIES__;
 const THEME = __THEME__;
 const LAYOUT = __LAYOUT__;
 const now = Date.now();
@@ -83,6 +85,36 @@ if (ACTIVE === "sp9") {
   PANES.push({ pane: "p-page", terminal: null, mod: "glyph", tab: "tb-page", title: "Glyph", focused: true, zoomed: false });
 }
 
+// What the transfer window lists: a few folders on a few machines. [name, size] is a file,
+// [name] a folder; a folder that is not here can't be read.
+const HOMES = { "": "/Users/me", alpha: "/home/me", bravo: "/home/me", charlie: "/home/me", foxtrot: "/home/me" };
+const FILES = {
+  ":/Users/me": [["Desktop"], ["Downloads"], ["code"], [".config"], ["notes.txt", 2210], [".zshrc", 1432]],
+  ":/Users/me/code/inventory-and-order-reports/services/api": [["fixtures"], ["src"], ["tests"], [".venv"], ["README.md", 4312], ["import.py", 18734], ["stock-2026-11.parquet", 148229120], ["suppliers.csv", 912400], [".env", 211]],
+  ":/Users/me/code/inventory-and-order-reports/services/api/fixtures": [["northwind.xlsx", 88120], ["contoso.xlsx", 20480]],
+  ":/Users/me/Downloads": [["invoice-0412.pdf", 301992]],
+  "alpha:/home/me": [["acme-shop-backend"], ["acme.cpp"], ["data"], ["core.dump", 2473901162]],
+  "alpha:/home/me/acme-shop-backend": [["build"], ["config"], ["logs"], ["src"], ["Makefile", 3120], ["README.md", 2801], ["suppliers.csv", 90210], ["trace-retry.log", 5881023]],
+  "alpha:/": [["etc"], ["home"], ["tmp"], ["var"]],
+  "bravo:/home/me": [["fieldnotes"], ["kettle"], ["notes.txt", 120]],
+  "bravo:/home/me/kettle": [],
+  "charlie:/home/me": [["scratch"]],
+};
+// A folder as that machine's sh would print it for copy.js (LIST there, read by parse), or null.
+const listed = (on, path) => {
+  const home = HOMES[on ?? ""], at = path || home, dir = FILES[`${on ?? ""}:${at}`];
+  if (!home || !dir) return null;
+  const long = dir.map(([name, size]) => (size === undefined ? `drwxr-xr-x  3 501  20  96 Nov 14 02:38 ${name}` : `-rw-r--r--  1 501  20  ${size} Nov 14 02:38 ${name}`));
+  return `${at}\0${home}\0${dir.map(([name, size]) => `${size === undefined ? "d" : "f"}\0${name}\0`).join("")}\0total 8\n${long.join("\n")}\n`;
+};
+const MACHINES = [
+  { name: "alpha", state: "connected", target: "alpha", via: false }, { name: "bravo", state: "connected", target: "bravo", via: false },
+  { name: "charlie", state: "connected", target: "fly ssh console -a charlie -C", via: true }, { name: "delta-2", state: "needs_login", target: "delta-2", via: false },
+  { name: "echo", state: "unreachable", target: "echo", via: false }, { name: "foxtrot", state: "connected", target: "me@10.0.0.7:2222", via: false }];
+// For check.sh's LISTED hook: the transfer window as it is once its folders have been read.
+globalThis.__list = listed;
+globalThis.__fleet = MACHINES.map((k) => ({ ...k, temporary: false }));
+if (COPYING) for (const address of ["t90", "t91"]) TERMS.push({ address, state: "live", status: null, parent: null, name: null, program: { key: "program", name: "scp", icon: null, tint: true, tile: null, color: null, shell: false, agent: false }, report: { state: null, title: null } });
 const noop = () => null;
 export const spaces = () => SPACES;
 export const panes = () => PANES;
@@ -90,7 +122,16 @@ export const terminals = () => TERMS;
 export const agents = () => PANES.filter((p) => p.status).map((p) => ({ address: p.terminal, pane: p.pane, tab: p.tab, status: p.status, program: p.program }));
 export const machines = () => [null, "alpha", "bravo", "charlie", "delta-2", "echo", "foxtrot"].map((name) => ({ name, layout: name === "echo" ? "unavailable" : "ready" }));
 // Shared values: what a test or the mod set, over what the app would hold.
-export const SHARED = { "glyph.blank": { sp9: { name: "garden-planner", folder: "/Users/me/code/garden-planner" } } };
+export const SHARED = {
+  "glyph.blank": { sp9: { name: "garden-planner", folder: "/Users/me/code/garden-planner" } },
+  // Where the transfer window's right side was left.
+  "glyph.side": { on: "alpha", path: "/home/me/acme-shop-backend" },
+  ...(COPYING ? { "glyph.copies": [
+    { id: "t90", from: null, to: "alpha", dir: "/home/me/acme-shop-backend", name: "stock-2026-11.parquet", n: 1, one: true, at: now - 20000 },
+    { id: "t91", from: "alpha", to: "bravo", dir: "/home/me/kettle", name: "logs", n: 3, one: false, at: now - 50000 },
+    { id: "t92", from: "bravo", to: null, dir: "/Users/me/Downloads", name: "notes.txt", n: 1, one: true, at: now - 90000, failed: "scp: /home/me/notes.txt: Permission denied" },
+  ] } : {}),
+};
 export const setShared = (k, v) => { if (k !== "space.colors") SHARED[k] = v; return null; };
 export const shared = (k) => (k in SHARED ? SHARED[k] : k === "new-menu.agents" ? { "": [{ ...P.claude, run: ["claude"], installed: true }, { ...P.codex, run: ["codex"], installed: true }, { ...P.opencode, run: ["opencode"], installed: false }] } : k === "space.colors" ? { sp1: "ansi1", sp2: "ansi6", "alpha/sp4": "ansi6", "alpha/sp5": "ansi5", "bravo/sp6": "ansi3", "bravo/sp7": "ansi4", "foxtrot/sp8": "ansi2", sp9: "ansi4" } : undefined);
 // What the mod asked the app to do, for tests that drive it by hand.
@@ -113,7 +154,7 @@ export const keys = () => [
   { section: "global", action: "tab.new", keys: "cmd-t" }, { section: "global", action: "tab.close", keys: "cmd-w" }, { section: "global", action: "tab.rename", keys: "f2" },
   { section: "layout:glyph", action: "glyph.rename", keys: "f2" }, { section: "layout:glyph", action: "glyph.close", keys: "cmd-w" }, { section: "layout:glyph", action: "glyph.close-pane", keys: "cmd-shift-w" },
   { section: "layout:glyph", action: "glyph.new", keys: "cmd-t" }, { section: "layout:glyph", action: "glyph.new-claude", keys: "cmd-shift-c" }, { section: "layout:glyph", action: "glyph.new-codex", keys: "cmd-shift-o" },
-  { section: "global", action: "space.new", keys: "cmd-shift-n" },
+  { section: "global", action: "space.new", keys: "cmd-shift-n" }, { section: "layout:glyph", action: "glyph.transfer", keys: "cmd-shift-t" },
   { section: "layout:glyph", action: "glyph.goto", keys: "cmd-p" },
 ];
 export const theme = () => THEME;
@@ -124,7 +165,23 @@ export const updates = () => ({ app: { version: "0.1.15", ready: "0.1.16", updat
 export const home = () => "/Users/me";
 // A test may set globalThis.__props to stand for another copy of the mod.
 export const props = () => (globalThis.__props ? globalThis.__props : ROLE === "pane" ? { pane: "__PANE__", terminal: "t3" } : ROLE === "menu" ? { role: "menu", tab: "__PANE__", overlay: "ov1" } : { role: ROLE });
-export const hc = async () => ({ code: 0, stdout: JSON.stringify({ machines: [
-  { name: "alpha", state: "connected" }, { name: "bravo", state: "connected" }, { name: "charlie", state: "connected" }, { name: "delta-2", state: "needs_login" },
-  { name: "echo", state: "unreachable" }, { name: "foxtrot", state: "connected" }] }), stderr: "" });
+// What the mod asked of hc and of the machines' own programs, apart from CALLS.
+export const ASKS = [];
+// hc: the machines, and for the transfer window a copy that starts (t90) and its meter.
+// A test may answer for hc itself: globalThis.__hc = (args) => a result, or nothing.
+export const hc = async (args = []) => {
+  ASKS.push(["hc", args]);
+  const own = globalThis.__hc?.(args);
+  if (own) return own;
+  if (args[0] === "run") return { code: 0, stdout: JSON.stringify({ address: "t90", state: "live" }), stderr: "" };
+  if (args[0] === "read") return { code: 0, stdout: "stock-2026-11.parquet                 42%   59MB  11.2MB/s   00:07 ETA\n", stderr: "" };
+  if (args[0] !== "machine") return { code: 0, stdout: "{}", stderr: "" };
+  return { code: 0, stdout: JSON.stringify({ machines: MACHINES }), stderr: "" };
+};
+// A machine's sh listing a folder, in the form copy.js asks for and reads (LIST, parse).
+export const exec = async (command, args = [], options = {}) => {
+  ASKS.push(["exec", command, args, options]);
+  const out = listed(options?.on ?? null, args[3]);
+  return out === null ? { code: 2, stdout: "", stderr: `sh: line 0: cd: ${args[3]}: No such file or directory\n` } : { code: 0, stdout: out, stderr: "" };
+};
 export const knownAgents = async () => [{ ...P.claude, run: ["claude"], installed: true }, { ...P.codex, run: ["codex", "--no-daemon"], installed: true }, { ...P.opencode, run: ["opencode"], installed: true }];
