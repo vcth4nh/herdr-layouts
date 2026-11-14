@@ -1,0 +1,32 @@
+// Glyph: Herdr with pictures where the words were. One mod in parts, chosen by the
+// role its layout block gives it:
+//   { "role": "rail" }  the left column: every machine, project and tab (rail.js)
+//   { "role": "bar" }   the top strip: this project's tabs, starters, alerts (bar.js)
+//   { "role": "pane" }  the header on each pane; the app adds { pane, terminal } (pane.js)
+// one it opens over the window itself:
+//   { "role": "menu", tab }  a tab's right-click menu (menu.js)
+// and one it puts in a tab of its own, as that tab's only pane:
+//   { "role": "blank" }  the page of a project whose last tab was closed (blank.js)
+// Words stay only where you named something (a project, a tab, a branch, a machine).
+// A program is its logo, a state is a color and a motion, a button is an icon; hover
+// any of them for the words. ui.js draws the shared pieces, data.js reads Herdr.
+
+import { View } from "gpui-kit";
+import { props } from "herdr";
+import { Rail } from "./rail.js";
+import { Bar } from "./bar.js";
+import { PaneHead } from "./pane.js";
+import { Menu } from "./menu.js";
+import { Blank } from "./blank.js";
+
+export default class Glyph extends View {
+  init(_props, cx) {
+    const p = props() ?? {};
+    const role = p.role ?? (p.pane ? "pane" : "rail");
+    this.part = role === "bar" ? new Bar(cx) : role === "pane" ? new PaneHead(cx) : role === "menu" ? new Menu(cx) : role === "blank" ? new Blank(cx) : new Rail(cx);
+  }
+
+  render(cx) {
+    return this.part.render(cx);
+  }
+}

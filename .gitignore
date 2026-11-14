@@ -1,0 +1,7 @@
+# Local files: tool outputs, and the font extracted from the herdr-app binary (not ours to publish)
+.local/
+__pycache__/
+.DS_Store
+# Written by `herdr-app check` into the mod folder it checks; the app provides them
+gpui-kit.d.ts
+jsconfig.json
