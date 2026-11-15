@@ -20,6 +20,7 @@ Custom looks (layout + theme + mods) for the Herdr desktop app, built against he
 - `tools/` holds the helpers shared by all looks.
 - [CONTRIBUTING.md](CONTRIBUTING.md) covers glyph's design rules, the tooling and how to check a change.
 - [docs/herdr-platform.md](docs/herdr-platform.md) covers what herdr-app and gpui-kit (the JavaScript UI kit Herdr's mods are written with) can and can't do, and how looks are shared.
+- [docs/glyph-verified.md](docs/glyph-verified.md) lists what in glyph was checked, with what, and what was never tried.
 - [AGENTS.md](AGENTS.md) has the rules for AI agents.
 
 ## Installing glyph

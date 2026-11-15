@@ -5,6 +5,7 @@ Read these before changing anything:
 - @README.md
 - @CONTRIBUTING.md
 - @docs/herdr-platform.md
+- @docs/glyph-verified.md
 - @glyph/RECIPE.md
 
 ## Rules
