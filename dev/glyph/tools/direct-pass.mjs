@@ -1,4 +1,4 @@
-// direct-pass.mjs: the mod's own copy.js on the straight way between real machines (run by
+// direct-pass.mjs: the mod's own copy.js on the direct way between real machines (run by
 // direct-pass.sh, which puts it beside a copy of the mod).
 //
 //   direct-pass.sh --survey   For every two ssh machines of `hc machine ls` that are
@@ -6,7 +6,7 @@
 //                             Nothing is written anywhere. Each machine tries one login
 //                             to each other one, with nothing to log in with, which
 //                             their ssh servers record.
-//   direct-pass.sh A B        Starts a straight copy from A to B and stops at the password
+//   direct-pass.sh A B        Starts a direct copy from A to B and stops at the password
 //                             prompt: no password is typed, so nothing is copied. Then one
 //                             with a wrong host key, which must be refused, and a pretend
 //                             prompt on the machine scp runs on, which is typed into.
@@ -144,11 +144,11 @@ try {
   if (ask) {
     const secret = await hidden(`Password of ${there.user} on ${there.far} (not shown): `);
     r = await run(job, there, secret);
-    ok(r.note?.level === "success" && r.left === null, `A to B, straight (scp on ${there.on}): ${r.note?.title ?? r.left?.failed}`);
+    ok(r.note?.level === "success" && r.left === null, `A to B, direct (scp on ${there.on}): ${r.note?.title ?? r.left?.failed}`);
     ok(JSON.stringify((await listing(B, dst)).entries.map((e) => e.name).sort()) === JSON.stringify([...ALL].sort()), "every name arrived on B");
     const home = hopFor(list, B);
     r = await run({ from: B, paths: ALL.map((n) => `${dst}/${n}`), to: A, dir: back }, home, home.far === there.far ? secret : await hidden(`Password of ${home.user} on ${home.far} (not shown): `));
-    ok(r.note?.level === "success" && r.left === null, `B back to A, straight (scp on ${home.on}): ${r.note?.title ?? r.left?.failed}`);
+    ok(r.note?.level === "success" && r.left === null, `B back to A, direct (scp on ${home.on}): ${r.note?.title ?? r.left?.failed}`);
     const [one, two] = [(await on(A, "sh", "-c", SUMS, "glyph", src)).stdout, (await on(A, "sh", "-c", SUMS, "glyph", back)).stdout];
     ok(one.length > 0 && one === two, "what came back is what left, file for file");
   } else console.log("     (no --ask: no password was typed, so no file was copied)");

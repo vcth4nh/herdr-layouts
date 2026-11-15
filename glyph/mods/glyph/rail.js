@@ -15,7 +15,7 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { theme, run, layout, window as win, openOverlay, agents, setAgentOrder, updates } from "herdr";
-import { model, fleet, here as hereName, goTab, goSub, jump, tabTip, subTip, since, find, tabMenu } from "./data.js";
+import { model, fleet, here as hereName, goTab, goSub, jump, tabTip, subTip, since, find, tabMenu, says } from "./data.js";
 import { ICON, DISPLAY, alpha, orb, tile, iconButton } from "./ui.js";
 
 const COMPACT = 160, WIDE = 256;
@@ -84,7 +84,7 @@ export class Rail {
     const over = widths.reduce((a, b) => a + b, 0) - inner;
     if (over > 0) widths[widths.indexOf(Math.max(...widths))] -= over;
     return h_flex().id("fleet").h(22).flex_none().px(13).gap(gap).items_center()
-      .tooltip(kinds.map((k) => SAID[k](n[k])).join("  ·  "))
+      .tooltip(kinds.map((k) => SAID[k](n[k])).join(", "))
       .children(kinds.map((k, i) => h_flex().id(`fleet-${k}`).h(22).w(Math.round(widths[i])).flex_none().items_center().cursor_pointer()
         .on_click(() => jump(m, k))
         .child(div().h(5).w_full().rounded_full().bg(t[k])
@@ -98,7 +98,7 @@ export class Rail {
     const kinds = Object.keys(n).filter((k) => n[k] > 0);
     if (!kinds.length) return div().flex_1().h(1).bg(t.border);
     return h_flex().id(`tally-${g.name ?? "local"}`).flex_1().min_w(0).h(18).gap(2).items_center()
-      .tooltip(kinds.map((k) => SAID[k](n[k])).join("  ·  "))
+      .tooltip(kinds.map((k) => SAID[k](n[k])).join(", "))
       .children(kinds.map((k) => div().h(4).min_w(5).flex_grow(n[k]).flex_shrink(1).flex_basis(0).rounded_full().bg(t[k])
         .when(k === "blocked", (el) => el.loop("opacity", { from: 0.5, to: 1, period: 900 }))));
   }
@@ -117,7 +117,7 @@ export class Rail {
       : `${g.name}: ${(g.why ?? g.state).replace(/_/g, " ")}`;
     const tabs = g.spaces.reduce((sum, s) => sum + s.tabs.length, 0);
     const holds = `${g.spaces.length} project${g.spaces.length === 1 ? "" : "s"}, ${tabs} tab${tabs === 1 ? "" : "s"}`;
-    const tip = [why, folded ? `Show ${name}'s ${holds}` : `Hide ${name}'s ${holds}`].filter(Boolean).join("  ·  ");
+    const tip = says(why, folded ? `Show ${name}'s ${holds}` : `Hide ${name}'s ${holds}`);
     // Folded with the shown project inside, the name is as bright as that project's.
     const ink = login ? t.blocked : folded && g.spaces.some((s) => s.active) ? t.foreground : t.muted;
     const toggle = (_e, cx) => {
@@ -213,7 +213,7 @@ export class Rail {
   space(t, s, wide, now, width) {
     const select = () => run("space.select", { id: s.id });
     const menu = () => openOverlay({ mod: "menu", kind: "popup", width: 200, height: 260, props: { tab: "space", target: { id: s.id } } });
-    const about = s.label + (s.branch ? `  ·  ${s.branch}` : "");
+    const about = s.label + (s.branch ? `, ${s.branch}` : "");
     // A name longer than the rail is cut short: hovering it says all of it.
     const cut = s.label.length * 7 > width - 66;
     const square = tile(t, { id: `space-${s.id}`, name: s.name, hue: s.hue, active: s.active, tip: about, onClick: select, onMenu: menu });

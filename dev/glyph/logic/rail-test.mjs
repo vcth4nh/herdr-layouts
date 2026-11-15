@@ -50,12 +50,12 @@ eq(CALLS, [["openOverlay", { mod: "glyph", kind: "popup", width: 200, props: { r
 const lines = () => under(byId(root, "row-sp3")).filter((i) => /^(tab|sub)-/.test(i));
 eq(lines(), ["tab-tb6", "sub-t6-1", "sub-t6-1-1", "sub-t6-2"], "a tab's sub-agents follow it, a nested one after its parent");
 eq(["t6-1", "t6-1-1", "t6-2"].map((a) => [text(byId(root, `sub-${a}`)), byId(root, `sub-${a}`).props.tooltip[0]]), [
-  ["lint-pass", "lint-pass  ·  Lint the zshrc  ·  working"],
+  ["lint-pass", "lint-pass, Lint the zshrc, working"],
   ["fixtures", "fixtures"],
-  ["Port the aliases", "Port the aliases  ·  needs you"],
+  ["Port the aliases", "Port the aliases, needs you"],
 ], "a sub-agent goes by its name, else by its title; hovering says the rest");
 ok(holder(root, "sub-t6-1-1").props.pl[0] > holder(root, "sub-t6-1").props.pl[0], "a nested one is set further in");
-ok(byId(root, "tab-tb6").props.tooltip[0].endsWith("needs you  ·  3 sub-agents"), "the tab still counts them and takes their most urgent state");
+ok(byId(root, "tab-tb6").props.tooltip[0].endsWith("needs you, 3 sub-agents"), "the tab still counts them and takes their most urgent state");
 CALLS.length = 0;
 byId(root, "sub-t6-2").handlers.on_click({}, cx);
 eq(runs(), [["terminal.peek", { terminal: "t6-2" }]], "a click peeks at a sub-agent");
@@ -117,7 +117,7 @@ eq(byId(root, "fold-alpha").props.tooltip[0], "Hide alpha's 2 projects, 12 tabs"
 byId(root, "fold-alpha").handlers.on_click({}, cx);
 root = rail.render();
 ok(!byId(root, "row-alpha/sp4") && !byId(root, "row-alpha/sp5") && Boolean(byId(root, "row-bravo/sp6")), "folded: alpha's projects are gone, the others stay");
-eq([byId(root, "tally-alpha")?.props.tooltip[0], byId(root, "tally-alpha")?.children.length], ["1 finished  ·  2 working  ·  8 idle", 3], "folded: its tabs by state");
+eq([byId(root, "tally-alpha")?.props.tooltip[0], byId(root, "tally-alpha")?.children.length], ["1 finished, 2 working, 8 idle", 3], "folded: its tabs by state");
 ok(Boolean(byId(root, "space-new-alpha")), "folded: its + stays");
 eq(store.folded, JSON.stringify({ alpha: true }), "kept");
 const again = new Rail(cx).render();

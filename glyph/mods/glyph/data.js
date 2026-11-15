@@ -266,6 +266,9 @@ export function keyFor(...names) {
 
 // A hover label with the key that does the same, when there is one.
 export const withKey = (tip, key) => (key ? `${tip}  ${key}` : tip);
+// A hint of more than one sentence: its parts, each without its own full stop, joined as
+// sentences. Short facts within a part are joined with commas.
+export const says = (...parts) => parts.filter(Boolean).map((p) => String(p).replace(/[.\s]+$/, "")).join(". ");
 
 // A tab's right-click menu (menu.js).
 export function tabMenu(c) {
@@ -324,13 +327,13 @@ export function tabTip(c, now, seen) {
   const ago = at ? ` ${duration(now - at)}` : "";
   const how = c.status === "blocked" ? "needs you" : c.status === "done" ? "finished" : c.status === "working" ? `working${ago}` : c.status === "idle" ? `idle${ago}` : "";
   const subs = c.subs.count ? `${c.subs.count} sub-agent${c.subs.count === 1 ? "" : "s"}` : "";
-  return [what, where, how, subs].filter(Boolean).join("  ·  ");
+  return [what, where, how, subs].filter(Boolean).join(", ");
 }
 
 // A sub-agent's words: its name, what it says it is doing, and how it is doing.
 export function subTip(k) {
   const how = k.status === "blocked" ? "needs you" : k.status === "working" ? "working" : k.status === "idle" ? "idle" : "";
-  return [k.label, k.own !== k.label ? k.own : "", how].filter(Boolean).join("  ·  ");
+  return [k.label, k.own !== k.label ? k.own : "", how].filter(Boolean).join(", ");
 }
 
 export function find(node, id) {

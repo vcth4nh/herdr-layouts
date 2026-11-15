@@ -13,12 +13,15 @@ import { CALLS, ASKS, SHARED, spaces, terminals } from "./herdr-fake.mjs";
 let failed = 0, passed = 0;
 const ok = (cond, what) => { if (cond) passed++; else { failed++; console.log("FAIL:", what); } };
 const eq = (a, b, what) => ok(JSON.stringify(a) === JSON.stringify(b), `${what}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`);
+let drawn = 0; // how often the mod asked to be drawn again
+let stopped = 0; // how many presses the mod kept to itself
+let held = 0; // how often the mod took the keyboard
 const store = {};
 globalThis.localStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = v; } };
 const timers = [];
 const cx = {
-  notify() {}, stop_propagation() {}, spawn(fn) { return Promise.resolve().then(() => fn(cx)); },
-  timer: { every() {}, after(_ms, fn) { timers.push(fn); } }, focus_handle: () => ({ focus() {} }),
+  notify() { drawn += 1; }, stop_propagation() { stopped += 1; }, spawn(fn) { return Promise.resolve().then(() => fn(cx)); },
+  timer: { every() {}, after(_ms, fn) { timers.push(fn); } }, focus_handle: () => ({ focus() { held += 1; } }),
 };
 const settled = () => new Promise((r) => setTimeout(r, 10));
 const runs = () => CALLS.filter((c) => c[0] === "run").map((c) => [c[1], c[2]]);
@@ -29,8 +32,22 @@ const reads = () => ASKS.filter((a) => a[0] === "exec" && a[1] === "sh" && !Stri
 const under = (node) => { const all = []; const go = (n) => { if (n.id) all.push(n.id); for (const c of n.children) if (c?.__node) go(c.__node); }; go(node); return all; };
 const text = (node) => { const out = []; const go = (n) => { for (const c of n.children) { if (typeof c === "string") out.push(c); else if (c?.__node) go(c.__node); } }; go(node); return out.join(" "); };
 const icons = (node) => { const out = []; walk({ __node: node }, (n) => { if (n.kind === "svg") out.push(n.arg.split("/").pop().replace(".svg", "")); }); return out; };
-const press = (root, id, count = 1) => byId(root, id).handlers["on_mouse_down:left"]({ click_count: count }, cx);
+// A press on a row or on the empty part of a list: `count` as the app counts presses, the
+// keys held, and where in the window. The button stays down until lift().
+const CMD = { platform: true }, SHIFT = { shift: true };
+const press = (root, id, count = 1, keys = {}, at = { x: 100, y: 100 }) => byId(root, id).handlers["on_mouse_down:left"]({ click_count: count, modifiers: keys, position: at }, cx);
+// The button comes up over a side, or over the window ("transfer").
+const lift = (root, id) => byId(root, id).handlers["on_mouse_up:left"]({}, cx);
+// The pointer moves over an element, to a point in the window. True when the mod redrew.
+const glide = (root, id, at) => { const was = drawn; byId(root, id).handlers.on_mouse_move({ position: at, local_position: at, bounds: { x: 0, y: 0, width: 880, height: 560 }, modifiers: {} }, cx); return drawn > was; };
+// A click on a row: down and up in place. also(): with Cmd held, one more row or one fewer.
+const tap = (root, id, keys = {}) => { press(root, id, 1, keys); lift(w.render(), `side${id[1]}`); };
+const also = (root, id) => tap(root, id, CMD);
 const click = (root, id) => byId(root, id).handlers.on_click({}, cx);
+// The words a hover shows over an element, or null when it has none.
+const tipOf = (root, id) => byId(root, id).props.tooltip?.[0] ?? null;
+// What the picked rows would do: how many, where to, and how many names are already there.
+const planned = () => { const p = w.plan(); return p ? [p.names.length === 1 ? p.names[0] : p.names.length, p.dst.on, p.dst.path, p.clash.length] : null; };
 const rows = (root, i) => under(byId(root, `list${i}`)).filter((id) => id.startsWith(`e${i}-`)).map((id) => id.slice(3));
 
 // What a machine's sh prints for a folder, on this computer's own sh and ls, and how it is read.
@@ -94,8 +111,8 @@ eq(under(byId(root, "side0")).filter((i) => i.startsWith("m0-")), ["m0-local", "
 eq([Boolean(byId(root, "m0-local").props.bg), Boolean(byId(root, "m0-alpha").props.bg), Boolean(byId(root, "m1-alpha").props.bg)], [true, false, true], "each side's machine is raised");
 eq([byId(root, "m0-delta-2").props.tooltip[0], byId(root, "m0-echo").props.tooltip[0]], ["delta-2 needs a login: run hc machine login delta-2", "echo: unreachable"], "a machine out of reach says why");
 eq(under(byId(root, "side0")).filter((i) => i.startsWith("p0-")), ["p0-home", "p0-root", "p0-sp1", "p0-sp2"], "places: home, the top, this machine's projects (the one at home is the house)");
-eq(byId(root, "p0-sp2").props.tooltip[0], "inventory-and-order-reports  ·  ~/code/inventory-and-order-reports/services/api", "a project's tile says where it is");
-eq(byId(root, "send").props.tooltip[0], "Pick files on one side to copy them to the other", "nothing picked: the arrow says what to do");
+eq(byId(root, "p0-sp2").props.tooltip[0], "inventory-and-order-reports, ~/code/inventory-and-order-reports/services/api", "a project's tile says where it is");
+eq(tipOf(root, "send"), null, "nothing picked: the arrow has no words of its own");
 eq(icons(byId(root, "send")), ["transfer"], "and points nowhere");
 eq(icons(byId(root, "c1-0")), ["home"], "the way down starts at home, drawn as a house");
 eq([text(byId(root, "c1-1")), text(byId(root, "c0-0")), text(byId(root, "c0-3"))], ["acme-shop-backend", "…", "api"], "a long way shows its end");
@@ -127,14 +144,16 @@ await settled();
 eq([at()[0], [...w.sides[0].picked]], [["bravo", "/home/me/kettle"], []], "the second opens the folder, and nothing stays picked");
 press(w.render(), "e1-README.md", 1);
 press(w.render(), "e1-README.md", 2);
+lift(w.render(), "side1");
 eq([...w.sides[1].picked], ["README.md"], "a double-click on a file leaves it picked");
-press(w.render(), "e1-README.md", 1);
+tap(w.render(), "e1-README.md");
+eq([...w.sides[1].picked], [], "a click on the one picked row lets it go");
 // A folder that can't be read says why, and the way back up still works.
 click(w.render(), "in1-logs");
 await settled();
 root = w.render();
 eq([at()[1], rows(root, 1), text(byId(root, "list1"))], [["alpha", `${SHOP}/logs`], [], `${SHOP}/logs: No such file or directory`], "a folder that can't be read");
-ok(byId(root, "send").props.tooltip[0] !== undefined && !w.plan(), "nothing to send");
+ok(!w.plan(), "nothing to send");
 click(root, "p1-root");
 await settled();
 root = w.render();
@@ -152,19 +171,19 @@ eq(at(), [[null, API], ["alpha", SHOP]], "a project's tile goes to its folder");
 eq(SHARED["glyph.side"], { on: "alpha", path: SHOP }, "where the right side is, is kept");
 
 // Picking. What is picked is on one side, and the arrow points at the other.
-press(root, "e0-import.py");
-press(w.render(), "e0-fixtures");
+tap(root, "e0-import.py");
+also(w.render(), "e0-fixtures");
 root = w.render();
 eq([[...w.sides[0].picked], icons(byId(root, "send"))], [["import.py", "fixtures"], ["arrow-right"]], "picked on the left: the arrow points right");
-eq(byId(root, "send").props.tooltip[0], "Copy 2 items to alpha  ·  ~/acme-shop-backend", "it says what would go where");
+eq([tipOf(root, "send"), planned()], [null, [2, "alpha", "/home/me/acme-shop-backend", 0]], "two items would go to the other side, and the arrow needs no words for it");
 {
   const first = byId(root, "list1").children.slice(0, 2).map((c) => c.__node);
   eq(first.map((n) => [text(n), icons(n)[0], Boolean(n.props.border_dashed), n.id]), [["import.py", "file", true, null], ["fixtures", "folder", true, null]], "dashed rows on the other side show what would land");
 }
-press(root, "e1-Makefile");
+tap(root, "e1-Makefile");
 root = w.render();
 eq([[...w.sides[0].picked], [...w.sides[1].picked], icons(byId(root, "send"))], [[], ["Makefile"], ["arrow-left"]], "a pick on the other side takes over, and the arrow turns");
-eq(byId(root, "send").props.tooltip[0], `Copy Makefile to This Mac  ·  ~/code/inventory-and-order-reports/services/api`, "one item goes by its name");
+eq(planned(), ["Makefile", null, "/Users/me/code/inventory-and-order-reports/services/api", 0], "one item, to this computer");
 // One press copies when nothing is in the way.
 CALLS.length = 0; ASKS.length = 0; delete SHARED["glyph.copies"];
 click(root, "send");
@@ -173,11 +192,11 @@ eq(asked("run"), [["run", "--bg", "--no-parent", "--no-notify", "--json", "--lab
 eq(SHARED["glyph.copies"].map(({ at: _at, ...c }) => c), [{ id: "t90", from: "alpha", to: null, dir: API, name: "Makefile", n: 1, one: true }], "it is listed as under way");
 eq([[...w.sides[1].picked], said()], [[], []], "nothing stays picked, and nothing is said yet");
 // A name that is already there: the first press only arms.
-press(w.render(), "e0-README.md");
-press(w.render(), "e0-suppliers.csv");
-press(w.render(), "e0-tests");
+tap(w.render(), "e0-README.md");
+also(w.render(), "e0-suppliers.csv");
+also(w.render(), "e0-tests");
 root = w.render();
-eq(byId(root, "send").props.tooltip[0], "Copy 3 items to alpha  ·  ~/acme-shop-backend  ·  2 items already there: two presses replace", "the arrow says what is already there");
+eq([tipOf(root, "send"), planned()], [null, [3, "alpha", "/home/me/acme-shop-backend", 2]], "two of the three names are already there");
 eq(["README.md", "suppliers.csv", "Makefile"].map((n) => Boolean(byId(root, `e1-${n}`).props.border_dashed)), [true, true, false], "the rows that would be replaced are outlined");
 ASKS.length = 0; timers.length = 0;
 click(root, "send");
@@ -186,25 +205,25 @@ root = w.render();
 eq([asked("run").length, byId(root, "send").props.tooltip[0], byId(root, "send").props.bg[0], Boolean(byId(root, "send").props.loop)], [0, "Again to replace 2 items", "#f38ba8", true], "first press: nothing is copied, the arrow turns red");
 ok(byId(root, "e1-README.md").props.bg?.[0].startsWith("#f38ba8") && !byId(root, "e1-Makefile").props.bg, "and so do the rows it would replace");
 timers.splice(0).forEach((fn) => fn(cx));
-eq(w.render() && byId(w.render(), "send").props.tooltip[0].startsWith("Copy 3 items"), true, "left alone, the press is taken back");
+eq([tipOf(w.render(), "send"), planned()?.[0]], [null, 3], "left alone, the press is taken back");
 click(w.render(), "send");
 click(w.render(), "send");
 await settled();
 eq(asked("run").map((a) => a.slice(a.lastIndexOf("--") + 1)), [[`${API}/README.md`, `${API}/suppliers.csv`, `${API}/tests`, `alpha:${SHOP}/`]], "second press in time: the copy starts");
 eq(SHARED["glyph.copies"].slice(-1).map((c) => [c.name, c.n, c.one]), [["README.md", 3, false]], "three items are no single file");
 // A pick that changes takes the first press back.
-press(w.render(), "e0-README.md");
+tap(w.render(), "e0-README.md");
 click(w.render(), "send");
-press(w.render(), "e0-import.py");
-eq(byId(w.render(), "send").props.tooltip[0].startsWith("Copy 2 items"), true, "another pick takes a first press back");
-press(w.render(), "e0-README.md");
-press(w.render(), "e0-import.py");
+also(w.render(), "e0-import.py");
+eq([tipOf(w.render(), "send"), planned()?.[0]], [null, 2], "another pick takes a first press back");
+also(w.render(), "e0-README.md");
+also(w.render(), "e0-import.py");
 // Both sides on one folder: nowhere to copy to.
 click(w.render(), "m1-local");
 await settled();
 click(w.render(), "p1-sp2");
 await settled();
-press(w.render(), "e1-import.py");
+tap(w.render(), "e1-import.py");
 ASKS.length = 0;
 root = w.render();
 click(root, "send");
@@ -245,16 +264,17 @@ w.tick(cx);
 await settled();
 root = w.render();
 eq(asked("read"), [["read", "t90", "--lines", "0"], ["read", "t91", "--lines", "0"]], "the ones under way are asked how far they are");
-eq(["t90", "t91", "t92"].map((id) => text(byId(root, `copy-${id}`))), ["stock-2026-11.parquet alpha 42%", "logs +2 bravo", "notes.txt This Mac"], "a single file shows scp's percent; several don't");
-eq(byId(root, "copy-t91").props.tooltip[0], "logs +2  ·  alpha → bravo  ·  ~/kettle  ·  stock-2026-11.parquet 42% 59MB 11.2MB/s 00:07 ETA", "hovering says the rest, with scp's own line");
-eq(byId(root, "copy-t92").props.tooltip[0], "notes.txt  ·  bravo → This Mac  ·  ~/Downloads  ·  scp: /home/me/notes.txt: Permission denied  ·  click to dismiss", "a failed one says why");
+eq(["t90", "t91", "t92"].map((id) => text(byId(root, `copy-${id}`))), ["stock-2026-11.parquet alpha 42% 11.2MB/s 00:07 left", "logs +2 bravo 11.2MB/s", "notes.txt This Mac"], "a single file shows scp's percent, its speed and the time left; several show the speed alone");
+eq(byId(root, "copy-t91").props.tooltip[0], "logs +2: alpha → bravo, through this computer, into ~/kettle. stock-2026-11.parquet 42% 59MB 11.2MB/s 00:07 ETA", "hovering says the rest, with scp's own line");
+eq(["t90", "t91", "t92"].map((id) => icons(byId(root, `copy-${id}`))[0]), ["arrow-right", "laptop", "arrow-right"], "a copy between two other machines that passes through this computer wears its laptop");
+eq(byId(root, "copy-t92").props.tooltip[0], "notes.txt: bravo → This Mac, into ~/Downloads. scp: /home/me/notes.txt: Permission denied. Click to dismiss", "a failed one says why");
 CALLS.length = 0; ASKS.length = 0;
 click(root, "copy-t90");
 click(root, "copy-t92");
 await settled();
 eq([runs(), asked("rm"), SHARED["glyph.copies"].map((c) => c.id)], [[["terminal.peek", { terminal: "t90" }]], [["rm", "t92"]], ["t90", "t91"]], "a copy under way is peeked at; a failed one is dismissed");
 // A copy that ended may have changed a folder on show: both are read again, in place.
-press(w.render(), "e0-Makefile");
+tap(w.render(), "e0-Makefile");
 ASKS.length = 0;
 SHARED["glyph.copies"] = [SHARED["glyph.copies"][1]];
 w.tick(cx);
@@ -285,7 +305,163 @@ await settled();
 eq([at()[1], w.sides[1].error], [["bravo", "/home/me"], null], "a remembered folder that is gone gives way to home");
 spaces().forEach((s) => { s.active = s.id === "sp2"; });
 
-// Straight between two other machines. First what copy.js learns: how this computer's ssh
+// Picking, as in a file manager. A fresh window: this computer's project on the left,
+// alpha's on the right.
+SHARED["glyph.side"] = { on: "alpha", path: SHOP };
+delete SHARED["glyph.copies"];
+w = new Transfer(cx);
+await settled();
+const picked = (i = 0) => rows(w.render(), i).filter((n) => w.sides[i].picked.has(n));
+tap(w.render(), "e0-import.py");
+tap(w.render(), "e0-README.md");
+eq(picked(), ["README.md"], "a click picks that row alone");
+tap(w.render(), "e0-tests", SHIFT);
+eq(picked(), ["tests", ".venv", "import.py", "README.md"], "Shift-click: every row from the last one clicked to this one");
+tap(w.render(), "e0-suppliers.csv", SHIFT);
+eq(picked(), ["README.md", "stock-2026-11.parquet", "suppliers.csv"], "another Shift-click counts from the same row, in place of the first range");
+also(w.render(), "e0-fixtures");
+also(w.render(), "e0-stock-2026-11.parquet");
+eq(picked(), ["fixtures", "README.md", "suppliers.csv"], "Cmd-click: one more, or one fewer");
+tap(w.render(), "e0-.env", { shift: true, platform: true });
+eq(picked(), ["fixtures", "README.md", "stock-2026-11.parquet", "suppliers.csv", ".env"], "Shift and Cmd: a range from the last one clicked, added to what is picked");
+tap(w.render(), "e0-src", { control: true });
+eq([picked().includes("src"), text(byId(w.render(), "send-count")), planned()?.[0]], [true, "6", 6], "Ctrl counts as Cmd; the arrow wears how many are picked");
+tap(w.render(), "e0-README.md");
+eq([picked(), Boolean(byId(w.render(), "send-count"))], [["README.md"], false], "a click on one of several picked rows leaves that one, and one row needs no count");
+tap(w.render(), "e0-README.md");
+eq(picked(), [], "a click on the one picked row lets it go");
+tap(w.render(), "e0-src", SHIFT);
+eq(picked(), ["src"], "Shift-click with no row to count from picks that row");
+also(w.render(), "e0-tests");
+press(w.render(), "blank0", 1, SHIFT);
+lift(w.render(), "side0");
+eq(picked(), ["src", "tests"], "a press on the empty part of a list with a key held changes nothing");
+press(w.render(), "blank0");
+lift(w.render(), "side0");
+eq([picked(), w.sides[0].anchor], [[], null], "a press on the empty part lets go of what is picked");
+
+// A sweep: hold a row and move down or up the list.
+eq(glide(w.render(), "e0-.venv", { x: 100, y: 130 }), false, "the pointer over the rows with nothing held picks nothing");
+press(w.render(), "e0-tests", 1, {}, { x: 100, y: 100 });
+eq([glide(w.render(), "e0-tests", { x: 101, y: 103 }), w.hold.kind], [false, null], "a held row that barely moved is still a click");
+glide(w.render(), "e0-.venv", { x: 102, y: 130 });
+glide(w.render(), "e0-README.md", { x: 104, y: 190 });
+eq([picked(), w.hold.kind], [["tests", ".venv", "import.py", "README.md"], "sweep"], "held and moved down: every row on the way is picked");
+eq(glide(w.render(), "e0-README.md", { x: 110, y: 195 }), false, "moving within a row draws nothing again");
+glide(w.render(), "e0-src", { x: 104, y: 70 });
+eq(picked(), ["src", "tests"], "back up past the held row: the rows on its other side");
+glide(w.render(), "e1-build", { x: 600, y: 70 });
+glide(w.render(), "side1", { x: 600, y: 70 });
+glide(w.render(), "transfer", { x: 600, y: 70 });
+ASKS.length = 0;
+root = w.render();
+eq([Boolean(byId(root, "carried")), byId(root, "list1").props.bg[0] === byId(root, "list0").props.bg[0]], [false, true], "over the other side a sweep is still a sweep: nothing is carried");
+lift(root, "side1");
+await settled();
+eq([picked(), asked("run").length, w.hold], [["src", "tests"], 0, null], "let go there, it copies nothing");
+tap(w.render(), "e0-.env", SHIFT);
+eq(picked(), ["tests", ".venv", "import.py", "README.md", "stock-2026-11.parquet", "suppliers.csv", ".env"], "a Shift-click after a sweep counts from the row the sweep began on");
+press(w.render(), "blank0", 1, {}, { x: 100, y: 400 });
+glide(w.render(), "e0-suppliers.csv", { x: 100, y: 300 });
+lift(w.render(), "side0");
+eq(picked(), ["suppliers.csv", ".env"], "held on the empty part and moved up: the rows from the last one");
+
+// A carry: hold a picked row, move, and let go over the other side.
+tap(w.render(), "e0-import.py");
+also(w.render(), "e0-fixtures");
+also(w.render(), "e0-tests");
+press(w.render(), "e0-fixtures", 1, {}, { x: 200, y: 100 });
+eq(picked(), ["fixtures", "tests", "import.py"], "a press on a picked row leaves the others picked");
+glide(w.render(), "e0-tests", { x: 201, y: 112 });
+root = w.render();
+eq([w.hold.kind, picked(), byId(root, "e0-tests").props.opacity?.[0], byId(root, "e0-src").props.opacity, Boolean(byId(root, "carried"))], ["carry", ["fixtures", "tests", "import.py"], 0.5, undefined, false],
+  "moved, whichever way: the picked rows are carried, faint in their place, and no other row is picked");
+glide(root, "transfer", { x: 300, y: 140 });
+root = w.render();
+eq([text(byId(root, "carried")), icons(byId(root, "carried")), byId(root, "carried").props.left[0], byId(root, "carried").props.top[0]], ["import.py +2", ["file"], 312, 154], "what is carried is drawn by the pointer: the first name and how many more");
+eq(glide(root, "transfer", { x: 301, y: 140 }), false, "a pointer that barely moved draws nothing again");
+glide(root, "side1", { x: 600, y: 200 });
+root = w.render();
+eq([w.hold.over, byId(root, "list1").props.bg[0] === byId(root, "list0").props.bg[0], byId(root, "list1").props.border_color[0]], [1, false, "#cba6f7ff"], "over the other side: its list lights up");
+byId(root, "side1").handlers.on_hover(false, cx);
+root = w.render();
+eq([w.hold.over, byId(root, "list1").props.bg[0] === byId(root, "list0").props.bg[0]], [null, true], "and no longer once the pointer has left it");
+glide(root, "side1", { x: 600, y: 200 });
+ASKS.length = 0; CALLS.length = 0;
+lift(w.render(), "side1");
+lift(w.render(), "transfer");
+await settled();
+eq(asked("run").map((a) => a.slice(a.lastIndexOf("--") + 1)), [[`${API}/import.py`, `${API}/fixtures`, `${API}/tests`, `alpha:${SHOP}/`]], "let go there: one copy starts, as from the arrow");
+eq([picked(), w.hold, Boolean(byId(w.render(), "carried"))], [[], null, false], "and nothing is held or picked any more");
+// A name that is already there: the carry is the first press.
+tap(w.render(), "e0-README.md");
+press(w.render(), "e0-README.md", 1, {}, { x: 200, y: 100 });
+glide(w.render(), "e0-README.md", { x: 240, y: 101 });
+glide(w.render(), "side1", { x: 600, y: 200 });
+ASKS.length = 0; timers.length = 0;
+lift(w.render(), "side1");
+await settled();
+root = w.render();
+eq([asked("run").length, byId(root, "send").props.tooltip[0], picked()], [0, "Again to replace 1 item", ["README.md"]], "carried onto a name that is there: nothing is copied, and the arrow turns red");
+click(root, "send");
+await settled();
+eq(asked("run").map((a) => a.slice(a.lastIndexOf("--") + 1)), [[`${API}/README.md`, `alpha:${SHOP}/`]], "a press on the red arrow replaces");
+// A row that was not picked, held and moved sideways.
+press(w.render(), "e0-import.py", 1, {}, { x: 200, y: 100 });
+glide(w.render(), "e0-import.py", { x: 230, y: 104 });
+eq([picked(), w.hold.kind], [["import.py"], "carry"], "a row that was not picked, held and moved sideways: picked alone, and carried");
+glide(w.render(), "e0-src", { x: 260, y: 60 });
+eq(picked(), ["import.py"], "the rows it passes are not picked");
+ASKS.length = 0;
+lift(w.render(), "side0");
+await settled();
+eq([asked("run").length, picked(), w.hold], [0, ["import.py"], null], "let go over its own side: nothing is copied, and it stays picked");
+press(w.render(), "e0-import.py", 1, {}, { x: 200, y: 100 });
+glide(w.render(), "e0-import.py", { x: 260, y: 100 });
+glide(w.render(), "side1", { x: 600, y: 100 });
+byId(w.render(), "side1").handlers.on_hover(false, cx);
+lift(w.render(), "transfer");
+await settled();
+eq([asked("run").length, picked(), w.hold], [0, ["import.py"], null], "let go between the sides: the same");
+// A hold whose release is never heard.
+press(w.render(), "e0-import.py", 1, {}, { x: 200, y: 100 });
+glide(w.render(), "e0-import.py", { x: 260, y: 100 });
+timers.length = 0;
+byId(w.render(), "transfer").handlers.on_hover(false, cx);
+byId(w.render(), "transfer").handlers.on_hover(true, cx);
+timers.splice(0).forEach((fn) => fn(cx));
+ok(w.hold?.kind === "carry", "the pointer out of the window and back in a moment: still held");
+byId(w.render(), "transfer").handlers.on_hover(false, cx);
+timers.splice(0).forEach((fn) => fn(cx));
+eq(w.hold, null, "out for longer: the hold is over");
+glide(w.render(), "e0-src", { x: 100, y: 60 });
+glide(w.render(), "side1", { x: 600, y: 100 });
+lift(w.render(), "side1");
+await settled();
+eq([picked(), asked("run").length], [["import.py"], 0], "and the pointer back in the window picks and copies nothing");
+press(w.render(), "e0-import.py", 1, {}, { x: 200, y: 100 });
+glide(w.render(), "e0-import.py", { x: 260, y: 100 });
+byId(w.render(), "m0-echo").handlers["on_mouse_down:left"]({}, cx);
+eq(w.hold, null, "a press on a control ends a hold");
+press(w.render(), "e0-tests", 1, {}, { x: 100, y: 100 });
+w.hold.at -= 16000;
+eq([glide(w.render(), "e0-README.md", { x: 100, y: 190 }), w.hold, picked()], [true, null, ["tests"]], "a hold nothing was heard of for a while is over too");
+// Both sides on one folder: carried rows have nowhere to go.
+click(w.render(), "m1-local");
+await settled();
+click(w.render(), "p1-sp2");
+await settled();
+tap(w.render(), "e0-import.py");
+press(w.render(), "e0-import.py", 1, {}, { x: 200, y: 100 });
+glide(w.render(), "e0-import.py", { x: 260, y: 100 });
+glide(w.render(), "side1", { x: 600, y: 100 });
+root = w.render();
+ASKS.length = 0;
+lift(root, "side1");
+await settled();
+eq([byId(root, "list1").props.bg[0] === byId(root, "list0").props.bg[0], asked("run").length], [true, 0], "the same folder on both sides: the other list does not light up, and nothing is copied");
+
+// Directly between two other machines. First what copy.js learns: how this computer's ssh
 // gets to a machine, and which of two machines gets to the other's password prompt.
 const SEALED = (pin) => ["-F", "none", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=/dev/null", "-o", "GlobalKnownHostsFile=/dev/null",
   "-o", `KnownHostsCommand=/bin/echo * ${pin}`, "-o", "PubkeyAuthentication=no", "-o", "IdentityAgent=none",
@@ -325,6 +501,12 @@ const toBravo = { on: "alpha", far: "bravo", ok: true, user: "me", addr: "10.0.0
   const screen = async (out) => { globalThis.__hc = (args) => (args[0] === "read" ? { code: 0, stdout: out, stderr: "" } : null); const m = await meter("t1"); globalThis.__hc = null; return [m.ask, m.denied]; };
   eq([await screen("me@10.0.0.6's password: \n"), await screen("(me@10.0.0.6) Password:\n\n"), await screen("scp: /home/me/x: Permission denied\r\nx.txt  40%  1MB\n"), await screen("me@10.0.0.6: Permission denied (publickey,password).\r\nme@10.0.0.6's password: ")],
     [[true, false], [true, false], [false, false], [true, true]], "a screen that stands at a password prompt, and one where a login was refused (a file that may not be read is not that)");
+  // scp's meter: how fast, how long is left, and its word for a copy that stopped moving.
+  const read = async (out) => { globalThis.__hc = (args) => (args[0] === "read" ? { code: 0, stdout: out, stderr: "" } : null); const m = await meter("t1"); globalThis.__hc = null; return [m.pct, m.speed, m.eta, m.stalled]; };
+  eq([await read("Makefile                 40%   1MB  11.2MB/s   00:07 ETA\n"), await read("big.iso    3%  512KB   0.0KB/s   --:-- ETA\n"), await read("big.iso   12%    1GB   1.2GB/s 1:02:33 ETA\n"),
+    await read("big.iso   12%  100MB   0.0KB/s - stalled -\n"), await read("done.txt 100%  150MB  12.0MB/s   00:12    \n"), await read("me@10.0.0.6's password: ")],
+    [[40, "11.2MB/s", "00:07", false], [3, "0.0KB/s", null, false], [12, "1.2GB/s", "1:02:33", false], [12, "0.0KB/s", null, true], [100, "12.0MB/s", null, false], [null, null, null, false]],
+    "scp's meter gives the speed and the time left; a time without ETA is how long it took, and is not shown as time left");
 }
 
 // The window with two other machines on show.
@@ -332,19 +514,40 @@ spaces().forEach((s) => { s.active = s.id === "alpha/sp4"; });
 SHARED["glyph.side"] = { on: "bravo", path: "/home/me" };
 delete SHARED["glyph.copies"];
 globalThis.__props = { role: "transfer", overlay: "ov8" };
+delete SHARED["glyph.routes"];
+const heldBefore = held;
+timers.length = 0;
 w = new Transfer(cx);
 root = w.render();
-eq([icons(byId(root, "direct-way")), byId(root, "direct-way").props.tooltip[0], Boolean(byId(root, "direct-key"))], [["ring"], "Asking whether alpha and bravo get to each other", false], "two other machines: the window asks whether they get to each other");
+eq([icons(byId(root, "direct-way")), byId(root, "direct-way").props.tooltip[0], Boolean(byId(root, "direct-key"))], [["ring"], "Checking if direct copy is available", false], "two other machines: the window asks whether one can log in to the other, and says only that it is checking");
+{
+  // The window takes the keyboard as it opens, so that keys stop going to the terminal behind it, and Esc closes it.
+  const pending = timers.length;
+  timers.forEach((fn) => fn(cx));
+  timers.length = 0;
+  CALLS.length = 0;
+  const top = byId(w.render(), "transfer");
+  top.handlers.on_key_down({ key: "a" }, cx);
+  const quiet = CALLS.length;
+  top.handlers.on_key_down({ key: "escape" }, cx);
+  eq([held - heldBefore, pending > 0, Boolean(top.props.track_focus), quiet, CALLS.filter((c) => c[0] === "closeOverlay").map((c) => c[1])], [2, true, true, 0, ["ov8"]], "the window takes the keyboard as it opens and a moment later; a letter does nothing, Esc closes it");
+  CALLS.length = 0;
+}
 await settled();
 root = w.render();
 eq([w.secret.masked, w.secret.placeholder], [true, "password"], "the password field hides what is typed");
-eq([icons(byId(root, "direct-way")), byId(root, "direct-way").props.tooltip[0], Boolean(byId(root, "direct-key"))],
-  [["bolt"], "alpha and bravo get to each other: pick files, then type a password here to copy them straight across", false], "they do: a bolt, and no field until something is picked");
-press(root, "e0-Makefile");
+eq([icons(byId(root, "direct-way")), text(byId(root, "direct-way")), byId(root, "direct-key").children[0].__node.kind, Boolean(byId(root, "send-way"))],
+  [["bolt", "server"], "me @ bravo", "Input", false], "one can: a bolt, the user and the machine whose password a copy takes, and the field, before any row is picked");
+eq(byId(root, "direct-way").props.tooltip[0], "alpha logs in to bravo. Enter me@bravo's password to enable direct copy",
+  "it says which of the two logs in to the other, and what the password does");
+stopped = 0;
+byId(root, "direct-key").handlers["on_mouse_down:left"]({}, cx);
+eq([w.secret.focused, stopped], [1, 1], "a press on the field's box gives it the keyboard, and does not move the window");
+tap(root, "e0-Makefile");
 root = w.render();
-eq([text(byId(root, "direct-way")), Boolean(byId(root, "direct-key")), byId(root, "direct-key").children[0].__node.kind], ["bravo", true, "Input"], "with a row picked: the machine whose password it takes, and the field");
-eq(byId(root, "direct-way").props.tooltip[0], "With me's password on bravo, the copy goes straight from alpha to bravo  ·  scp is started on alpha and is given it at its prompt  ·  it is kept nowhere  ·  left empty, the copy passes through this computer", "it says what the password is for");
-eq(byId(root, "send").props.tooltip[0], "Copy Makefile to bravo  ·  ~  ·  through this computer", "no password: the arrow says the copy passes through this computer");
+eq([text(byId(root, "direct-way")), Boolean(byId(root, "direct-key"))], ["me @ bravo", true], "with a row picked: the same user, machine and field");
+eq([tipOf(root, "send"), icons(byId(root, "send-way")), tipOf(root, "send-way")], [null, ["laptop"], "Through this computer"],
+  "no password: the arrow wears this computer's laptop, which says the copy passes through here");
 // Left empty, the copy is the one there always was.
 ASKS.length = 0;
 click(root, "send");
@@ -359,11 +562,11 @@ globalThis.__hc = (args) => {
   return null;
 };
 delete SHARED["glyph.copies"];
-press(w.render(), "e0-Makefile");
+tap(w.render(), "e0-Makefile");
 w.secret.type("pw -one", cx);
 root = w.render();
-eq([byId(root, "send").props.tooltip[0], byId(root, "direct-key").props.border_color[0], byId(root, "direct-way").props.text_color[0]],
-  ["Copy Makefile to bravo  ·  ~  ·  straight from alpha, with bravo's password", "#cba6f7", "#cba6f7"], "a password typed: the arrow says the copy goes straight, and the bolt lights up");
+eq([byId(root, "direct-key").props.border_color[0], byId(root, "direct-way").props.text_color[0]], ["#cba6f7", "#cba6f7"], "a password typed: the field's border and the bolt light up");
+eq([icons(byId(root, "send-way")), byId(root, "send-way").props.tooltip[0], byId(root, "send-way").props.text_color[0]], [["bolt"], "Direct copy from alpha to bravo", "#cba6f7"], "and the arrow wears a bolt, which says the copy is direct");
 ASKS.length = 0; timers.length = 0; screenNow = "";
 w.secret.submit(cx);
 await settled();
@@ -381,27 +584,32 @@ w.tick(cx);
 await settled();
 root = w.render();
 eq([asked("send").length, asked("kill").length, timers.length], [1, 0, 0], "the prompt still on the screen is not typed into twice");
-eq([icons(byId(root, "copy-alpha/t7")).includes("bolt"), byId(root, "copy-alpha/t7").props.tooltip[0]], [true, "Makefile  ·  alpha → bravo, direct  ·  ~  ·  me@10.0.0.6's password:"], "its pill wears the bolt");
+eq([icons(byId(root, "copy-alpha/t7")).includes("bolt"), byId(root, "copy-alpha/t7").props.tooltip[0]], [true, "Makefile: alpha → bravo, direct, into ~. me@10.0.0.6's password:"], "its pill wears the bolt");
 screenNow = "Makefile                 40%   1MB  11.2MB/s   00:07 ETA\n";
 w.tick(cx);
 await settled();
-eq(text(byId(w.render(), "copy-alpha/t7")), "Makefile bravo 40%", "then scp's percent, as for any copy");
+eq(text(byId(w.render(), "copy-alpha/t7")), "Makefile bravo 40% 11.2MB/s 00:07 left", "then scp's percent, speed and time left, as for any copy");
+screenNow = "Makefile                 40%   1MB   0.0KB/s - stalled -\n";
+w.tick(cx);
+await settled();
+eq(text(byId(w.render(), "copy-alpha/t7")), "Makefile bravo 40% 0.0KB/s stalled", "a copy that stopped moving says so, in scp's word");
 // A window that holds no password for a copy at its prompt says so, and the peek takes the typing.
 screenNow = "me@10.0.0.6's password: ";
 w.fed.clear();
 w.tick(cx);
 await settled();
 root = w.render();
-eq([asked("send").length, byId(root, "copy-alpha/t7").props.tooltip[0]], [1, "Makefile  ·  alpha → bravo, direct  ·  ~  ·  it is asking for bravo's password: click to type it"], "a prompt this window has no password for: the pill asks");
+eq([asked("send").length, byId(root, "copy-alpha/t7").props.tooltip[0]], [1, "Makefile: alpha → bravo, direct, into ~. Click to type bravo's password"], "a prompt this window has no password for: the pill asks");
 CALLS.length = 0;
 click(root, "copy-alpha/t7");
 eq(runs(), [["terminal.peek", { terminal: "alpha/t7" }]], "a click peeks at its terminal, where it can be typed");
 // Files that come from the far machine are a login each: every prompt gets the password, once.
 delete SHARED["glyph.copies"]; sent.push(1);
-press(w.render(), "e1-fieldnotes");
-press(w.render(), "e1-kettle");
+tap(w.render(), "e1-fieldnotes");
+also(w.render(), "e1-kettle");
 root = w.render();
-eq([text(byId(root, "direct-way")), byId(root, "send").props.tooltip[0]], ["bravo", "Copy 2 items to alpha  ·  ~/acme-shop-backend  ·  through this computer"], "the other way round: bravo does not get to alpha, so alpha would fetch, with bravo's password again");
+eq([text(byId(root, "direct-way")), icons(byId(root, "send-way"))], ["me @ bravo", ["laptop"]], "the other way round: bravo can't log in to alpha, so alpha would fetch, with bravo's password again");
+eq(byId(root, "direct-way").props.tooltip[0].split(". ")[0], "alpha logs in to bravo", "and the bolt says which of them logs in");
 w.secret.type("pw two", cx);
 ASKS.length = 0; timers.length = 0; screenNow = "";
 click(w.render(), "send");
@@ -413,8 +621,8 @@ eq([await look("me@10.0.0.6's password: "), await look("me@10.0.0.6's password: 
   [1, 1, 1, 1, 2, 0], "each prompt is typed into once, and after the last the password is let go of");
 // A login that was refused ends the copy: the same password is not tried again.
 delete SHARED["glyph.copies"]; sent.push(1);
-press(w.render(), "e1-fieldnotes");
-press(w.render(), "e1-kettle");
+tap(w.render(), "e1-fieldnotes");
+also(w.render(), "e1-kettle");
 w.secret.type("wrong", cx);
 ASKS.length = 0; timers.length = 0; screenNow = "";
 click(w.render(), "send");
@@ -422,25 +630,64 @@ await settled();
 eq([await look("me@10.0.0.6's password: "), await look("me@10.0.0.6: Permission denied (publickey,password).\r\nscp: Connection closed\r\nme@10.0.0.6's password: "), asked("kill"), w.keys.size],
   [1, 1, [["kill", "alpha/t9"]], 0], "refused: the copy is ended, and nothing more is typed");
 // The password in the field is for one machine: it goes when the field would be for another, or for none.
-press(w.render(), "e0-Makefile");
+tap(w.render(), "e0-Makefile");
 w.secret.type("for bravo", cx);
-press(w.render(), "e0-Makefile");
-eq([w.secret.value(), Boolean(byId(w.render(), "direct-key"))], ["", false], "nothing picked any more: the field goes, and what was typed with it");
-press(w.render(), "e0-Makefile");
+tap(w.render(), "e0-Makefile");
+eq([[...w.sides[0].picked], w.secret.value(), Boolean(byId(w.render(), "direct-key"))], [[], "for bravo", true], "nothing picked any more: the field is still for bravo, and keeps what was typed");
+// Typed before any row is picked, it is the password of the copy that follows.
+ASKS.length = 0; timers.length = 0; screenNow = ""; sent.push(1);
+tap(w.render(), "e0-Makefile");
+click(w.render(), "send");
+await settled();
+eq([asked("run").map((a) => a.slice(0, 3)), w.secret.value(), w.keys.get("alpha/t10")?.secret], [[["run", "--on", "alpha"]], "", "for bravo"], "a password typed first, then a row picked: the copy goes directly with it");
+w.keys.clear(); timers.length = 0;
+delete SHARED["glyph.copies"];
+// Two machines that can each log in to the other: the password is that of the machine the
+// files go to, so with nothing picked the field is for the right side's.
+const bothWays = [{ on: "alpha", far: "bravo", ok: true, user: "me", addr: "10.0.0.6", port: "22", pin: BRAVO }, { on: "bravo", far: "alpha", ok: true, user: "you", addr: "10.0.0.5", port: "22", pin: BRAVO }];
+const oneWay = w.routes.get("alpha\nbravo");
+w.routes.set("alpha\nbravo", { asking: false, at: Date.now(), hops: bothWays });
+w.guard();
+root = w.render();
+eq([text(byId(root, "direct-way")), byId(root, "direct-way").props.tooltip[0].split(". ")[0]],
+  ["me @ bravo", "alpha logs in to bravo"],
+  "both can: with nothing picked, the field is for the machine on the right");
+w.secret.type("for bravo", cx);
+tap(w.render(), "e1-fieldnotes");
+root = w.render();
+eq([text(byId(root, "direct-way")), w.secret.value(), byId(root, "direct-way").props.tooltip[0].split(". ")[0]], ["you @ alpha", "", "bravo logs in to alpha"],
+  "a row picked on the right: the copy would log in to alpha, and bravo's password is not left in the field");
+tap(w.render(), "e1-fieldnotes");
+w.routes.set("alpha\nbravo", oneWay);
+w.guard();
+tap(w.render(), "e0-Makefile");
 w.secret.type("for bravo", cx);
 click(w.render(), "m1-foxtrot");
 await settled();
 root = w.render();
 eq([w.secret.value(), byId(root, "direct-way").props.opacity?.[0], byId(root, "direct-way").props.tooltip[0]],
-  ["", 0.45, "Copies between alpha and foxtrot pass through this computer  ·  alpha to foxtrot: it takes no password  ·  foxtrot to alpha: its scp is OpenSSH 8.2, and 9 or later is needed"], "another machine on show: the field is emptied. Two that do not get to each other: a faint bolt that says why");
-eq([[...w.sides[0].picked], Boolean(byId(root, "direct-key")), byId(root, "send").props.tooltip[0].endsWith("through this computer")], [["Makefile"], false, true], "and, with the row still picked, no field for them");
+  ["", 0.45, "No direct copy. alpha → foxtrot: it takes no password. foxtrot → alpha: its scp is OpenSSH 8.2, and 9 or later is needed"], "another machine on show: the field is emptied. Two of which neither can log in to the other: a faint bolt that says why");
+eq([[...w.sides[0].picked], Boolean(byId(root, "direct-key")), icons(byId(root, "send-way"))], [["Makefile"], false, ["laptop"]], "and, with the row still picked, no field for them");
 click(w.render(), "m1-local");
 await settled();
-eq(Boolean(byId(w.render(), "direct")), false, "this computer on one side: nothing about a straight way");
+eq(Boolean(byId(w.render(), "direct")), false, "this computer on one side: nothing about a direct way");
+// What was learned of two machines is kept for the next window, which shows it at once.
+{
+  const kept = SHARED["glyph.routes"]["alpha\nbravo"];
+  SHARED["glyph.side"] = { on: "bravo", path: "/home/me" };
+  const next = new Transfer(cx);
+  eq([kept.hops.map((h) => Boolean(h.ok)), icons(byId(next.render(), "direct-way")), Boolean(byId(next.render(), "direct-key")), JSON.stringify(SHARED["glyph.routes"]).includes("for bravo")],
+    [[true, false], ["bolt", "server"], true, false], "a window opened again shows the bolt and the field at once, from what the last one learned; no password is kept with it");
+  SHARED["glyph.routes"]["alpha\nbravo"] = { ...kept, at: 1 };
+  const later = new Transfer(cx);
+  const first = icons(byId(later.render(), "direct-way"));
+  await settled();
+  eq([first, SHARED["glyph.routes"]["alpha\nbravo"].at > 1], [["bolt", "server"], true], "an old answer is shown while the machines are asked again, and the new one is kept");
+}
 // The window closing takes its passwords with it.
 click(w.render(), "m1-bravo");
 await settled();
-press(w.render(), "e0-Makefile");
+tap(w.render(), "e0-Makefile");
 w.secret.type("held", cx);
 w.keys.set("alpha/t99", { secret: "held", armed: true, left: 1 });
 w.gone();
@@ -461,12 +708,58 @@ globalThis.__deliver("transfer");
 await settled();
 const spec = { mod: "glyph", kind: "window", key: "glyph.transfer", width: 880, height: 560, props: { role: "transfer" } };
 eq(CALLS.filter((c) => c[0] === "openOverlay"), [["openOverlay", spec], ["openOverlay", spec]], "the button and the key open the one window");
+// Asked for again while the window shows, it closes.
+{
+  const overlays = () => CALLS.filter((c) => c[0].endsWith("Overlay"));
+  globalThis.__props = { role: "transfer", overlay: "ov9" };
+  let open = new Transfer(cx);
+  globalThis.__props = { role: "bar" };
+  CALLS.length = 0;
+  globalThis.__deliver("transfer");
+  await settled();
+  eq(overlays(), [["closeOverlay", "ov9"]], "the key again, with the window on show: it closes");
+  open.gone();
+  CALLS.length = 0;
+  click(bar.render(), "transfer");
+  eq(overlays(), [["openOverlay", spec]], "and once more opens it");
+  globalThis.__props = { role: "transfer", overlay: "ov10" };
+  open = new Transfer(cx);
+  globalThis.__props = { role: "bar" };
+  CALLS.length = 0;
+  click(bar.render(), "transfer");
+  eq(overlays(), [["closeOverlay", "ov10"]], "the button closes it too");
+  CALLS.length = 0;
+  click(bar.render(), "transfer");
+  eq(overlays(), [["openOverlay", spec]], "a window that did not go when told is not asked twice: the next press opens one");
+  open.gone();
+  globalThis.__props = { role: "transfer", overlay: "ov11" };
+  open = new Transfer(cx);
+  open.gone();
+  globalThis.__props = { role: "bar" };
+  CALLS.length = 0;
+  globalThis.__deliver("transfer");
+  await settled();
+  eq(overlays(), [["openOverlay", spec]], "a window closed by its own x: the key opens it again");
+  // What a copy's notice sends when clicked: it opens the window, and leaves an open one alone.
+  CALLS.length = 0;
+  globalThis.__deliver("transfer-show");
+  await settled();
+  eq(overlays(), [["openOverlay", spec]], "a clicked notice opens the window");
+  globalThis.__props = { role: "transfer", overlay: "ov12" };
+  open = new Transfer(cx);
+  globalThis.__props = { role: "bar" };
+  CALLS.length = 0;
+  globalThis.__deliver("transfer-show");
+  await settled();
+  eq(overlays(), [], "and does nothing when it shows already");
+  open.gone();
+}
 const copy = (id, more = {}) => ({ id, from: null, to: "alpha", dir: SHOP, name: "import.py", n: 2, one: false, at: Date.now() - 5000, ...more });
 const scp = { key: "program", name: "scp", icon: null, shell: false, agent: false };
 terminals().push({ address: "t70", state: "live", status: null, parent: null, program: scp, report: {} });
 SHARED["glyph.copies"] = [copy("t70"), copy("t71", { at: Date.now() }), copy("t72", { failed: "scp: nope" })];
 root = bar.render();
-eq(byId(root, "transfer").props.tooltip[0], "Copy files between machines  ⇧⌘T  ·  2 under way  ·  1 failed", "it counts the copies");
+eq(byId(root, "transfer").props.tooltip[0], "Copy files between machines  ⇧⌘T, 2 under way, 1 failed", "it counts the copies");
 ASKS.length = 0; CALLS.length = 0;
 bar.look(cx);
 await settled();
@@ -485,7 +778,7 @@ bar.look(cx);
 await settled();
 eq(asked("get").map((a) => a[1]), ["t73", "t74", "t75", "t76"], "copies whose terminals are no longer live are asked about");
 eq(said(), [["success", "Copied import.py +1"], ["error", "Could not copy x"]], "the bar says how each ended");
-eq(CALLS.filter((c) => c[0] === "notify").map((c) => [c[1].body, c[1].action]), [["This Mac → alpha  ·  ~/acme-shop-backend", { name: "glyph.transfer" }], ["scp: /home/me/x: No space left on device", { name: "glyph.transfer" }]], "where it went, or scp's last line; a click on either opens the window");
+eq(CALLS.filter((c) => c[0] === "notify").map((c) => [c[1].body, c[1].action]), [["This Mac → alpha, into ~/acme-shop-backend", { name: "glyph.transfer-show" }], ["scp: /home/me/x: No space left on device", { name: "glyph.transfer-show" }]], "where it went, or scp's last line; a click on either opens the window");
 eq([asked("rm"), SHARED["glyph.copies"].map((c) => [c.id, c.failed ?? null])], [[["rm", "t73"]], [["t74", "scp: /home/me/x: No space left on device"], ["t75", null]]], "done: forgotten, its terminal removed. Failed: kept. Still live: kept. Gone from hc: forgotten");
 ASKS.length = 0; CALLS.length = 0;
 bar.render();
@@ -497,7 +790,7 @@ bar.render();
 bar.look(cx);
 await settled();
 eq(asked("get").map((a) => a[1]), ["t75"], "one hc still calls live is asked again later");
-// A straight copy whose login was refused says so by the machine's name; a host key that is
+// A direct copy whose login was refused says so by the machine's name; a host key that is
 // not the one on record is said as ssh says it.
 globalThis.__hc = (args) => {
   if (args[0] === "get") return { code: 0, stdout: JSON.stringify({ state: "finished", exit_code: 1 }), stderr: "" };
@@ -508,7 +801,13 @@ globalThis.__hc = (args) => {
 SHARED["glyph.copies"] = ["alpha/t80", "alpha/t81", "alpha/t82"].map((id) => copy(id, { from: "alpha", to: "bravo", direct: "bravo" }));
 for (const c of SHARED["glyph.copies"]) await settle(c);
 eq(SHARED["glyph.copies"].map((c) => c.failed), ["bravo did not take the password", "Host key verification failed.", "ended at bravo's password prompt"],
-  "a straight copy that was refused says which machine refused; a wrong host key is told as ssh tells it; one ended at its prompt says that");
+  "a direct copy that was refused says which machine refused; a wrong host key is told as ssh tells it; one ended at its prompt says that");
+// A copy between two other machines that ended well says which way it went.
+globalThis.__hc = (args) => (args[0] === "get" ? { code: 0, stdout: JSON.stringify({ state: "finished", exit_code: 0 }), stderr: "" } : null);
+SHARED["glyph.copies"] = [copy("alpha/t83", { from: "alpha", to: "bravo", direct: "bravo" }), copy("t84", { from: "alpha", to: "bravo" })];
+CALLS.length = 0;
+for (const c of [...SHARED["glyph.copies"]]) await settle(c);
+eq(CALLS.filter((c) => c[0] === "notify").map((c) => c[1].body), ["alpha → bravo, direct, into ~/acme-shop-backend", "alpha → bravo, through this computer, into ~/acme-shop-backend"], "the notice of a copy between two other machines says which way it went");
 // A copy dismissed while hc was being asked how it ended is not told.
 SHARED["glyph.copies"] = [];
 CALLS.length = 0;

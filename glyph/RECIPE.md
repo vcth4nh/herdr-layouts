@@ -61,13 +61,16 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
   - The way down to the folder on show, at 12px, starting from the house or from "/".
   - The folder as a card of 26px rows: a folder or file icon, the name at 12.5px, a file's size at 11px, a folder's chevron. Folders come first, and names that start with a dot come last and dim.
 - A picked row is tinted with the accent (`#cba6f7` at 20%).
-- The arrow is dashed, with two opposed arrows, while nothing is picked. With rows picked it is filled with the accent and points at the other side.
+- The arrow is dashed, with two opposed arrows, while nothing is picked. With rows picked it is filled with the accent and points at the other side. With more than one picked it wears their number in a 16px badge.
+- Between two other machines the arrow wears a second 16px badge at its foot, for the way the copy would go: a laptop while it would pass through this computer, a bolt in the accent once a password is typed in the head's field (below) and it would be a direct copy.
+- Picked rows being carried to the other side are faint in their place. A 26px chip by the pointer shows the first of them and how many more. While they are over the other side, its list is filled with the accent at 10%.
 - The side that would take the files gets an accent border. Dashed rows on top of its list are what would land there, at most four and then a count. A row that would be replaced gets a dashed outline.
-- A copy under way is a pill in the head: a 16px orb with an arrow and the turning blue arc, its first name and how many more, the machine it goes to, and scp's percent for a single file. One that failed wears the peach ring and "!".
-- A straight copy goes from one other machine to another without passing through this computer, and takes a password ("Moving files" below). It has a bolt in its orb, not an arrow.
-- A straight copy that stands at its password prompt with no password in the window to type for it, as after the window was closed and opened again, wears the peach ring and "!" too.
-- With two other machines on the sides, the head ends in a 14px bolt: a turning ring while the window asks whether the two reach each other, then the bolt, faint when they don't.
-- With rows picked, when one of the two machines can log in to the other by password, the bolt is followed by a server icon, the name at 12px of the machine whose password is needed, and a field 150px wide that shows dots for what is typed. The bolt and the field's border take the accent once something is typed.
+- A copy under way is a pill in the head: a 16px orb with the turning blue arc, its first name and how many more, the machine it goes to, and scp's own figures at 11.5px: its speed, and for a single file its percent before that and the time left after ("42%  11.2MB/s  00:07 left"). One that failed wears the peach ring and "!".
+- The picture in the orb is the way the copy goes: an arrow when this computer is one of its two ends, a laptop when it passes through this computer between two other machines, and a bolt when it goes directly from one of them to the other.
+- A direct copy does not pass through this computer, and takes a password ("Moving files" below).
+- A direct copy that stands at its password prompt with no password in the window to type for it, as after the window was closed and opened again, wears the peach ring and "!" too.
+- With two other machines on the sides, the head ends in a 14px bolt: a turning ring while the window asks whether one of the two can log in to the other, then the bolt, faint when neither can.
+- When one of them can, by password, the bolt is followed by a server icon, whose password a copy takes, written `user@machine` at 12px, and a field 150px wide that reads "password" and shows dots for what is typed. The bolt and the field's border take the accent once something is typed.
 
 ## How it behaves
 
@@ -88,7 +91,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Click the project's name in the bar, or search, or press ⌘P, for the Go-to list. It opens on the shown tab.
 - Type in it to narrow the list: every word typed must be in a tab's label, its agent's title, its project, its machine or its program. ↑ and ↓ move, and Enter or a click shows the picked tab. A click on a project's line shows that project. Esc or ⌘P again closes the list.
 - Scroll over the bar to step through its tabs.
-- Hover anything for its words: a tab's title, project, machine, state, how long, and how many sub-agents; a sub-agent's name, title and state.
+- Hover a tab or a sub-agent for its words: a tab's title, project, machine, state, how long, and how many sub-agents; a sub-agent's name, title and state.
 
 **Tabs**
 
@@ -126,21 +129,33 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 **Moving files**
 
-- The transfer button in the bar, or ⇧⌘T, opens the transfer window. Its left side opens at the shown tab's folder. Its right side opens where it was left. The first time that is this computer's home, or from this computer the first other machine's.
+- The transfer button in the bar, or ⇧⌘T, opens the transfer window, and closes it when it is on show. Its left side opens at the shown tab's folder. Its right side opens where it was left. The first time that is this computer's home, or from this computer the first other machine's.
 - Click a machine's chip for its home, a tile for that place, a part of the way down to go back up, and its last part to read the folder again.
-- Click a row to pick it, and more rows for more. A folder opens by its chevron or a double-click. A pick on one side lets go of what was picked on the other.
+- A folder opens by its chevron or a double-click.
+- Picking rows works as in a file manager:
+  - Click a row to pick it alone.
+  - ⇧-click to pick every row from the last one clicked to this one. With ⌘ held too, they are added to what is picked.
+  - ⌘-click (Ctrl-click on Linux and Windows) to pick one more row, or to let one go.
+  - Hold a row and move down or up the list to sweep: every row from the held one to the pointer is picked.
+  - Click the one picked row, or the empty part of a list, to let go of everything.
+  - A pick on one side lets go of what was picked on the other.
 - Click the arrow to copy what is picked into the other side's folder. It is a copy: nothing is removed from where it was.
-- When a picked name is already there, the first press turns the arrow and those rows red, and a second press within 3 s replaces them.
+- Or carry the picked rows across: hold one of them, move to the other side and let go there. A row that is not picked is picked and carried by itself when the pointer moves sideways first. Let go anywhere else, nothing is copied.
+- When a picked name is already there, the first press turns the arrow and those rows red, and a second press within 3 s replaces them. Rows let go on the other side count as a press of the arrow.
 - Drop files from outside Herdr (Finder) on a side to copy them into its folder. A drop replaces nothing: if a name is already there it copies nothing and says so.
-- A copy between two other machines passes through this computer, unless you give it a password. When one of the two can log in to the other with a password, picking rows brings up a field in the head, beside the name of the machine whose password it asks for. Hover the name for the user.
-- With the password typed, the arrow, or Enter in the field, starts the copy on one of the two machines, and the files go straight to the other. Left empty, the copy passes through this computer.
-- The password is for that one copy. The field empties as the copy starts, and again when another machine or no row is picked.
+- A copy between two other machines passes through this computer, unless you give it a password. When one of the two can log in to the other with a password, the head shows a field beside the name of the machine whose password it asks for.
+- One of the two is enough. The machine that can log in runs the copy either way: it sends its files to the other, or fetches the other's. The user it logs in as is written before the other machine's name. Hover the bolt for which machine logs in to which.
+- Click the field and type the password. The arrow, or Enter in the field, then starts the copy on one of the two machines, and the files go directly to the other. Left empty, the copy passes through this computer.
+- Which way a copy goes is on show. Before it starts, the badge at the arrow's foot is a laptop for through this computer, or a bolt for a direct copy. While it runs, its pill wears the same laptop or bolt. The notice it gives when it ends says "direct" or "through this computer".
+- What the window learns about two machines is kept. Opened again, it shows the bolt and the field at once, and asks the machines again behind that when the answer is over five minutes old.
+- The password is for that one copy. The field empties as the copy starts, and whenever it would be for another machine.
 - A wrong password ends the copy, and it is not tried a second time.
 - A pill that turns peach while its copy is under way is waiting for its password: click it and type it in Herdr's peek.
 - A copy goes on when the window closes and when Herdr quits. When it ends a notice says how, and the folders on show are read again.
 - A copy that failed stays in the head. Hover it for scp's last line, click it to dismiss it.
 - Click a copy under way for Herdr's peek at its terminal: scp's own meter, and the way to end it.
-- Drag the window by its head or by any spot that is not a control. Its × closes it.
+- The window takes the keyboard when it opens, so nothing typed reaches the terminal behind it. Click a terminal to type there again.
+- Drag the window by its head or by any spot that is not a control. Its × or Esc closes it.
 
 ## Built from
 
@@ -171,7 +186,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 - Reads: `spaces`, `panes`, `terminals`, `agents`, `machines`, `focused`, `layout`, `window`, `settings`, `keys`, `updates`, `theme`, `props`, `knownAgents`.
 - Calls: `run`, `hc`, `exec`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`.
-- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left).
+- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
 - Kept in the rail's `localStorage`: `seen` (since when each tab has rested) and `folded` (the folded machines). Each place the layout puts the mod is a copy with a `localStorage` of its own.
 - Commands: `tab.select`, `tab.new`, `tab.close`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
 - Herdr's own mods, opened as they are: `menu` (the project menu), `prompt` (rename), `new-menu`, `machine-add`, `files`, `changes`.
@@ -185,14 +200,16 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - With two other machines on the sides, the window finds out whether one can log in to the other:
   - On this computer it runs `ssh -G` for how ssh reaches each machine (user, name, port), `ssh-keygen -F` for the host key on record here, and `getent hosts` or `dscacheutil` for the address behind the name.
   - On each of the two, through Herdr's `exec`, it runs `ssh -V` and one `ssh` to the other with no key, no agent and no password. That attempt is refused, and the refusal says whether the other machine was reached and takes passwords.
-- A straight copy is `scp -r` started on one of the two machines with `hc run --on <machine>` and the same labels. It is given `-F none`, `PubkeyAuthentication=no`, `IdentityAgent=none`, `ControlMaster=no`, `NumberOfPasswordPrompts=1`, and `KnownHostsCommand=/bin/echo * <key>` with empty known-hosts files, so it reads none of that machine's ssh settings and accepts only the host key this computer has on record.
+- A direct copy is `scp -r` started on one of the two machines with `hc run --on <machine>` and the same labels. It is given `-F none`, `PubkeyAuthentication=no`, `IdentityAgent=none`, `ControlMaster=no`, `NumberOfPasswordPrompts=1`, and `KnownHostsCommand=/bin/echo * <key>` with empty known-hosts files, so it reads none of that machine's ssh settings and accepts only the host key this computer has on record.
 - The window types the password into that scp's prompt with `hc send`, and ends a copy whose login was refused with `hc kill`.
-- The mod opens no connection of its own. scp connects to your machines over ssh with your keys, and reads and writes the files you pick. In a straight copy, scp on one of your machines connects to the other with the password you typed. Besides that the mod reads the names and sizes in the folders you browse, the host keys in your known-hosts files, and no other file outside Herdr's home.
+- The mod opens no connection of its own. scp connects to your machines over ssh with your keys, and reads and writes the files you pick. In a direct copy, scp on one of your machines connects to the other with the password you typed. Besides that the mod reads the names and sizes in the folders you browse, the host keys in your known-hosts files, and no other file outside Herdr's home.
 - The password is kept in the window's memory until scp's last prompt has it, or the window closes. It is in no shared value, no `localStorage` and no file.
 
 **Keys**
 
 `keys.json` holds a `layout:glyph` section. Each action is a command the bar waits for with `nextCommand()`: `rename`, `new`, `new-<key>` for any agent key in Herdr's program table, `close`, `close-pane`, `transfer`, `goto`.
+
+One more command has no key: `transfer-show`, which a copy's notice sends when it is clicked. It opens the transfer window and leaves an open one alone.
 
 ## Watch out
 
@@ -244,17 +261,30 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 - scp has to be OpenSSH 9 or later on this computer: from then on it speaks SFTP and takes a path as it is written. A source name on another machine is still matched there as a pattern, so `\ * ? [ ] { }` in it are escaped.
 - A machine is reached by the ssh target `hc machine ls` gives for it. A machine added with `hc machine add --via`, which is reached by a command instead of ssh, has none, and can't be copied to or from. Two machines on different ssh ports can't be paired in one copy.
-- A copy between two other machines passes through this computer (`-3`), so the two need not reach each other, and this computer has to stay on until it ends. It is as fast as the slower of the two links. A straight copy (below) does not pass through here.
-- scp runs with `BatchMode=yes`, except in a straight copy. A machine that would ask for a password or a passphrase fails at once, and the failed copy says so.
-- scp replaces a file of the same name without asking. The two presses are the mod's own, from the names the other side showed when it was last read. A drop is one gesture, so it replaces nothing.
+- A copy between two other machines passes through this computer (`-3`), so the two need not reach each other, and this computer has to stay on until it ends. It is as fast as the slower of the two links. A direct copy (below) does not pass through here.
+- scp runs with `BatchMode=yes`, except in a direct copy. A machine that would ask for a password or a passphrase fails at once, and the failed copy says so.
+- scp replaces a file of the same name without asking. The two presses are the mod's own, from the names the other side showed when it was last read. A drop from outside Herdr is one gesture, so it replaces nothing.
 - A copy is not a tab and gets no row in the rail: its terminal has no pane and no parent. `hc ls --all --label glyph.copy=1` lists the copies hc still has.
 - The bar says how a copy ended. With another layout on show the copy still runs, and its notice comes when glyph shows again.
-- scp's percent is for the file it is on, so the pill shows it for a single file only.
+- scp's percent and time left are for the file it is on, so the pill shows them for a single file only. Its speed is shown for any copy. A copy that scp calls stalled says "stalled" in peach where the time left would be.
 - Folders are read by the machine's own `sh`, so only Unix machines can be browsed. A folder shows its first 1000 entries. A size comes from `ls -l`, and a name with a line break in it shows none.
 - The app sorts text by letter codes, every capital before every small letter. The mod sorts names itself, whatever their case and with numbers by value.
-- Herdr's manual says a window overlay does not take the keyboard when it opens, and the mod never asks for it, so the window has no keys of its own apart from its password field. A layout switch closes it.
+- Herdr's manual says a window overlay does not take the keyboard when it opens, and that a mod may. The window takes it as it starts and again 300 ms later, and the password field takes it at a press on the field. Esc is the window's only key besides that field. A layout switch closes it.
+- ⇧ and ⌘ work without the keyboard: every press tells the mod which keys were held.
+- The window is closed by the bar. The window notes its overlay in a variable of `copy.js` when it starts and clears it when Herdr calls its `close()`, and copies of a mod share its modules. The bar forgets that overlay as it asks for it to close, so a window that did not go is opened again by the next press, not asked twice.
 
-**Straight between two machines**
+**Picking and carrying rows**
+
+- A mod is told of a press, of moves over whatever is under the pointer, and of a release over the element the pointer is on. It is not told whether a button is down during a move. So while a row is held, every move heard in the window counts as made with the button down.
+- A hold ends when the button comes up anywhere in the window. It also ends at the next press on a row or a control, 400 ms after the pointer leaves the window unless it comes back, and when 15 s pass without a move heard. A release outside the window is never heard, and copies nothing.
+- A press becomes more than a click once the pointer is 5px from where it went down. Down or up first makes it a sweep, sideways first a carry. A row that was picked before the press is carried whichever way the pointer goes, so several picked rows can be taken by any one of them.
+- A sweep never copies, wherever it is let go. Only a carry let go over the other side does.
+- A list does not scroll by itself during a sweep. For rows out of sight, click the first, scroll, and ⇧-click the last.
+- The empty part of a list is an element after its rows that takes the height they leave. A full list has none, and then ⌘-click or a click on the one picked row lets go.
+- There is no z-order, so the chip of what is carried is drawn last, over everything else in the window.
+- A press on a row or on the empty part of a list is the mod's own, so the window is not dragged from there.
+
+**Direct copies between two machines**
 
 - No machine is given a lasting way into another: no key is installed and no agent is forwarded. The password is asked for each copy.
 - It needs three things, and the bolt is faint, with the reason on hover, when one is missing:
@@ -267,14 +297,14 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - A refused login ends the copy before scp can ask again, so one wrong password is one failed login on that machine, not one per item.
 - The password is handed to `hc send` as an argument. Whether another program on this computer can read it there was not tried.
 - Closing the window forgets the passwords it held. A copy left at a prompt waits until that machine's ssh server gives up on the login (`LoginGraceTime`, two minutes by default) and is then told as failed. Until then its pill's peek takes the password. This wait was not tried.
-- A straight copy's terminal belongs to herdr-core on the machine that runs it, and its address starts with that machine's name (`alpha/t7` is terminal t7 on a machine named alpha). So the copy goes on when this computer sleeps. The bar says how it ended once Herdr reaches that machine again.
-- The password field shows only with rows picked, because the machine it is for depends on which way the copy goes.
+- A direct copy's terminal belongs to herdr-core on the machine that runs it, and its address starts with that machine's name (`alpha/t7` is terminal t7 on a machine named alpha). So the copy goes on when this computer sleeps. The bar says how it ended once Herdr reaches that machine again.
+- The password is that of the machine that is logged in to. When only one of the two can log in to the other, that is the same machine whichever way the files go. When each can, it is the machine the files go to: with nothing picked the field is for the machine on the right, and rows picked on the right turn it to the machine on the left and empty it.
 
 **Limits**
 
 - The launcher pill shows at most four agents.
 - The rail's default must stay labelled. A rail of logos alone did not say which agent was which.
-- Not built: git ahead and behind counts, dragging to reorder projects, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting, typing a path, and a straight copy by key or forwarded agent. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
+- Not built: git ahead and behind counts, dragging to reorder projects, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting, typing a path, picking with the keyboard, carrying rows onto a folder's row or out of the window, and a direct copy by key or forwarded agent. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
 - Built and checked on macOS with herdr-app 0.1.15. The window buttons for Linux and Windows have never been drawn there.
 - The mod runs under any theme, but the hues, the ink on filled tiles and the focus border were picked for a dark one.
 
@@ -292,7 +322,10 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - ⌘W on the page closes the project, and the next project shows its first tab.
 - Folding a machine hides its projects and shows the strip of their states.
 - ⌘P opens the Go-to list on the shown tab. An agent's tab nobody named is listed by its agent's title, never by its number. Typing narrows the list, and Enter shows the picked tab.
-- The transfer button opens a window with a folder of one machine on each side. Picking a file and pressing the arrow copies it to the other side: a pill turns in the window's head and an arc around the bar's button, and a notice says "Copied" with its name once the file is in the other folder.
+- The transfer button opens a window with a folder of one machine on each side. Picking a file and pressing the arrow copies it to the other side: a pill turns in the window's head, with scp's percent, speed and time left, and an arc around the bar's button, and a notice says "Copied" with its name once the file is in the other folder.
 - Picking a name that is already on the other side turns the arrow red at the first press, and copies at the second.
-- With two other machines on the sides, one of which can log in to the other by password, the head shows a bolt, and picking a file adds that machine's name and a password field. With the field empty the arrow starts `scp -3` on this computer.
-- With the password typed, the arrow starts scp on one of the two machines (`hc get` on the copy's address, `machine/t…`, shows it), its pill has a bolt, and the file lands on the other machine. A wrong password ends the copy with a notice that names the machine that refused it.
+- ⇧⌘T with the transfer window on show closes it.
+- A click on a row and a ⇧-click on another pick every row between them, and the arrow shows how many. Holding a row and moving down the list picks the rows passed.
+- Holding a picked row, moving to the other side and letting go there starts the same copy the arrow would. Let go on its own side, nothing is copied.
+- With two other machines on the sides, one of which can log in to the other by password, the head shows a bolt, the other machine's name and a password field. With a file picked and the field empty, the arrow wears a laptop and starts `scp -3` on this computer.
+- With the password typed, the arrow wears a bolt and starts scp on one of the two machines (`hc get` on the copy's address, `machine/t…`, shows it), its pill has a bolt, and the file lands on the other machine. A wrong password ends the copy with a notice that names the machine that refused it.

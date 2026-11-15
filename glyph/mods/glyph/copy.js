@@ -6,9 +6,9 @@
 // machines passes through this computer, so those two need not reach each other.
 // Shared COPIES lists the copies under way and the ones that failed. The bar says how each
 // one ended (settle): one that went well is forgotten, one that failed stays until dismissed.
-// Two other machines can also copy straight to each other, given a password: see hops().
+// Two other machines can also copy directly to each other, given a password: see hops().
 
-import { hc, exec, shared, setShared, notify, openOverlay } from "herdr";
+import { hc, exec, shared, setShared, notify, openOverlay, closeOverlay } from "herdr";
 import { tilde, here } from "./data.js";
 
 export const COPIES = "glyph.copies";
@@ -21,6 +21,10 @@ export const join = (dir, name) => (dir.endsWith("/") ? dir : dir + "/") + name;
 export const nameOf = (machine) => machine ?? here();
 // What a copy carries, in a few words: its first name, and how many more.
 export const what = (c) => c.name + (c.n > 1 ? ` +${c.n - 1}` : "");
+// Whether a copy goes from one other machine to another through this computer.
+export const through = (c) => c.from !== null && c.to !== null && !c.direct;
+// Where a copy goes from and to, and by which way when both are other machines.
+export const wayOf = (c) => `${nameOf(c.from)} → ${nameOf(c.to)}${c.direct ? ", direct" : through(c) ? ", through this computer" : ""}`;
 const lines = (out) => (out ?? "").split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
 const lastLine = (out) => lines(out).pop() ?? "";
 // The letters a source on another machine is matched by, as a pattern, over there.
@@ -37,10 +41,27 @@ export function bytes(n) {
   return (i === 0 || v >= 10 ? String(Math.round(v)) : v.toFixed(1)) + units[i];
 }
 
-// The transfer window: one, floating over the layout; opening it again puts it back where
-// it was left, with its left side where you are now.
+// The transfer window: one, floating over the layout. It opens where it was left, with its
+// left side where you are now. Asked for again while it shows, it closes, as the Go-to
+// list does. `shown` is the overlay of the window on show: the window says when it comes
+// and goes (shownTransfer, goneTransfer), and the bar asks. It is forgotten as the window
+// is told to close, so a window that did not hear is opened afresh by the next press.
+let shown = null;
 export function openTransfer() {
-  openOverlay({ mod: "glyph", kind: "window", key: "glyph.transfer", width: 880, height: 560, props: { role: "transfer" } });
+  const id = shown;
+  shown = null;
+  if (id) closeOverlay(id);
+  else openOverlay({ mod: "glyph", kind: "window", key: "glyph.transfer", width: 880, height: 560, props: { role: "transfer" } });
+}
+// For a notice that was clicked: the window, opened unless it shows already.
+export function showTransfer() {
+  if (!shown) openTransfer();
+}
+export function shownTransfer(id) {
+  shown = id ?? null;
+}
+export function goneTransfer(id) {
+  if (shown === id) shown = null;
 }
 
 // What a folder holds, asked of its machine's own sh: the folder ("" is home) and home as
@@ -128,7 +149,7 @@ export function scpArgs(job, machines) {
   ];
 }
 
-// Straight from one machine to another, not through this computer. No machine is given a
+// Directly from one machine to another, not through this computer. No machine is given a
 // standing way into another: the copy is one scp started on one of the two (`hc run --on`),
 // which asks for the other's password on its terminal, where the window types the one it
 // was given for that copy. That scp reads none of its machine's ssh settings, tries no key
@@ -204,7 +225,7 @@ async function probe(on, f) {
   }
 }
 
-// The two ways files could go straight between machines a and b: scp started on a, logging
+// The two ways files could go directly between machines a and b: scp started on a, logging
 // in to b, and the other way round. Each is { on, far } and, when that works, ok with the
 // far machine's user, address, port and host key (pin); else `why` it does not.
 export async function hops(a, b, machines) {
@@ -228,7 +249,7 @@ export async function hops(a, b, machines) {
 // gets to the other (one login, whatever is picked), else on the machine they go to.
 export const hopFor = (list, from) => list?.find((h) => h.ok && h.on === from) ?? list?.find((h) => h.ok) ?? null;
 
-// The scp of a straight copy, as it is started on hop.on. The files are there, or come
+// The scp of a direct copy, as it is started on hop.on. The files are there, or come
 // from the far machine, where each one is a login of its own.
 export function directArgs(job, hop) {
   const far = (path, source) => `${hop.user}@${hop.addr.includes(":") ? `[${hop.addr}]` : hop.addr}:${source ? path.replace(PATTERN, "\\$&") : path}`;
@@ -242,7 +263,7 @@ export const copies = () => shared(COPIES) ?? [];
 const keep = (list) => setShared(COPIES, list);
 
 // Starts a job and lists it. `one`: it is a single plain file, so scp's percent is its own.
-// `hop`: straight between the two machines, that way (a copy lists the far machine as
+// `hop`: directly between the two machines, that way (a copy lists the far machine as
 // `direct`); without it, through this computer. Rejects when it can't start.
 export async function startCopy(job, machines, one = false, hop = null) {
   const argv = hop ? directArgs(job, hop) : scpArgs(job, machines);
@@ -262,7 +283,7 @@ export async function startCopy(job, machines, one = false, hop = null) {
   return id;
 }
 
-// Types a straight copy's password into scp's prompt, and Enter. It goes to that terminal,
+// Types a direct copy's password into scp's prompt, and Enter. It goes to that terminal,
 // which does not show it, and nowhere else.
 export const feed = (id, secret) => hc(["send", "--force", "--", id, secret]);
 // Ends a copy under way: the bar then tells it as failed.
@@ -274,14 +295,21 @@ export function dropCopy(id) {
   hc(["rm", id]).catch(() => {});
 }
 
-// How far a copy under way says it is: scp's meter, as its terminal shows it. `ask`: it
-// stands at a password prompt. `denied`: a login was refused (a file that may not be read
-// says "Permission denied" too, without the ways to log in after it).
+// How far a copy under way says it is: scp's meter, as its terminal shows it. `speed` and
+// `eta` are scp's own words ("11.2MB/s", and "00:07" before its "ETA"), and `stalled` is
+// its "- stalled -", for when nothing has moved in a while. `ask`: it stands at a password
+// prompt. `denied`: a login was refused (a file that may not be read says "Permission
+// denied" too, without the ways to log in after it).
 export async function meter(id) {
   const r = await hc(["read", id, "--lines", "0"]);
   const line = lastLine(r.stdout).replace(/\s+/g, " ");
   const m = /(\d{1,3})%/.exec(line);
-  return { line, pct: m ? Number(m[1]) : null, ask: /password[^:]*:$/i.test(line), denied: /Permission denied \(/.test(r.stdout) };
+  const speed = /(\d+(?:\.\d+)?) ?([KMGT]?B\/s)/.exec(line);
+  const eta = /(\d+:\d\d(?::\d\d)?) ETA/.exec(line);
+  return {
+    line, pct: m ? Number(m[1]) : null, speed: speed ? speed[1] + speed[2] : null, eta: eta ? eta[1] : null, stalled: /- stalled -/.test(line),
+    ask: /password[^:]*:$/i.test(line), denied: /Permission denied \(/.test(r.stdout),
+  };
 }
 
 // A copy whose terminal is no longer live has ended: says how, once. Asked too early (hc
@@ -305,11 +333,11 @@ export async function settle(c) {
   if (fact.state === "live") return;
   // Dismissed while hc was being asked: there is nothing left to tell.
   const listed = () => copies().some((x) => x.id === c.id);
-  const open = { name: "glyph.transfer" };
+  const open = { name: "glyph.transfer-show" };
   if (fact.exit_code === 0) {
     if (!listed()) return;
     keep(copies().filter((x) => x.id !== c.id));
-    notify({ title: `Copied ${what(c)}`, body: `${nameOf(c.from)} → ${nameOf(c.to)}  ·  ${tilde(c.dir)}`, level: "success", action: open });
+    notify({ title: `Copied ${what(c)}`, body: `${wayOf(c)}, into ${tilde(c.dir)}`, level: "success", action: open });
     await hc(["rm", c.id]);
     return;
   }

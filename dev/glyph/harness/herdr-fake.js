@@ -3,7 +3,7 @@
 const ROLE = "__ROLE__";
 const ACTIVE = "__ACTIVE__";
 // Copies under way and one that failed, as the transfer window started them: false, true,
-// or "direct" for one that goes straight between two other machines, which are then the
+// or "direct" for one that goes directly between two other machines, which are then the
 // two the window shows.
 const COPYING = __COPIES__;
 const THEME = __THEME__;

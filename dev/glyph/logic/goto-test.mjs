@@ -50,7 +50,7 @@ const fresh = () => {
   eq(a.g.scroll.asked, [14], "and asks for that row to be in sight");
   fire(600);
   eq(a.g.scroll.asked, [14, 14], "once more when the popup has been laid out");
-  eq(byId(a.root, "go-tb3").props.tooltip[0], "Stock importer: supplier detection  ·  inventory-and-order-reports  ·  needs you", "hovering a row says the rest");
+  eq(byId(a.root, "go-tb3").props.tooltip[0], "Stock importer: supplier detection, inventory-and-order-reports, needs you", "hovering a row says the rest");
   // A scrolling area has no height of its own: the list is given one, and no more than 520.
   eq(byId(a.root, "go-list").props.h[0], 520, "a long list is as tall as it may be, and scrolls");
   a.type("bravo");

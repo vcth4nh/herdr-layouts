@@ -10,11 +10,14 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-14). Rec
 - To share a row's width fairly, give the row a definite width (`flex_1`) and give each item `flex_grow(1).flex_basis(0).max_w(<its own width>)`.
 - Slides: `.relative().left(n).transition("left", {duration, easing})` animates between renders. The animation is tied to the element's id.
 - There is no z-order: whatever must be on top has to be drawn last.
+- A `flex_1` child after the rows of an `overflow_y_scrollbar` column takes the height the rows leave: 3px under 14 rows of glyph's transfer window, 0 under a list that scrolled (measured with `on_size_change`, 2026-11-15).
 - A popup opened without a fixed size is as tall as what it holds. A scrolling area (`overflow_y_scrollbar`) adds no height of its own: with only `max_h` it collapsed to nothing (seen 2026-11-14). Give it a height, the sum of its rows up to a cap, as the shipped `picker` does.
 
 ## Input
 
-- There is no pointer capture and no drag API. An element gets moves only while hovered (`on_mouse_move`) and a release only over itself (`on_mouse_up`). It gets `on_hover(false)` when the pointer leaves, even with a button held. Herdr's own `tabs` and `spaces` mods use the same hooks. "Watch out" in glyph/RECIPE.md says how the glyph bar copes.
+- There is no pointer capture and no drag API. An element gets moves only while hovered (`on_mouse_move`) and a release only over itself (`on_mouse_up`). It gets `on_hover(false)` when the pointer leaves, even with a button held. Herdr's own `tabs` and `spaces` mods use the same hooks. "Watch out" in glyph/RECIPE.md says how the glyph bar and the transfer window cope.
+- A move does not say whether a button is down: `MouseMoveEvent` in `gpui-kit.d.ts` has `position`, `local_position`, `bounds` and `modifiers`. A mod that follows a held button has to remember the press and end the hold itself.
+- A press, a release and a move carry the keys held (`event.modifiers`: `shift`, `control`, `alt`, `platform`), by `gpui-kit.d.ts`. A mod that does not hold the keyboard can still tell a Shift-click. Not tried with a real key.
 - When one mod fills several roles, `<mod>.<command>` keys go to whichever copy awaits `nextCommand()`, as the shipped `win98` does.
 - A `layout:<name>` section in `keys.json` binds keys only while that layout shows, and wins over `global`. Settings has no key editor; `keys.json` is where keys are set.
 - `herdr-app do <mod>.<command>` sends a mod the same command its key would. That tests what a key does without pressing it.
@@ -41,6 +44,7 @@ Checked on 2026-11-14 with hc 0.1.20.
 
 - hc has no command that copies from one machine to another. `hc file write`, `hc put` and the input and output of `hc exec` carry at most 8 MB a call, and `hc file read` is for text.
 - A mod's `exec` ends a program after 10 minutes at most (`herdr.d.ts`). A program started with `hc run --bg --no-parent` has no such limit and is herdr-core's, which keeps terminals alive when the window closes. It has no pane and no parent, so glyph's rail gives it no row. `terminal.peek` on one was not tried.
+- `scp -3` given two paths on this computer copies between them (2026-11-15).
 - `scp -3` run on this computer copies between any two ssh machines hc knows, through here. With OpenSSH 9 or later scp speaks SFTP: every path is taken as written, except a source on another machine, which is matched there as a pattern (escape `\ * ? [ ] { }`). glyph's `copy.js` builds on this.
 - A mod's `exec` keeps NUL bytes in a program's output, on this computer and through `on` (glyph's folder listing splits on them).
 - `hc run --on <machine>` starts a program in a terminal of that machine's herdr-core, addressed `machine/t7`. From this computer `hc read`, `send`, `kill`, `get` and `rm` take that address, and a mod's `hc()` does the same. Such a terminal, started with `--no-parent`, was not in the output of `herdr-app ls` while it ran.
@@ -109,7 +113,7 @@ Checked on 2026-11-14 against Herdr's manual ("Layouts and mods other people mad
   `dev/glyph/tools/drag-pass.sh` and `live-pass.sh` do this.
 - Commands that end tabs can be tried on throwaway tabs in the real window, since `herdr-app do` returns the ids of what it made and `herdr-app status` and `ls` say what is shown. `dev/glyph/tools/close-pass.py` does this. It changes what the window shows while it runs.
 - `herdr-app check <dir>` writes the app's `gpui-kit.d.ts` and `jsconfig.json` into `<dir>`. Both are gitignored here.
-- `herdr-app status` lists overlays by their mod's name only. `overlay.close` without an id closes a dialog or a popup. It left a window overlay (`kind: "window"`) open, with no id and with the window's `key` as the id (2026-11-14). A window closes from inside, with `closeOverlay(props().overlay)`. To close one from a tool, swap in for a moment a stand-in that closes itself as it starts (`dev/glyph/tools/transfer-pass.sh`).
+- `herdr-app status` lists overlays by their mod's name only. `overlay.close` without an id closes a dialog or a popup. It left a window overlay (`kind: "window"`) open, with no id and with the window's `key` as the id (2026-11-14). A window closes from inside, with `closeOverlay(props().overlay)`. Another copy of the same mod can close it with that id too: glyph's bar closes the transfer window with the id the window's copy noted in a module variable, so `herdr-app do glyph.transfer` sent again closed it (2026-11-15). To close a window whose mod has no such command from a tool, swap in for a moment a stand-in that closes itself as it starts (`dev/glyph/tools/transfer-pass.sh`).
 - `herdr-app check <dir> --print-spec` prints the first render. What a part asked for in `init` through a task (an `exec`, an `hc`) has not answered by then, so such state has to be put in by hand too (glyph's harness has `LISTED=1`).
 - `herdr-app status` lists the open overlays by their mod's name, toasts among them. `shot` shows them.
 - `--print-spec` prints a text field as `Input #n`, without its text or placeholder.

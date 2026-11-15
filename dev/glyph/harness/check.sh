@@ -4,7 +4,7 @@
 # Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu, blank, transfer or goto; for menu, PANE
 # is the tab's id. ACTIVE is the project on show (sp9: one showing its empty page).
 # Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, HOVER, SURE,
-# COPIES, LISTED, PICK, FIND, DIRECT.
+# COPIES, LISTED, PICK, CARRY, FIND, DIRECT.
 export S=$(cd "$(dirname "$0")/.." && pwd)
 export L=$(cd "$S/../../glyph" && pwd)
 ROLE=$1; PANE=${2:-p3}; WIDTH=${3:-160}; TAG=${4:-$ROLE}; ACTIVE=${5:-sp2}
@@ -23,7 +23,7 @@ lay = json.load(open(L + "/layouts/glyph.json"))
 lay["children"][0]["size"]["px"] = int(width)
 fake = open(S + "/harness/herdr-fake.js").read().replace("__ROLE__", role).replace("__PANE__", pane).replace("__ACTIVE__", active)
 # COPIES=1: copies under way and one that failed, as the transfer window started them.
-# COPIES=direct: one that goes straight from alpha to bravo, and the window's right side on bravo.
+# COPIES=direct: one that goes directly from alpha to bravo, and the window's right side on bravo.
 fake = fake.replace("__COPIES__", '"direct"' if os.environ.get("COPIES") == "direct" else "true" if os.environ.get("COPIES") else "false")
 fake = fake.replace("__THEME__", json.dumps(theme)).replace("__LAYOUT__", json.dumps(lay))
 open(d + "/herdr-fake.js", "w").write(fake)
@@ -61,8 +61,9 @@ for f in glob.glob(d + "/*.js"):
         s = s.replace("this.sure = null;    //", "this.sure = { id: this.list().sel?.id, at: Date.now() }; //")
     # LISTED=1: the transfer window with its folders and the machines read (the check ends before
     # they answer). PICK=side:name,name: those rows picked. SURE=1: its arrow pressed once.
-    # With COPIES: how far the first copy is. DIRECT=1: it has learned that alpha gets to
-    # bravo (for ACTIVE alpha/sp4 with COPIES=direct); DIRECT=typed: and a password is typed (transfer.js).
+    # CARRY=x,y: the picked rows held and carried to that point of the window, over the other side.
+    # With COPIES: how far the first copy is. DIRECT=1: it has learned that alpha can log in
+    # to bravo (for ACTIVE alpha/sp4 with COPIES=direct); DIRECT=typed: and a password is typed (transfer.js).
     if os.environ.get("LISTED") and f.endswith("/transfer.js"):
         head = "    this.load(0, cx);\n    this.load(1, cx);\n"
         names = 'import { copies, listing,'
@@ -71,6 +72,9 @@ for f in glob.glob(d + "/*.js"):
         if os.environ.get("PICK"):
             i, picked = os.environ["PICK"].split(":", 1)
             seed += "    for (const n of %s) this.sides[%d].picked.add(n);\n" % (json.dumps(picked.split(",")), int(i))
+            if os.environ.get("CARRY"):
+                x, y = os.environ["CARRY"].split(",")
+                seed += '    this.hold = { side: %d, name: %s, was: true, x: 0, y: 0, kind: "carry", to: null, over: %d, px: %d, py: %d, at: Date.now(), away: 0 };\n' % (int(i), json.dumps(picked.split(",")[0]), 1 - int(i), int(x), int(y))
         if os.environ.get("DIRECT"):
             seed += '    this.routes.set("alpha\\nbravo", { asking: false, at: Date.now(), hops: globalThis.__hops });\n'
             if os.environ["DIRECT"] == "typed": seed += '    this.secret.set_value("sample");\n'
@@ -80,7 +84,7 @@ for f in glob.glob(d + "/*.js"):
             s = s.replace("this.armed = 0;     //", "this.armed = Date.now(); //")
         if os.environ.get("COPIES"):
             assert s.count("this.meters = {};   //") == 1
-            s = s.replace("this.meters = {};   //", 'this.meters = { t90: { line: "stock-2026-11.parquet 42% 59MB 11.2MB/s 00:07 ETA", pct: 42 }, "alpha/t93": { line: "trace-retry.log 17% 1MB 9.8MB/s 00:01 ETA", pct: 17 } }; //')
+            s = s.replace("this.meters = {};   //", 'this.meters = { t90: { line: "stock-2026-11.parquet 42% 59MB 11.2MB/s 00:07 ETA", pct: 42, speed: "11.2MB/s", eta: "00:07" }, t91: { line: "trace-retry.log 17% 1MB 9.8MB/s 00:01 ETA", pct: 17, speed: "9.8MB/s", eta: "00:01" }, "alpha/t93": { line: "trace-retry.log 17% 1MB 9.8MB/s 00:01 ETA", pct: 17, speed: "9.8MB/s", eta: "00:01" } }; //')
     # DRAG=from:to[:nowidths]: pretend a tab is held and has been moved (bar.js only).
     if os.environ.get("DRAG") and f.endswith("/bar.js"):
         parts = os.environ["DRAG"].split(":"); F, T = int(parts[0]), int(parts[1])

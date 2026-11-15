@@ -19,13 +19,15 @@
 // the project on show closes, the next one shows its first tab.
 // Keys bound to this layout in keys.json ("layout:glyph") arrive as commands:
 //   rename, close, close-pane, new, new-<program key> (new-claude, new-codex, ...), transfer, goto.
+// transfer and goto close what they opened when asked again. transfer-show, which a copy's
+// notice sends when clicked, only opens.
 // The bar also says how each copy the transfer window started has ended: see mind().
 
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { theme, run, layout, settings, spaces, panes, terminals, focused, machines, shared, setShared, notify, window as win, openOverlay, knownAgents, nextCommand } from "herdr";
 import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM } from "./data.js";
-import { copies, settle, openTransfer, STARTING } from "./copy.js";
+import { copies, settle, openTransfer, showTransfer, STARTING } from "./copy.js";
 import { ICON, INK, DISPLAY, alpha, mix, logo, inkOf, danger, orb, tile, iconButton, textWidth } from "./ui.js";
 
 const stop = (_e, cx) => cx.stop_propagation();
@@ -104,6 +106,7 @@ export class Bar {
       const asked = shared(SHUT);
       if (asked?.id && Date.now() - asked.at < GONE) this.shut(m, asked.id, cx);
     } else if (name === "transfer") openTransfer();
+    else if (name === "transfer-show") showTransfer();
     else if (name === "goto") openGoto();
     else if (name === "new") newTab(s);
     else if (name.startsWith("new-")) this.start(s, name.slice(4), cx);
@@ -632,7 +635,7 @@ export class Bar {
         .child(svg(ICON("ring")).size(28).text_color(t.working).spin(1300))))
       .child(iconButton(t, {
         id: "transfer", icon: "transfer", onClick: () => openTransfer(),
-        tip: [withKey("Copy files between machines", keyFor("glyph.transfer")), moving ? `${moving} under way` : "", lost ? `${lost} failed` : ""].filter(Boolean).join("  ·  "),
+        tip: [withKey("Copy files between machines", keyFor("glyph.transfer")), moving ? `${moving} under way` : "", lost ? `${lost} failed` : ""].filter(Boolean).join(", "),
       }))
       .when(lost > 0, (el) => el.child(div().absolute().top(3).right(3).size(6).rounded_full().bg(t.blocked)));
 
