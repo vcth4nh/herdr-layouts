@@ -1,6 +1,6 @@
 # herdr-app / gpui-kit: limits and gotchas
 
-Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-14). Recheck after an app update.
+Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-15). Recheck after an app update.
 
 ## Layout and drawing
 
@@ -17,12 +17,12 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-14). Rec
 
 - There is no pointer capture and no drag API. An element gets moves only while hovered (`on_mouse_move`) and a release only over itself (`on_mouse_up`). It gets `on_hover(false)` when the pointer leaves, even with a button held. Herdr's own `tabs` and `spaces` mods use the same hooks. "Watch out" in glyph/RECIPE.md says how the glyph bar and the transfer window cope.
 - A move does not say whether a button is down: `MouseMoveEvent` in `gpui-kit.d.ts` has `position`, `local_position`, `bounds` and `modifiers`. A mod that follows a held button has to remember the press and end the hold itself.
-- A press, a release and a move carry the keys held (`event.modifiers`: `shift`, `control`, `alt`, `platform`), by `gpui-kit.d.ts`. A mod that does not hold the keyboard can still tell a Shift-click. Not tried with a real key.
+- A press, a release and a move carry the keys held (`event.modifiers`: `shift`, `control`, `alt`, `platform`), by `gpui-kit.d.ts`. A mod that does not hold the keyboard can still tell a Shift-click. ⇧ and ⌘ clicks worked by hand in glyph's transfer window (2026-11-15).
 - When one mod fills several roles, `<mod>.<command>` keys go to whichever copy awaits `nextCommand()`, as the shipped `win98` does.
 - A `layout:<name>` section in `keys.json` binds keys only while that layout shows, and wins over `global`. Settings has no key editor; `keys.json` is where keys are set.
 - `herdr-app do <mod>.<command>` sends a mod the same command its key would. That tests what a key does without pressing it.
 - `openOverlay` takes `at: "top"` with `offset: n` for a popup under the window's top edge, as the shipped `terminals-bar` opens `picker`. `herdr.d.ts` lists only `"pointer"` and `{x, y}`.
-- Popups stack: a second `openOverlay` leaves the first one open under it. `overlay.close` with no id closed the top popup. `herdr-app commands` says it closes "the top dialog or popup"; what it does to a window was not tried.
+- Popups stack: a second `openOverlay` leaves the first one open under it. `overlay.close` with no id closed the top popup, and `herdr-app commands` says it closes "the top dialog or popup". It leaves a window overlay open ("Looking at the real window" below).
 - An error thrown inside the loop around `nextCommand()` ends the loop, and every key bound to the mod stops working until it reloads. Catch errors inside the loop.
 
 ## Data
@@ -31,12 +31,11 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-14). Rec
 - The app's `terminals()` report has {state, kind, msg, title}, but `status_ms` is null. `tab.changed_at` and `working_since` are reliable.
 - A terminal nobody titled reports its address (e.g. "alpha/t1t") as its title.
 - Agent titles can start with status glyphs, and Codex's end with " | <project or folder>".
-- `hc machine ls` lists machines.
 - A tab started with `argv` reports that program, not the shell it runs in: `program.shell` is false while `cat` runs.
 - A terminal an agent started with `hc run` is in `terminals()` with `parent` set to its starter's address, and with `name` if it was started with `--name`. It has no pane, so `panes()` leaves it out. `herdr-app ls` lists it under its parent's `sub_agents`.
 - `hc ls` and `herdr-app ls` list terminals only. A helper inside an agent's own process (Claude Code's Agent tool) was in neither while it ran (checked 2026-11-14).
 - `hc ls --json` gives a short record for each terminal (`address`, `agent`, `cwd`, `state`, `exit_code`, `reason`), without its labels or `argv`. `hc get <t> --json` has those. `hc ls --label k=v` keeps the terminals with that label, and `--all` adds the finished ones, which stay until `hc rm`. `hc get` on a terminal that is gone exits 3.
-- `hc machine ls --json` gives each machine's `target` (what ssh is given: a Host, `user@host` or `user@host:port`) and `via` (false for a machine reached over ssh; one added with `--via` was not looked at).
+- `hc machine ls` lists machines. With `--json` each has its `target` (what ssh is given: a Host, `user@host` or `user@host:port`) and `via` (false for a machine reached over ssh; one added with `--via` was not looked at).
 
 ## Files between machines
 
@@ -75,7 +74,7 @@ Checked on 2026-11-14 with throwaway tabs.
 - `cx.notify()` throws during `render`. Herdr's manual (`~/.config/herdr-app/AGENTS.md`) allows it from an event handler or a task, and says nothing about running commands in `render`. glyph's bar runs its own follow-up commands from a timer (`look()` in bar.js).
 - Copies of a mod share its module code, but each has its own instance and `localStorage`. To pass something from one copy to another, use `setShared` (`closeTab` in glyph's data.js), which also redraws every copy. A module-level variable is shared by the copies too, and redraws nothing (`going` in glyph's data.js).
 - A copy in an overlay gets `close()` on its exported View when the overlay goes, whoever closed it: glyph's Go-to list was closed with `herdr-app do overlay.close` and had cleared `going` by the next command (2026-11-14).
-- `InputState.set_masked(true)` draws a field's text as dots. A field in a window overlay showed its placeholder, and dots for a value set from code (2026-11-14). Whether a click gives it the keyboard there was not tried.
+- `InputState.set_masked(true)` draws a field's text as dots. A field in a window overlay showed its placeholder, and dots for a value set from code (2026-11-14). glyph's field asks for the keyboard at a press, and what was typed after a click reached it (by hand, 2026-11-15).
 - The app's JavaScript sorts text by letter codes, even through `localeCompare` with options: "README.md" came before "import.py" in `herdr-app check`, where Node puts it after (2026-11-14). Sort names with a comparison of your own (`byName` in glyph's copy.js).
 
 ## Can't be done (checked)
@@ -113,9 +112,9 @@ Checked on 2026-11-14 against Herdr's manual ("Layouts and mods other people mad
   `dev/glyph/tools/drag-pass.sh` and `live-pass.sh` do this.
 - Commands that end tabs can be tried on throwaway tabs in the real window, since `herdr-app do` returns the ids of what it made and `herdr-app status` and `ls` say what is shown. `dev/glyph/tools/close-pass.py` does this. It changes what the window shows while it runs.
 - `herdr-app check <dir>` writes the app's `gpui-kit.d.ts` and `jsconfig.json` into `<dir>`. Both are gitignored here.
-- `herdr-app status` lists overlays by their mod's name only. `overlay.close` without an id closes a dialog or a popup. It left a window overlay (`kind: "window"`) open, with no id and with the window's `key` as the id (2026-11-14). A window closes from inside, with `closeOverlay(props().overlay)`. Another copy of the same mod can close it with that id too: glyph's bar closes the transfer window with the id the window's copy noted in a module variable, so `herdr-app do glyph.transfer` sent again closed it (2026-11-15). To close a window whose mod has no such command from a tool, swap in for a moment a stand-in that closes itself as it starts (`dev/glyph/tools/transfer-pass.sh`).
+- `overlay.close` left a window overlay (`kind: "window"`) open, with no id and with the window's `key` as the id (2026-11-14). A window closes from inside, with `closeOverlay(props().overlay)`. Another copy of the same mod can close it with that id too: glyph's bar closes the transfer window with the id the window's copy noted in a module variable, so `herdr-app do glyph.transfer` sent again closed it (2026-11-15). To close a window whose mod has no such command from a tool, swap in for a moment a stand-in that closes itself as it starts (`dev/glyph/tools/transfer-pass.sh`).
 - `herdr-app check <dir> --print-spec` prints the first render. What a part asked for in `init` through a task (an `exec`, an `hc`) has not answered by then, so such state has to be put in by hand too (glyph's harness has `LISTED=1`).
-- `herdr-app status` lists the open overlays by their mod's name, toasts among them. `shot` shows them.
+- `herdr-app status` lists the open overlays by their mod's name only, toasts among them. `shot` shows them.
 - `--print-spec` prints a text field as `Input #n`, without its text or placeholder.
 - `herdr-app check <dir> --print-spec` never lays out, so `on_size_change` never fires there. State that depends on a measured size has to be set by hand (glyph's harness has `ROOM=n` for this).
 - Test instances need short `HERDR_APP_HOME` and `XDG_STATE_HOME` paths, because socket names are limited to 103 bytes. They also need their own `HC_SESSION`.

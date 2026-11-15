@@ -1,6 +1,6 @@
 # glyph: what has been verified
 
-What each part of glyph was checked with, and what was never tried. The tools named here are described in [CONTRIBUTING.md](../CONTRIBUTING.md).
+What each part of glyph was checked with, and what was never tried. The tools named here are described in [CONTRIBUTING.md](CONTRIBUTING.md), and their paths are relative to `dev/glyph/`.
 
 - **Seen in real frames:**
   - The rail, labelled and with a real fleet, including the row of empty machines.
@@ -10,28 +10,41 @@ What each part of glyph was checked with, and what was never tried. The tools na
   - The chevrons on the machines' lines, the shell logo on the plain-terminal launcher, a tab red after its first close press, and a project's empty page.
   - The Go-to list over a real fleet, opened by its command: on the shown tab and scrolled to it, with agents' titles where Herdr's picker had numbers.
   - Sub-agent rows under a real tab: two helpers started with `hc run`, each on its hook, one at work (the arc, a bright name) and one resting (dim).
-  - The transfer window over a real fleet (`dev/glyph/tools/transfer-pass.sh`, 2026-11-14): both sides read, a row picked with its dashed landing row and the arrow, a 150 MB copy under way (the pill and its percent, the arc around the bar's button, the file growing on the other side), then the notice and the whole file in the other folder.
+  - The transfer window over a real fleet (`tools/transfer-pass.sh`, 2026-11-14): both sides read, a row picked with its dashed landing row and the arrow, a 150 MB copy under way (the pill and its percent, the arc around the bar's button, the file growing on the other side), then the notice and the whole file in the other folder.
   - The direct way between two real servers (`transfer-pass.sh direct`, 2026-11-14): the bolt once both had answered, a picked row with the machine's name and the field reading "password", dots in the field for a made-up word with the accent on its border and the bolt, the peach pill of a copy standing at its prompt, and the pill at work after the window typed a made-up word into a pretend prompt.
   - Picking in the transfer window (`transfer-pass.sh pick`, 2026-11-15), played through the window's own handlers: three swept rows and their number on the arrow, a fourth row added, the picked rows faint with the chip by the pretended pointer and the other list filled, the arrow and the row it would replace red after the rows were let go on a name that was there, and three files in the other folder after the second carry.
   - The empty part of a list (a stand-in that wrote its measured size in the window's head, 2026-11-15): 3px tall under 14 rows, and 0 under a list that scrolls.
-- **Checked in the real app by commands** (`dev/glyph/tools/close-pass.py`: 21 passed, 2026-11-14):
+- **Checked in the real app by commands** (`tools/close-pass.py`: 21 passed, 2026-11-14):
   - One press closes a shell and two close a running program. A second press after 3 s counts as a first.
   - The tab after the closed one is shown, or the one before it for the last tab.
   - A last tab leaves its project on its empty page, with the name and folder kept. A new tab from the page starts in that folder. Leaving the page, or the close key on it, closes the project.
   - When the shown project closes, from Herdr's own close or the close key on its page, the next project shows its first tab.
-- **Checked against real machines by commands** (`dev/glyph/tools/copy-pass.sh`: 21 passed, 2026-11-14, with one macOS and one Linux machine):
+- **Checked against real machines by commands** (`tools/copy-pass.sh`: 21 passed, 2026-11-14, with one macOS and one Linux machine):
   - Each machine's own `sh` and `ls` list a folder the way `copy.js` reads it, sizes included.
   - Files and a folder with spaces, brackets, braces, `*`, `?`, `$`, quotes, a backslash, a colon and accents in their names copy from this computer to a machine, from that machine to another through here, and back, and come back byte for byte.
   - A copy that ends well is told and its terminal removed. One whose source is missing is told as failed with scp's last line, stays listed, and goes when dismissed.
-- **Checked against real machines by commands, for the direct way** (`dev/glyph/tools/direct-pass.sh`: 10 passed for each of three pairs, 2026-11-14):
+- **Checked against real machines by commands, for the direct way** (`tools/direct-pass.sh`: 10 passed for each of three pairs, 2026-11-14):
   - scp started on a Linux server, on a Linux machine that fetches because the other can't reach it, and on a Mac each stood at the other machine's password prompt.
   - Ended there, the copy is told as failed, nothing has been copied, and its terminal is removed.
   - With another machine's host key in place of the right one, ssh refuses before any prompt.
   - A word typed with `hc send` into a pretend prompt on the machine that ran scp arrives, and the screen does not show it.
-  - The survey found a way for every two of five machines, in one direction at least.
+  - `--survey` answered for every two of five machines.
 - **Checked in the real app by commands sent by hand** (`herdr-app do glyph.goto`, then `herdr-app status`, 2026-11-14): the command opens the Go-to list, and sent again it closes it. After the list was closed from outside (`herdr-app do overlay.close`), the next one opened it.
   - The same way on 2026-11-15: `glyph.transfer` sent four times opened the transfer window, closed it, opened it and closed it. `glyph.transfer-show` opened it, and sent again left the one window open.
-- **Seen only offline**, in the pictures `tools/preview.sh` and `tools/preview-states.sh` draw from the sample fleet: a "needs you" row in the labelled rail, the logos-only rail with larger machine names, the strip's fall-back to logos, the tab menu and its red Close row, the rename dialog's new hint, a folded machine with its strip, the pane header's red ×, and the rows of a blocked sub-agent and of one started by another sub-agent. Of the transfer window: the arrow red after its first press and the rows it would replace, a failed copy's pill, the peach dot on the bar's button, and a machine that needs a login among the chips. Of the direct way: the password field before any row is picked, the laptop and the bolt at the arrow's foot, the laptop in the pill of a copy that passes through this computer, the user before the machine's name, and a copy's speed and time left in its pill. Only in the logic tests: the turning ring while the two machines are asked, and the faint bolt of two of which neither can log in to the other.
+- **Checked offline by the logic tests** (`logic/run.sh`, all passing on 2026-11-15), which call the mod's handlers with made-up events against a fake app. Outside the transfer window this is the only testing clicks, drags and menus have had.
+  - `bar-test.mjs`, 60 passed: a click on a tab, a tab dragged to another place, off the strip and back, a release that is never heard, renaming by double-click and by F2, and the right-click menu.
+  - `rail-test.mjs`, 38 passed: the rail, sub-agent rows, the fold, the tab menu and the pane header.
+  - `close-test.mjs`, 59 passed: the bar's closing, the empty page, the first tab of the next project and the start keys.
+  - `goto-test.mjs`, 42 passed: what the Go-to list lists and by which words, typing, the arrows, Enter, Ctrl+D, its height, and the bar opening and closing it.
+  - `transfer-test.mjs`, 196 passed: the transfer window, the scp command a copy becomes, and the bar's part in a copy. It also lists a folder it makes with this computer's own `sh` and `ls`, the way copy.js asks a machine to.
+    - Picking: a click, ⇧ and ⌘ clicks, a sweep, a carry and where it is let go, a hold whose release is never heard, and the bar closing the window on show.
+    - The direct way: what copy.js asks ssh and reads back, which machine runs scp, that scp's arguments, and the password, which is typed once per prompt, never after a refusal, emptied from the field, and gone when the window closes.
+    - The password field: on show before any row is picked, whose password it is for, and the press that gives it the keyboard.
+    - What says which way a copy goes: the arrow's badge, the pill and the notice.
+    - scp's meter: the speed, the time left and a stalled copy.
+    - The window asking for the keyboard as it opens, Esc, and the answer about two machines being kept for the next window.
+- **Rendered offline** (`harness/all.sh`, 2026-11-15): `herdr-app check` passed on every part in every state the harness can pretend, 31 runs.
+- **Seen only offline**, in the pictures `tools/preview.sh` and `tools/preview-states.sh` draw from the sample fleet: a "needs you" row in the labelled rail, the logos-only rail with larger machine names, the strip's fall-back to logos, the tab menu and its red Close row, the rename dialog's new hint, a folded machine with its strip, the pane header's red ×, and the rows of a blocked sub-agent and of one started by another sub-agent. Of the transfer window: the arrow red after its first press and the rows it would replace, a failed copy's pill, the peach dot on the bar's button, and a machine that needs a login among the chips. Of the direct way: the password field before any row is picked, the laptop and the bolt at the arrow's foot, the laptop in the pill of a copy that passes through this computer, the user before the machine's name, and a copy's speed and time left in its pill. Where a part was also seen in real frames, the pictures matched it closely. Only in the logic tests: the turning ring while the two machines are asked, and the faint bolt of two of which neither can log in to the other.
 - **Tried by hand with a real pointer and keys** (2026-11-15), in the transfer window: picking rows (a click, ⇧ and ⌘ clicks, a sweep), carrying rows to the other side and letting go, typing in the password field after a click on it, ⇧⌘T closing the window while it holds the keyboard, and Esc.
 - **Never tried with a real pointer or key press:** hover tooltips, clicks (a sub-agent row's peek among them), right-click menus, a real drag of a tab, scrolling the strip, F2 and the other bound keys (the live pass sends their commands, not the keys), folding a machine, and the launchers on the empty page. In the transfer window: a press on a list's empty part, a drop from Finder, a pill's peek, and dragging the window. Typing in the Go-to list, its arrows, Enter, Ctrl+D and ⌘P itself were not tried either. If something is reported broken, start there.
-- **Never run to its end:** a direct copy with a real password. Every step up to the prompt, and the typing into a pretend one, was tried. A real login, the files landing, a wrong password, a click in the field and keys typed in it were not. `direct-pass.sh A B --ask` runs the copy for whoever has the password.
+- **Never run to its end:** a direct copy with a real password. Every step up to the prompt, and the typing into a pretend one, was tried. A real login, the files landing and a wrong password were not. `direct-pass.sh A B --ask` runs the copy for whoever has the password.

@@ -1,0 +1,7 @@
+# glyph: agent instructions
+
+The root [AGENTS.md](../../AGENTS.md) has the rules that hold for every look. These are for glyph's tools, which [CONTRIBUTING.md](CONTRIBUTING.md) describes.
+
+- Ask before running `dev/glyph/tools/close-pass.py`. It switches the Herdr window to a throwaway project for over a minute, and keys typed in Herdr meanwhile land in its shells.
+- `dev/glyph/tools/copy-pass.sh`, `direct-pass.sh` and `transfer-pass.sh` copy throwaway files to the machines named to them, in a folder of their own under `/tmp` that they remove. Name only machines the user has said may be used, or ask. `transfer-pass.sh` also puts the transfer window over the Herdr window for twenty to thirty seconds. `transfer-pass.sh pick` names no machine: it copies between two folders of its own under `.local/`.
+- `direct-pass.sh` and `transfer-pass.sh direct` have one machine try to log in to another, with nothing to log in with. Those machines' ssh servers record the attempts, and `direct-pass.sh --survey` does it between every two machines. Never type, ask for or look up a machine's password: `direct-pass.sh --ask` is for the user to run in a terminal of their own.
