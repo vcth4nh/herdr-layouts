@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""spec2html.py OUT.html [--rail F] [--bar F] [--pane F] [--body F] [--only rail|bar|pane|body] [--w N] [--h N] [--rail-width N]
+"""spec2html.py OUT.html [--rail F] [--bar F] [--pane F] [--body F] [--over F] [--over-box X,Y,W,H]
+                [--only rail|bar|pane|body] [--w N] [--h N] [--rail-width N]
 
 Turns `herdr-app check --print-spec` trees into an approximate HTML page: gpui's flexbox
 is close enough to CSS flexbox to judge spacing, sizes and color before the real window.
@@ -225,6 +226,13 @@ def main():
     rw = int(opt.get("--rail-width", 160))
     part = lambda key: render(parse(opt[key])) if key in opt else ""
     only = opt.get("--only")
+    # --over: a window overlay's tree (the transfer window) floating over the whole window, at
+    # --over-box X,Y,W,H. The frame is Herdr's, read off a real frame: a 1px border, 6px corners, no shadow.
+    over = ""
+    if "--over" in opt:
+        box = tuple(int(v) for v in opt.get("--over-box", "415,256,880,560").split(","))
+        over = ('<div style="position:absolute;left:%dpx;top:%dpx;width:%dpx;height:%dpx;border-radius:6px;'
+                'border:1px solid #313244;overflow:hidden;background:#11111b">%%s</div>' % box) % part("--over")
     if only:
         body = '<div style="width:%dpx;height:%dpx">%s</div>' % (W, H, part("--" + only))
     else:
@@ -238,7 +246,7 @@ def main():
             + '<div style="height:28px;flex:none">%s</div>' % part("--pane")
             # --body: a mod pane's own tree (a project's empty page) where the terminal would be.
             + ('<div style="flex:1;min-height:0">%s</div>' % part("--body") if "--body" in opt else '<div class="term" style="flex:1">%s</div>' % TERM)
-            + "</div></div></div></div>"
+            + "</div></div></div>" + over + "</div>"
         )
     # The app's own UI font (found inside the app, kept in .local/fonts/), so widths match the window.
     geist = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local", "fonts", "06-GeistRegular.ttf")
