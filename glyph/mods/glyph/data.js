@@ -3,7 +3,7 @@
 // program's logo and the most urgent state of its agents and their sub-agents.
 // Below that, what the parts do alike: go to a tab, start one, close one, rename one.
 
-import { spaces, panes, terminals, machines, shared, setShared, run, hc, openOverlay, closeOverlay, keys, window as win } from "herdr";
+import { spaces, panes, terminals, machines, shared, setShared, run, hc, exec, openOverlay, closeOverlay, keys, window as win } from "herdr";
 import { SHELL } from "./ui.js";
 
 export const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
@@ -58,6 +58,40 @@ export async function fleet() {
   } catch {
     return null;
   }
+}
+
+// How quick another machine is to answer: a program that does nothing is run there through
+// herdr-core's own connection, and timed. PING.every: ms from one asking to the next.
+// PING.wait: ms after which it has not answered.
+export const PING = { every: 10000, wait: 5000 };
+// The ms one answer took, or null when none came in time.
+export async function ping(name) {
+  const at = Date.now();
+  try {
+    await exec("true", [], { on: name, timeout: PING.wait });
+  } catch {
+    return null;
+  }
+  const ms = Date.now() - at;
+  return ms < PING.wait ? ms : null;
+}
+// What a machine's last answers (newest last, null for none in time) come to: the middle one
+// of the last three, so one slow or lost answer changes nothing and two do.
+//   lit: how many of four bars, as a phone shows its signal. None before any answer.
+//   bad: over a second, or not answering.
+//   text: the time as the rail writes it ("38ms", "270ms", "1.4s"), "" without one.
+export function reach(answers = []) {
+  const last = answers.slice(-3).map((ms) => ms ?? Infinity).sort((a, b) => a - b);
+  if (!last.length) return { lit: 0, bad: false, text: "" };
+  const ms = last[Math.floor((last.length - 1) / 2)];
+  if (ms === Infinity) return { lit: 1, bad: true, text: "" };
+  // To the millisecond under 100, to ten above: a time that small changes say nothing about.
+  const round = ms < 100 ? Math.round(ms) : Math.round(ms / 10) * 10;
+  return {
+    lit: ms <= 100 ? 4 : ms <= 400 ? 3 : ms <= 1000 ? 2 : 1,
+    bad: ms > 1000,
+    text: round < 1000 ? `${round}ms` : `${(ms / 1000).toFixed(1)}s`,
+  };
 }
 
 // Home as ~, on this machine or another.

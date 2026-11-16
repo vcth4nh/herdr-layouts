@@ -3,8 +3,8 @@
 # for the fixed sample, and runs `herdr-app check --print-spec` on that copy.
 # Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu, blank, transfer or goto; for menu, PANE
 # is the tab's id. ACTIVE is the project on show (sp9: one showing its empty page).
-# Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, HOVER, SURE,
-# COPIES, LISTED, PICK, CARRY, FIND, DIRECT.
+# Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, PING, HOVER,
+# SURE, COPIES, LISTED, PICK, CARRY, FIND, DIRECT.
 export S=$(cd "$(dirname "$0")/.." && pwd)
 export L=$(cd "$S/../../glyph" && pwd)
 ROLE=$1; PANE=${2:-p3}; WIDTH=${3:-160}; TAG=${4:-$ROLE}; ACTIVE=${5:-sp2}
@@ -42,6 +42,13 @@ for f in glob.glob(d + "/*.js"):
         head = 'this.folded = JSON.parse(localStorage.getItem("folded") ?? "{}");'
         assert s.count(head) == 1
         s = s.replace(head, "this.folded = %s;" % json.dumps({("" if k == "local" else k): True for k in os.environ["FOLD"].split(",")}))
+    # PING=1: the other machines have answered the rail: alpha in 38 ms, bravo in 270, charlie in
+    # 640 and foxtrot in 1400. PING=name:ms,name:x: those answers instead, x for none in time.
+    if os.environ.get("PING") and f.endswith("/rail.js"):
+        head = "this.pings = {};"
+        assert s.count(head) == 1
+        said = "alpha:38,bravo:270,charlie:640,foxtrot:1400" if os.environ["PING"] == "1" else os.environ["PING"]
+        s = s.replace(head, "this.pings = %s;" % json.dumps({k: [None if v == "x" else int(v)] for k, v in (p.split(":") for p in said.split(","))}))
     # HOVER=1: the pane header as under the pointer. SURE=1: a close clicked or chosen once (pane.js, menu.js).
     if os.environ.get("HOVER") and f.endswith("/pane.js"):
         assert s.count("this.hovered = false;") == 1

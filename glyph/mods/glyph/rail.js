@@ -9,14 +9,16 @@
 // shows how its tabs are doing as one small strip, so nothing that needs you is hidden.
 // Machines with nothing running share one row of dashed pills at the end: click one to
 // start a project there.
+// After another machine's name, four bars say how quick it is to answer, as a phone shows
+// its signal, and the wide rail writes the time beside them.
 // Narrower than 200px the words go and the logos line up beside their tile: the button
 // at the foot switches between the two.
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { theme, run, layout, window as win, openOverlay, agents, setAgentOrder, updates } from "herdr";
-import { model, fleet, here as hereName, goTab, goSub, jump, tabTip, subTip, since, find, tabMenu, says } from "./data.js";
-import { ICON, DISPLAY, alpha, orb, tile, iconButton } from "./ui.js";
+import { theme, run, layout, window as win, openOverlay, agents, setAgentOrder, updates, checking } from "herdr";
+import { model, fleet, ping, reach, PING, here as hereName, goTab, goSub, jump, tabTip, subTip, since, find, tabMenu, says } from "./data.js";
+import { ICON, DISPLAY, alpha, orb, tile, iconButton, bars, textWidth } from "./ui.js";
 
 const COMPACT = 160, WIDE = 256;
 const SAID = {
@@ -29,6 +31,8 @@ const SAID = {
 export class Rail {
   constructor(cx) {
     this.machineInfo = [];
+    this.pings = {};  // another machine's name -> its last answers, newest last (reach in data.js)
+    this.asking = {}; // the machines being asked now
     // Each tab's state and since when, kept across restarts: the app's own tab times
     // start empty after one. Done and idle count as one (looking isn't the agent's doing).
     this.seen = JSON.parse(localStorage.getItem("seen") ?? "{}");
@@ -36,6 +40,7 @@ export class Rail {
     this.folded = JSON.parse(localStorage.getItem("folded") ?? "{}");
     this.refreshMachines(cx);
     cx.timer.every(20000, (cx) => this.refreshMachines(cx));
+    cx.timer.every(PING.every, (cx) => this.probe(cx));
     cx.timer.every(60000, (cx) => cx.notify()); // resting logos fade by the minute
   }
 
@@ -47,7 +52,39 @@ export class Rail {
       if (JSON.stringify(next) === JSON.stringify(this.machineInfo)) return;
       this.machineInfo = next;
       cx.notify();
+      // A machine that has just come into reach is asked at once.
+      this.probe(cx);
     });
+  }
+
+  // Asks every other machine in reach how long it takes to answer. One that has not
+  // answered yet is not asked again, so a machine that hangs is asked once at a time.
+  probe(cx) {
+    if (checking()) return;
+    const names = model(this.machineInfo).groups.filter((g) => g.name !== null && g.state === "connected").map((g) => g.name);
+    // What a machine answered before it went out of reach says nothing once it is back.
+    for (const name of Object.keys(this.pings)) if (!names.includes(name)) delete this.pings[name];
+    for (const name of names) {
+      if (this.asking[name]) continue;
+      this.asking[name] = true;
+      cx.spawn(async (cx) => {
+        const ms = await ping(name);
+        delete this.asking[name];
+        const was = JSON.stringify(reach(this.pings[name]));
+        this.pings[name] = [...(this.pings[name] ?? []), ms].slice(-3);
+        if (JSON.stringify(reach(this.pings[name])) !== was) cx.notify();
+      });
+    }
+  }
+
+  // What is known of the way to another machine. Out of reach, it has no bar lit.
+  heard(g) {
+    return reach(g.state === "connected" ? this.pings[g.name] : []);
+  }
+
+  // What the bars stand for, in words: the time with its unit apart ("270 ms").
+  heardTip(name, s) {
+    return s.text ? `${name} answers in ${s.text.replace(/(m?s)$/, " $1")}` : s.bad ? `${name} is not answering` : "";
   }
 
   track(m, now) {
@@ -105,7 +142,8 @@ export class Rail {
 
   // A machine's line: a laptop for this one, a server for another, and its name. Click
   // those to fold its projects away or bring them back; the chevron says which it is.
-  machine(t, g, first, wide, here) {
+  // Another machine's name is followed by its bars.
+  machine(t, g, first, wide, here, width) {
     const local = g.name === null;
     const key = g.name ?? "";
     const name = local ? here : g.name;
@@ -120,6 +158,14 @@ export class Rail {
     const tip = says(why, folded ? `Show ${name}'s ${holds}` : `Hide ${name}'s ${holds}`);
     // Folded with the shown project inside, the name is as bright as that project's.
     const ink = login ? t.blocked : folded && g.spaces.some((s) => s.active) ? t.foreground : t.muted;
+    // Another machine's bars, and in the wide rail its time. In peach when it takes over a
+    // second or does not answer.
+    const sig = local ? null : this.heard(g);
+    const said = sig && wide ? sig.text : "";
+    const heardTip = sig ? this.heardTip(g.name, sig) : "";
+    // The name gets the room the rest of the line leaves: the chevron and the icon, the
+    // bars and the time, 8px of rule at least, and the button.
+    const room = Math.max(30, Math.min(150, width - 86 - (sig ? 18 + (said ? 5 + Math.ceil(textWidth(said, 11)) : 0) : 0)));
     const toggle = (_e, cx) => {
       if (folded) delete this.folded[key];
       else this.folded[key] = true;
@@ -134,8 +180,12 @@ export class Rail {
         .on_click(toggle)
         .child(svg(ICON(folded ? "chevron-right" : "chevron-down")).size(10).flex_none().mr(2).text_color(t.dim))
         .child(svg(ICON(local ? "laptop" : "server")).size(14).flex_none().mr(7).text_color(ink).opacity(there || login ? 1 : 0.45))
-        .child(div().flex_none().max_w(wide ? 150 : 76).truncate().text_size(12.5).font_family(DISPLAY).font_semibold()
+        .child(div().flex_none().max_w(room).truncate().text_size(12.5).font_family(DISPLAY).font_semibold()
           .text_color(ink).opacity(there || login ? 1 : 0.55).child(name)))
+      .when(Boolean(sig), (el) => el.child(h_flex().id(`ping-${g.name}`).h(22).flex_none().gap(5).items_center()
+        .when(Boolean(heardTip), (x) => x.tooltip(heardTip))
+        .child(bars(t, sig.lit, sig.bad ? t.blocked : t.muted))
+        .when(Boolean(said), (x) => x.child(div().flex_none().text_size(11).text_color(sig.bad ? t.blocked : t.dim).child(said)))))
       .child(folded ? this.tally(t, g) : div().flex_1().h(1).bg(t.border))
       .when(there, (el) => el.child(iconButton(t, {
         id: `space-new-${g.name ?? "local"}`, icon: "plus", size: 18, glyph: 11,
@@ -152,6 +202,7 @@ export class Rail {
 
   // Machines with nothing running, as one row: a dashed pill each, the way an empty
   // place to start something is drawn elsewhere. Click one for a new project there.
+  // Another machine's pill has its bars too, and says its time on hover.
   shelf(t, groups, here) {
     return h_flex().id("shelf").flex_none().flex_wrap().mt(10).pl(13).pr(8).gap(6)
       .child(svg(ICON("server")).size(14).flex_none().mr(1).text_color(t.dim))
@@ -160,16 +211,18 @@ export class Rail {
         const name = local ? here : g.name;
         const login = g.state === "needs_login";
         const there = g.state === "connected";
-        const tip = there ? `New project on ${name}`
+        const sig = local ? null : this.heard(g);
+        const tip = there ? says(`New project on ${name}`, sig ? this.heardTip("It", sig) : "")
           : login ? `${name} needs a login: run hc machine login ${name}`
           : `${name}: ${(g.why ?? g.state).replace(/_/g, " ")}`;
-        return h_flex().id(`machine-${g.name ?? "local"}`).h(24).flex_none().max_w_full().px(8).items_center().rounded(12).cursor_pointer()
+        return h_flex().id(`machine-${g.name ?? "local"}`).h(24).flex_none().max_w_full().px(8).gap(6).items_center().rounded(12).cursor_pointer()
           .border_1().border_dashed().border_color(login ? alpha(t.blocked, "99") : t.input)
           .text_color(login ? t.blocked : t.muted).opacity(there || login ? 1 : 0.5)
           .hover((x) => x.bg(t.hover).text_color(login ? t.blocked : t.foreground))
           .tooltip(tip)
           .on_click(() => (there ? run("space.new", { machine: g.name ?? "" }) : run("app.settings", { section: "machines" })))
-          .child(div().min_w(0).truncate().text_size(12).font_family(DISPLAY).font_semibold().child(name));
+          .child(div().min_w(0).truncate().text_size(12).font_family(DISPLAY).font_semibold().child(name))
+          .when(Boolean(sig), (el) => el.child(bars(t, sig.lit, sig.bad ? t.blocked : t.muted)));
       }));
   }
 
@@ -278,7 +331,7 @@ export class Rail {
       // the shelf at the end instead of taking a line for itself.
       if (m.remote && !g.spaces.length) idle.push(g);
       else {
-        if (m.remote) rows.push(this.machine(t, g, rows.length === 0, wide, here));
+        if (m.remote) rows.push(this.machine(t, g, rows.length === 0, wide, here, width));
         // Only a machine with a line can be folded: with one machine there is none.
         if (m.remote && this.folded[g.name ?? ""]) continue;
         for (const s of g.spaces) rows.push(this.space(t, s, wide, now, width));

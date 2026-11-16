@@ -4,7 +4,8 @@ import { Rail } from "./rail.mjs";
 import { PaneHead } from "./pane.mjs";
 import { Menu } from "./menu.mjs";
 import { byId, walk } from "./kit-stub.mjs";
-import { CALLS, SHARED, panes, terminals, layout } from "./herdr-fake.mjs";
+import { CALLS, ASKS, SHARED, panes, terminals, layout } from "./herdr-fake.mjs";
+import { reach, PING } from "./data.mjs";
 
 let failed = 0, passed = 0;
 const ok = (cond, what) => { if (cond) passed++; else { failed++; console.log("FAIL:", what); } };
@@ -40,6 +41,105 @@ byId(root, "machine-delta-2").handlers.on_click({}, cx);
 byId(root, "machine-echo").handlers.on_click({}, cx);
 eq(runs(), [["space.new", { machine: "charlie" }], ["app.settings", { section: "machines" }], ["app.settings", { section: "machines" }]], "shelf clicks");
 ok(!byId(root, "space-new-charlie") && Boolean(byId(root, "space-new-alpha")), "only machines with projects have a + on their line");
+
+// How quick the other machines are to answer. The rail asks each one in reach as soon as it
+// knows them: never this computer, nor a machine that needs a login or is out of reach.
+const tick = () => new Promise((r) => setTimeout(r, 10));
+const asked = () => ASKS.filter((a) => a[0] === "exec" && a[1] === "true").map((a) => a[3].on);
+eq(asked(), ["alpha", "bravo", "charlie", "foxtrot"], "the machines in reach are asked, each once");
+eq(ASKS.find((a) => a[1] === "true").slice(2), [[], { on: "alpha", timeout: PING.wait }], "what is run there does nothing, and is given up on after PING.wait");
+// What is drawn after a machine's name: how many bars are lit and in which color, the time,
+// and the hover words.
+const MUTED = "#a6adc8", OFF = "#45475a", PEACH = "#fab387";
+const lit = (bars) => { const all = bars.__node.children.map((c) => c.__node.props.bg[0]); return [all.length, all.filter((c) => c !== OFF).length, all.find((c) => c !== OFF) ?? null]; };
+const sign = (name) => { const n = byId(root, `ping-${name}`); return [...lit(n.children[0]), text(n), n.props.tooltip?.[0] ?? null]; };
+const pill = (name) => { const n = byId(root, `machine-${name}`); return [...lit(n.children[1]), n.props.tooltip[0]]; };
+const nameRoom = (name) => byId(root, `fold-${name}`).children[2].__node.props.max_w[0];
+eq(ids(root).filter((i) => i.startsWith("ping-")), ["ping-alpha", "ping-bravo", "ping-foxtrot"], "every other machine's line has bars, this computer's has none");
+eq(sign("alpha"), [4, 0, null, "", null], "before it answers: four bars, none lit, no time and no words");
+ok(byId(root, "machine-local") && byId(root, "fold-local").children.length === 3 && nameRoom("local") === 150, "this computer's line is as it was");
+rail.probe(cx);
+await tick();
+eq(asked().length, 4, "a machine that has not answered yet is not asked again");
+// What the answers come to: the middle one of the last three.
+eq([38, 100, 101, 270, 400, 401, 1000, 1001, 1400].map((ms) => { const r = reach([ms]); return [r.lit, r.text, r.bad]; }),
+  [[4, "38ms", false], [4, "100ms", false], [3, "100ms", false], [3, "270ms", false], [3, "400ms", false], [2, "400ms", false], [2, "1.0s", false], [1, "1.0s", true], [1, "1.4s", true]],
+  "bars and time: four bars to 100 ms, three to 400, two to a second, then one, in trouble");
+eq([reach([]), reach([null]), reach([40, null, 45]), reach([40, null, null]), reach([300, 50]), reach([10, 20, 30, 900, 950])],
+  [{ lit: 0, bad: false, text: "" }, { lit: 1, bad: true, text: "" }, { lit: 4, bad: false, text: "45ms" }, { lit: 1, bad: true, text: "" }, { lit: 4, bad: false, text: "50ms" }, { lit: 2, bad: false, text: "900ms" }],
+  "one lost or slow answer of three changes nothing, two do; older answers are forgotten");
+rail.pings = { alpha: [38], bravo: [270, null, 300], charlie: [640], foxtrot: [null, null, 90], "delta-2": [20] };
+root = rail.render();
+eq([sign("alpha"), sign("bravo"), sign("foxtrot")], [
+  [4, 4, MUTED, "38ms", "alpha answers in 38 ms"],
+  [4, 3, MUTED, "300ms", "bravo answers in 300 ms"],
+  [4, 1, PEACH, "", "foxtrot is not answering"],
+], "a machine's line: its bars, its time, and the words on hover");
+// Of the rail's 256px a line takes 86 without its name, 18 more for the bars, and 5 and its
+// width for the time: "38ms" is 29px wide, "300ms" 37.
+eq([nameRoom("alpha"), nameRoom("bravo"), nameRoom("foxtrot")], [256 - 86 - 18 - 5 - 29, 256 - 86 - 18 - 5 - 37, 150], "the name makes room for the bars and the time");
+eq([pill("charlie"), pill("delta-2"), pill("echo")], [
+  [4, 2, MUTED, "New project on charlie. It answers in 640 ms"],
+  [4, 0, null, "delta-2 needs a login: run hc machine login delta-2"],
+  [4, 0, null, "echo: unreachable"],
+], "a pill has its bars too: lit for a machine in reach, never for one that is not");
+rail.pings.foxtrot = [1400];
+root = rail.render();
+eq(sign("foxtrot"), [4, 1, PEACH, "1.4s", "foxtrot answers in 1.4 s"], "over a second: one bar and the time, in peach");
+// The logos-only rail keeps the bars and leaves the time to the hover words.
+layout().children[0].size.px = 160;
+root = rail.render();
+eq([sign("alpha"), sign("foxtrot")], [[4, 4, MUTED, "", "alpha answers in 38 ms"], [4, 1, PEACH, "", "foxtrot answers in 1.4 s"]], "logos only: bars without the time");
+layout().children[0].size.px = 256;
+// A machine that goes out of reach loses its bars, and its old answers with them.
+const info = rail.machineInfo;
+rail.machineInfo = info.map((k) => (k.name === "bravo" ? { ...k, state: "unreachable" } : k));
+root = rail.render();
+eq(sign("bravo"), [4, 0, null, "", null], "out of reach: no bar lit");
+rail.probe(cx);
+ok(!("bravo" in rail.pings) && !("delta-2" in rail.pings) && "alpha" in rail.pings, "and what it answered before is forgotten");
+rail.machineInfo = info;
+// Answers as they come in: each is timed, one that fails counts as none, three are kept,
+// and the rail is drawn again only when what it shows has changed.
+{
+  ASKS.length = 0;
+  globalThis.__ping = (on) => on !== "foxtrot";
+  let drawn = 0;
+  const cx2 = { ...cx, notify() { drawn += 1; }, spawn(fn) { return Promise.resolve().then(() => fn(cx2)); } };
+  const r2 = new Rail(cx2);
+  await tick();
+  eq([asked(), r2.pings.foxtrot, r2.pings.alpha.length, r2.pings.alpha[0] < 50, r2.asking], [["alpha", "bravo", "charlie", "foxtrot"], [null], 1, true, {}], "each answer is timed, and no answer is kept as none");
+  for (let i = 0; i < 4; i += 1) { r2.probe(cx2); await tick(); }
+  eq([asked().length, r2.pings.alpha.length, r2.pings.foxtrot], [20, 3, [null, null, null]], "asked again each time, the last three answers kept");
+  // With the clock stopped every answer takes 0 ms.
+  const clock = Date.now;
+  Date.now = () => 5000;
+  r2.pings = {};
+  r2.probe(cx2);
+  await tick();
+  const first = drawn;
+  for (let i = 0; i < 2; i += 1) { r2.probe(cx2); await tick(); }
+  eq([drawn, reach(r2.pings.alpha), reach(r2.pings.foxtrot)], [first, { lit: 4, bad: false, text: "0ms" }, { lit: 1, bad: true, text: "" }], "the same answers again draw nothing");
+  globalThis.__ping = (on) => on === "foxtrot";
+  r2.probe(cx2);
+  await tick();
+  eq(drawn, first, "one answer that differs draws nothing");
+  r2.probe(cx2);
+  await tick();
+  eq([drawn, reach(r2.pings.alpha).bad, reach(r2.pings.foxtrot).text], [first + 4, true, "0ms"], "a second one does: each machine that changed draws the rail again");
+  Date.now = clock;
+  // Only being checked (`herdr-app check`), the rail asks no machine anything.
+  ASKS.length = 0;
+  globalThis.__checking = true;
+  new Rail(cx2);
+  await tick();
+  eq(asked(), [], "under herdr-app check no machine is asked");
+  delete globalThis.__checking;
+  delete globalThis.__ping;
+}
+rail.pings = {};
+root = rail.render();
+
 // A tab row's right-click opens this mod's menu.
 CALLS.length = 0;
 byId(root, "tab-alpha/tb8").handlers["on_mouse_down:right"]({}, cx);

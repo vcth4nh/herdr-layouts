@@ -35,7 +35,8 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-15). Rec
 - A terminal an agent started with `hc run` is in `terminals()` with `parent` set to its starter's address, and with `name` if it was started with `--name`. It has no pane, so `panes()` leaves it out. `herdr-app ls` lists it under its parent's `sub_agents`.
 - `hc ls` and `herdr-app ls` list terminals only. A helper inside an agent's own process (Claude Code's Agent tool) was in neither while it ran (checked 2026-11-14).
 - `hc ls --json` gives a short record for each terminal (`address`, `agent`, `cwd`, `state`, `exit_code`, `reason`), without its labels or `argv`. `hc get <t> --json` has those. `hc ls --label k=v` keeps the terminals with that label, and `--all` adds the finished ones, which stay until `hc rm`. `hc get` on a terminal that is gone exits 3.
-- `hc machine ls` lists machines. With `--json` each has its `target` (what ssh is given: a Host, `user@host` or `user@host:port`) and `via` (false for a machine reached over ssh; one added with `--via` was not looked at).
+- `hc machine ls` lists machines. With `--json` each has its `target` (what ssh is given: a Host, `user@host` or `user@host:port`) and `via` (false for a machine reached over ssh; one added with `--via` was not looked at). Nothing in it says how quick a machine is to answer.
+- `hc exec --on <machine> true` came back in the time of one ICMP ping to that machine plus 35 to 45 ms, on five machines, from a few milliseconds to over 200 ms away (2026-11-16). No ssh was started on this computer for a run, and eight runs in a row changed no file under `~/.local/state/herdr-core` here. What the other machine keeps of a run was not looked at. A mod's `exec` with `on` took about as long in glyph's rail, which times it as a measure of the connection.
 
 ## Files between machines
 

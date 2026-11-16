@@ -11,11 +11,11 @@ HS=${CHROME_HEADLESS_SHELL:-$(ls -d "$HOME"/Library/Caches/ms-playwright/chromiu
 [ -x "$HS" ] || { echo "no headless Chromium found: set CHROME_HEADLESS_SHELL"; exit 1; }
 cd "$S" || exit 1
 mkdir -p .local/preview
-sh harness/check.sh rail p3 256 rail | tail -2 | cut -c1-160
-sh harness/check.sh rail p3 160 rail-compact | tail -2 | cut -c1-160
+PING=1 sh harness/check.sh rail p3 256 rail | tail -2 | cut -c1-160
+PING=1 sh harness/check.sh rail p3 160 rail-compact | tail -2 | cut -c1-160
 sh harness/check.sh bar p3 256 bar | tail -2 | cut -c1-160
 sh harness/check.sh pane p3 256 pane | tail -2 | cut -c1-160
-sh harness/check.sh rail p9 256 rail-crowd alpha/sp4 | tail -2 | cut -c1-160
+PING=1 sh harness/check.sh rail p9 256 rail-crowd alpha/sp4 | tail -2 | cut -c1-160
 sh harness/check.sh bar p9 256 bar-crowd alpha/sp4 | tail -2 | cut -c1-160
 sh harness/check.sh pane p9 256 pane-crowd alpha/sp4 | tail -2 | cut -c1-160
 COPIES=1 sh harness/check.sh bar p3 256 bar-copies | tail -2 | cut -c1-160

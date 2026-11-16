@@ -122,6 +122,13 @@ export function orb(t, o) {
   return el;
 }
 
+// How quick another machine is to answer, as a phone shows its signal: four bars, 11px wide,
+// the first `lit` of them in `ink`.
+export function bars(t, lit, ink) {
+  return div().flex().flex_none().h(10).gap(1).items_end()
+    .children([4, 6, 8, 10].map((h, i) => div().flex_none().w(2).h(h).rounded(1).bg(i < lit ? ink : t.input)));
+}
+
 // A project's two letters, the way an element has a symbol: "notes-app" is NA, "kettle" is Ke.
 export function mono(name) {
   const words = (name ?? "").split(/[^\p{L}\p{N}]+/u).filter(Boolean);

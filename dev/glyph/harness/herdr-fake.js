@@ -208,6 +208,8 @@ export const window = () => ({ platform: "macos", titlebar: "none", buttons: fal
 export const settings = () => ({ zoom: 1 });
 export const updates = () => ({ app: { version: "0.1.15", ready: "0.1.16", updates: true } });
 export const home = () => "/Users/me";
+// A test may say the mod is only being checked: globalThis.__checking = true.
+export const checking = () => Boolean(globalThis.__checking);
 // A test may set globalThis.__props to stand for another copy of the mod.
 export const props = () => (globalThis.__props ? globalThis.__props : ROLE === "pane" ? { pane: "__PANE__", terminal: "t3" } : ROLE === "menu" ? { role: "menu", tab: "__PANE__", overlay: "ov1" } : { role: ROLE });
 // What the mod asked of hc and of the machines' own programs, apart from CALLS.
@@ -225,8 +227,17 @@ export const hc = async (args = []) => {
 };
 // A machine's sh listing a folder, in the form copy.js asks for and reads (LIST, parse), or
 // what ssh has to say about getting from one machine to another (net above).
+// `true` is the rail asking a machine how quick it is to answer. It gets no answer, so a
+// check draws the answers it was given (check.sh's PING), unless a test answers for the
+// machine: globalThis.__ping = (machine) => true for an answer at once, false for none.
 export const exec = async (command, args = [], options = {}) => {
   ASKS.push(["exec", command, args, options]);
+  if (command === "true") {
+    const answer = globalThis.__ping?.(options?.on ?? null);
+    if (answer === undefined) return new Promise(() => {});
+    if (!answer) throw new Error(`${options?.on} is unreachable`);
+    return { code: 0, stdout: "", stderr: "" };
+  }
   if (command !== "sh" || String(args[1]).includes("getent")) return net(command, args, options?.on ?? null);
   const out = listed(options?.on ?? null, args[3]);
   return out === null ? { code: 2, stdout: "", stderr: `sh: line 0: cd: ${args[3]}: No such file or directory\n` } : { code: 0, stdout: out, stderr: "" };

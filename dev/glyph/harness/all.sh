@@ -10,10 +10,12 @@ one() {
   printf '%-18s ' "$4"
   env $e sh "$S/harness/check.sh" "$@" 2>&1 | tail -1 | cut -c1-400
 }
-one - rail p3 256 rail sp2
-one - rail p3 160 rail-compact sp2
-one "FOLD=alpha,local" rail p3 256 rail-fold sp2
-one "FOLD=alpha" rail p3 160 rail-fold-compact alpha/sp4
+one "PING=1" rail p3 256 rail sp2
+one "PING=1" rail p3 160 rail-compact sp2
+one - rail p3 256 rail-asking sp2
+one "PING=alpha:x,bravo:95,charlie:x" rail p3 256 rail-lost sp2
+one "FOLD=alpha,local PING=1" rail p3 256 rail-fold sp2
+one "FOLD=alpha PING=1" rail p3 160 rail-fold-compact alpha/sp4
 one - bar p3 256 bar sp2
 one "ARMED=tb3" bar p3 256 bar-armed sp2
 one - bar p9 256 bar-crowd alpha/sp4
@@ -26,7 +28,7 @@ one "SURE=1" menu alpha/tb8 256 menu-sure alpha/sp4
 one - menu tb4 256 menu-shell sp2
 one - blank p-page 256 blank sp9
 one - bar p-page 256 bar-blank sp9
-one - rail p-page 256 rail-blank sp9
+one "PING=1" rail p-page 256 rail-blank sp9
 one - pane p-page 256 pane-blank sp9
 one - goto p3 256 goto sp2
 one "FIND=codex" goto p3 256 goto-find sp2

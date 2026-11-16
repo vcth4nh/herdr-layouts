@@ -20,12 +20,13 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - It is 256px wide on chrome `#11111b`, and resizes from 120px to 420px.
 - A strip on top, 5px tall, shows every tab by state in four colored runs.
 - Each machine with projects has a 26px line: a 10px chevron, a laptop or server icon, its name at 12.5px, a hairline, and a 18px "+". One machine alone gets no line.
+- Every machine but this computer has four bars after its name, each 2px wide and rising from 4px to 10px, as a phone shows its signal. After them comes the time that machine takes to answer, at 11px ("270ms").
 - Under it, each project is a 36px tile beside its name at 13px. The shown project also has a 3px bar at the rail's edge.
 - Each tab is a 28px row: a 20px orb and a label at 12.5px. The shown tab's row is raised (`#313244`).
 - Each sub-agent is a 24px row under its tab's: a hook in `#45475a` hanging from the logo of whatever started it, a 16px orb and a name at 12px. A sub-agent is a terminal that one of the tab's agents started with Herdr's `hc run`, a helper agent or a plain program, and that has no pane.
-- Machines with nothing running share one row of dashed pills at the end.
+- Machines with nothing running share one row of dashed pills at the end. The pill of a machine other than this computer has the bars after its name.
 - A 42px foot has four icon buttons: settings, add a machine, new project, and one that switches the rail between 256px and 160px.
-- Narrower than 200px, the rows go, sub-agents' too, and each project's orbs wrap beside its tile.
+- Narrower than 200px, the rows go, sub-agents' too, and each project's orbs wrap beside its tile. A machine keeps its bars and loses the time.
 
 **Bar**
 
@@ -121,6 +122,10 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Click a machine's name to fold its projects away, and again to bring them back. The chevron points down when they show and right when they are folded. Folded, the line shows the machine's tabs by state as a 4px strip. The fold is kept across restarts.
 - "+" on a machine's line starts a project there. A dashed pill does the same for a machine with nothing running.
 - A machine that needs a login is drawn in peach and says what to run on hover.
+- The bars after a machine's name say how quick it is to answer. Four are lit up to 100 ms, three up to 400 ms, two up to a second, and one beyond that.
+- A machine that takes over a second has its one bar and its time in peach. One that does not answer within 5 s has the one peach bar and no time. One that is out of reach or needs a login has no bar lit.
+- The rail asks every 10 s and shows the middle one of the last three answers. One slow answer changes nothing, and two do.
+- Hover the bars, or a pill, for the time in words.
 
 **Panes**
 
@@ -184,7 +189,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 **From Herdr**
 
-- Reads: `spaces`, `panes`, `terminals`, `agents`, `machines`, `focused`, `layout`, `window`, `settings`, `keys`, `updates`, `theme`, `props`, `knownAgents`.
+- Reads: `spaces`, `panes`, `terminals`, `agents`, `machines`, `focused`, `layout`, `window`, `settings`, `keys`, `updates`, `theme`, `props`, `knownAgents`, `checking`.
 - Calls: `run`, `hc`, `exec`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`.
 - Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
 - Kept in the rail's `localStorage`: `seen` (since when each tab has rested) and `folded` (the folded machines). Each place the layout puts the mod is a copy with a `localStorage` of its own.
@@ -195,6 +200,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 **Programs**
 
 - The rail runs `hc machine ls --json` every 20 s, to learn of machines without projects and of those that need a login. The transfer window does too while it is open, for how ssh reaches each machine.
+- The rail runs `true` on every other machine in reach every 10 s, through Herdr's `exec`, and times it. It goes over the connection Herdr keeps to that machine.
 - The transfer window lists a folder by running `sh` on the machine that side shows, through Herdr's `exec`: a loop over the folder's names and `ls -lnA` for the sizes.
 - A copy is `scp -3 -r -o BatchMode=yes -o ConnectTimeout=20`, started on this computer with `hc run --bg --no-parent --no-notify --label glyph.copy=1`. The window reads its screen with `hc read`. When it ends the bar asks how with `hc get`, reads scp's last lines if it failed, and removes the terminal with `hc rm`.
 - With two other machines on the sides, the window finds out whether one can log in to the other:
@@ -239,6 +245,14 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - A row lasts as long as its terminal. A program an agent runs through `hc run` and waits for has a row until it exits, so rows come and go.
 - A sub-agent that was given a pane (`terminal.keep`, or keep in the peek) is a pane like any other and has no row. What it started is listed under the tab that holds its pane.
 - The rail keeps times for tabs only, so a resting sub-agent does not fade by age as a tab does. It is dim at once.
+
+**A machine's bars**
+
+- The time is longer than a network ping to the same machine. It is how long a program that does nothing takes to come back through Herdr's connection to that machine: the trip there and back, and some tens of milliseconds for Herdr to start the program there.
+- The time is written to the millisecond under 100 ms and to 10 ms above. Since two answers have to agree, the bars trail a change by 10 to 20 s.
+- A machine that is still being asked is not asked again, and an answer is given up on after 5 s.
+- `true` is a Unix program. What the bars show for a Windows machine was not tried.
+- Under `herdr-app check` the rail asks no machine anything.
 
 **Go-to list**
 
@@ -304,6 +318,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 
 - The launcher pill shows at most four agents.
 - The rail's default must stay labelled. A rail of logos alone did not say which agent was which.
+- Only the rail shows a machine's bars. The bar, the Go-to list and the transfer window name machines without them.
 - Not built: git ahead and behind counts, dragging to reorder projects, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting, typing a path, picking with the keyboard, carrying rows onto a folder's row or out of the window, and a direct copy by key or forwarded agent. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
 - Built and checked on macOS with herdr-app 0.1.15. The window buttons for Linux and Windows have never been drawn there.
 - The mod runs under any theme, but the hues, the ink on filled tiles and the focus border were picked for a dark one.
@@ -321,6 +336,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Closing a project's last tab leaves its empty page. A tab started there opens in the folder the last tab was in, and the page goes.
 - ⌘W on the page closes the project, and the next project shows its first tab.
 - Folding a machine hides its projects and shows the strip of their states.
+- Within a few seconds of the layout showing, the line of a machine other than this computer has bars lit and a time after its name. The time is near what `hc exec --on <machine> true` takes when timed in a shell.
 - ⌘P opens the Go-to list on the shown tab. An agent's tab nobody named is listed by its agent's title, never by its number. Typing narrows the list, and Enter shows the picked tab.
 - The transfer button opens a window with a folder of one machine on each side. Picking a file and pressing the arrow copies it to the other side: a pill turns in the window's head, with scp's percent, speed and time left, and an arc around the bar's button, and a notice says "Copied" with its name once the file is in the other folder.
 - Picking a name that is already on the other side turns the arrow red at the first press, and copies at the second.
