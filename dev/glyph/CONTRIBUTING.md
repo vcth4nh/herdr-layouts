@@ -18,6 +18,7 @@ Tune glyph; don't rebuild it.
 - Words on show, in glyph or in a Herdr dialog it opens, must match what glyph does. A row that holds nothing should not take a row's room.
 - Keep the labelled rail as the default. The first version had a logos-only 160px rail with small machine names, and it wasn't clear at a glance which agent was which.
 - Closing a tab never moves you to another project.
+- Closing a project never moves you to another machine while its machine has another project. What shows next is the row after the closed one in the rail, else the row before it, as after a closed tab.
 - Ending anything that isn't a plain shell takes a second press.
 - With a peek over a tab, a close key closes the peek. It never ends what the peek shows or the tab under it.
 - Copying a file over another takes a second press, and glyph never removes a file.
@@ -57,10 +58,10 @@ Paths below are relative to `dev/glyph/`. Every script finds that folder and the
     - The fake fleet has three machines with ssh facts: `alpha` reaches `bravo` by address only, `bravo` reaches `foxtrot`, nothing reaches `alpha`, and `foxtrot`'s OpenSSH is too old to run the copy.
 - `tools/await-then-drag.sh` waits until the window is drawing, then runs drag-pass.sh once.
 - `tools/drag-pass.sh` and `tools/live-pass.sh` are the filmed live stand-ins. drag-pass plays a pretended drag. live-pass plays every state, then the wider rail. Both restore the real files from `glyph/` in a `trap`.
-- `tools/close-pass.py` checks closing, the empty page and the start keys in the real app, after `tools/sync.sh`.
+- `tools/close-pass.py` checks closing, the empty page, the project that shows after one closes and the start keys in the real app, after `tools/sync.sh`.
   - It opens throwaway projects of plain shells, sends the commands the keys send (`herdr-app do glyph.close`), and reads back what Herdr shows.
   - It takes over the Herdr window for about a minute and a half, then closes its projects and puts the window back.
-  - It sends a glyph command only while one of its own projects is on show, and closes only ids it made. A project it closes while on show always has another of its projects after it, so the first-tab rule never touches a real one.
+  - It sends a glyph command only while one of its own projects is on show, and closes only ids it made. A project it closes while on show always has another of its projects beside it on this computer: after it, or before it for the last one. So the project the bar shows next is never a real one.
 - `tools/copy-pass.sh A B` runs the mod's own `copy.js` against two real machines, named as `hc machine ls` names them. Nothing shows in the Herdr window.
   - It puts the mod beside a `herdr` module whose `hc` and `exec` are the real ones.
   - It reads folders through each machine's `sh`, copies files with awkward names from this computer to A, from A to B through here and from B back, and compares what came back byte for byte. It lets one copy fail and dismisses it.

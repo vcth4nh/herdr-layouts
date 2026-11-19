@@ -16,7 +16,7 @@
 // pane's header): see ask() and shut(). Closing what isn't a plain shell takes two presses.
 // Closing the shown tab shows the one after it; closing a project's last tab leaves the
 // project on show as an empty page (blank.js), which goes once you look elsewhere. When
-// the project on show closes, the next one shows its first tab. With Herdr's peek on show
+// the project on show closes, its neighbour on its machine shows. With Herdr's peek on show
 // (a sub-agent's terminal, over the tab), a close key closes the peek only: see unpeek().
 // Keys bound to this layout in keys.json ("layout:glyph") arrive as commands:
 //   rename, close, close-pane, new, new-<program key> (new-claude, new-codex, ...), transfer, goto.
@@ -56,6 +56,25 @@ function fit(wants, room) {
     left -= sorted[i];
   }
   return Infinity;
+}
+
+// The tab that shows in place of a project that closed while on show: the row after it in
+// the rail, else the row before it, as after a closed tab. On its own machine that is the
+// first tab of the project after it, else the last tab of the one before it. Only a
+// machine's only project hands over to another machine: to the next project in the list,
+// else to the one before it.
+// `order` is the projects as the rail listed them ({ id, machine }), the closed one, `id`,
+// among them, and `spaces` the ones there are now. A project left with only its empty page
+// is passed over: it closes once another one is on show. Null when no project has a tab.
+function heir(order, id, spaces) {
+  const at = order.findIndex((x) => x.id === id);
+  if (at < 0) return null;
+  const there = (list) => list.map((x) => spaces.find((s) => s.id === x.id && s.tabs.length)).filter(Boolean);
+  const after = there(order.slice(at + 1)), before = there(order.slice(0, at)).reverse();
+  const near = (s) => s.machine === order[at].machine;
+  const to = after.find(near) ?? before.find(near) ?? after[0] ?? before[0];
+  if (!to) return null;
+  return after.includes(to) ? to.tabs[0] : to.tabs[to.tabs.length - 1];
 }
 
 export class Bar {
@@ -149,15 +168,15 @@ export class Bar {
   }
 
   // The close key: the shown tab. A project showing its empty page has only that to close,
-  // which closes the project. Herdr then shows the next project on the tab it was last left
-  // on; its first tab is shown here instead, before the page goes, so the window moves once.
+  // which closes the project. Herdr would then show the next project in its list, on the tab
+  // it was last left on; the tab heir() gives is shown here instead, before the page goes, so
+  // the window moves once.
   close(m, cx) {
     const s = m.active;
     if (!s) return;
     if (s.empty) {
-      const at = m.spaces.indexOf(s);
-      const first = (m.spaces[at + 1] ?? m.spaces[at - 1])?.tabs[0];
-      if (first) run("tab.select", { id: first.id });
+      const to = heir(m.groups.flatMap((g) => g.spaces), s.id, m.spaces);
+      if (to) run("tab.select", { id: to.id });
       for (const b of s.blanks) this.sweep(b);
       return;
     }
@@ -292,12 +311,13 @@ export class Bar {
 
   // What changed on show since the last look. When the project that was on show has closed
   // (with its last tab, from Herdr's own menu, or by the close key on its empty page), Herdr
-  // shows the next project on the tab it was last left on: the bar shows its first tab.
+  // shows the next project in its list, on the tab it was last left on: the bar shows the tab
+  // heir() gives, from the order the rail had the projects in at the last look.
   // True when a close press was taken back, which shows.
   follow(m) {
     const s = m.active;
     const tabs = s?.tabs ?? [];
-    const now = s ? { space: s.id, machine: s.machine, tab: tabs.find((c) => c.active)?.id ?? null } : null;
+    const now = s ? { space: s.id, machine: s.machine, tab: tabs.find((c) => c.active)?.id ?? null, order: m.groups.flatMap((g) => g.spaces.map((x) => ({ id: x.id, machine: x.machine }))) } : null;
     const was = this.last;
     this.last = now;
     // A close press is for the tab that was on show when it was made.
@@ -306,7 +326,8 @@ export class Bar {
     if (!was || !now || was.space === now.space || m.spaces.some((x) => x.id === was.space)) return back;
     // A project whose machine went out of reach is only missing, not closed.
     if (machines().some((k) => (k.name ?? null) === was.machine && k.layout !== "ready")) return back;
-    if (tabs[0] && now.tab !== tabs[0].id) run("tab.select", { id: tabs[0].id });
+    const to = heir(was.order, was.space, m.spaces);
+    if (to && to.id !== now.tab) run("tab.select", { id: to.id });
     return back;
   }
 

@@ -9,11 +9,15 @@ Don't type in Herdr while it runs.
 What keeps it off real work: every glyph command is sent only while a throwaway project is
 the one on show (else the pass stops), every explicit close names an id the pass made, and at
 the end the window is put back on what it was showing before its projects are closed. A
-project that closes while on show always has another throwaway project after it in the list,
-so the "first tab of the next project" rule never lands on a real one.
+project that closes while on show always has another throwaway project beside it on this
+computer, which is the one the bar then shows: the one after it, or for this computer's last
+project the one before it. That last project is closed by the close key on its page only. At
+Herdr's own close, Herdr would show a project of the next machine for a moment before the
+bar moved the window back.
 
-Run it with the Bash sandbox off, after tools/sync.sh. Frames land in .local/shots/
-(close-armed.png, close-page.png); they are only new while the window is on screen.
+Run it with the Bash sandbox off, after tools/sync.sh: a bar older than the pass shows
+another machine's project in step 9. Frames land in .local/shots/ (close-armed.png,
+close-page.png); they are only new while the window is on screen.
 """
 import json, os, subprocess, tempfile, time
 
@@ -123,8 +127,8 @@ try:
     press(A, "glyph.close")
     check("shell, last of 3: one press closes it, the tab before it is shown", (tabs(A), shown()), (["a1", "a2"], "a2"))
 
-    # 2. The project on show closes (Herdr's own close): the next one shows its FIRST tab,
-    # not the tab it was left on (a2).
+    # 2. The project on show closes (Herdr's own close): the one after it on this computer
+    # shows its FIRST tab, not the tab it was left on (a2).
     do("space.select", id=R)
     do("space.close", id=R, confirmed=True, wait=1.0)
     check("the shown project closes: the next project shows its first tab", (space(R), status()["space"], shown()), (None, A, "a1"))
@@ -190,6 +194,19 @@ try:
     check("(another project, on its page)", tabs(B), ["page"])
     do("space.select", id=Z, wait=1.2)
     check("looking at another project: the empty one is closed, the window stays put", (space(B), status()["space"], shown()), (None, Z, "z1"))
+
+    # 9. This computer's last project closes on show (the close key on its page): the window
+    # stays on this computer. The project before it (Z, left on z1) shows its LAST tab, and
+    # no project of another machine, which is what comes next in Herdr's list.
+    C = project("c1")
+    # Another machine's project has that machine's name before its id ("alpha/sp4").
+    last = [s["id"] for s in app("ls")["spaces"] if "/" not in s["id"]][-2:]
+    check("(a new project is this computer's last, right after Z)", last, [Z, C])
+    if last == [Z, C]:
+        press(C, "glyph.close", wait=1.5)
+        check("(it is on its page)", tabs(C), ["page"])
+        press(C, "glyph.close", wait=1.2)
+        check("close on the page of this computer's last project: the one before it shows its last tab", (space(C), status()["space"], shown()), (None, Z, "z2"))
 finally:
     # Back to the real project first: a throwaway project closed while on show would hand
     # over to whatever comes after it.

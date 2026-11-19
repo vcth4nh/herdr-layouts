@@ -121,7 +121,8 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - After a close, the tab after it is shown, or the one before it for the last. Closing a tab that isn't shown moves nothing.
 - Closing a project's last tab leaves the project on show as its empty page. A tab started there starts in the folder the last tab was in.
 - The empty project closes once another project is shown, or at ⌘W on the page.
-- When the project on show closes, the next project shows its first tab.
+- When the project on show closes, the window stays on its machine. The project after it there shows its first tab. After the machine's last project, the one before it shows its last tab.
+- Only a machine's only project hands over to another machine. The next project in the rail shows its first tab, or after the rail's last project, the one before it shows its last tab.
 
 **Folding**
 
@@ -260,7 +261,9 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - A last tab that ends by itself gets no page: Herdr closes the project and shows the next one.
 - A tab whose panes aren't known yet counts as more than a shell.
 - Showing a tab also shows its project, so the bar never selects a tab in a project that isn't on show, except to move there.
-- When the shown project closes, Herdr shows the next one on the tab it was last left on. The bar selects that project's first tab: before the page goes for ⌘W on a page, and just after for a close from Herdr's own menu or a last tab that ended by itself. A project that is only missing because its machine went out of reach is left alone.
+- When the shown project closes, Herdr shows the next one in its list, on the tab it was last left on. After a machine's last project, that can be a project on another machine. The bar selects the tab its own rule gives ("Closing" under "How it behaves"): before the page goes for ⌘W on a page, and just after for a close from Herdr's own menu or a last tab that ended by itself. A project that is only missing because its machine went out of reach is left alone.
+- For a close that is not the bar's own, the window is on Herdr's choice for a moment before the bar moves it. After a machine's last project, that moment can show another machine's project.
+- The rule passes over a project left with only its empty page, since that one closes once another project is on show.
 - Every close ends in the bar's `shut()`, because a last tab has to wait for its page. The menu and the pane header ask through `glyph.shut`, since copies of a mod share code but not state.
 - Herdr does not tell a mod which overlays are open. The bar knows a peek by what has the keyboard: a terminal, and no pane (`focused()`). It closes the peek with `overlay.close`, which closes the top dialog or popup. With a menu open over the peek that would be the menu, which was not tried.
 - The bar runs its follow-up commands from a 120 ms timer, not from `render`. With nothing drawn it still looks about once a second.
@@ -377,7 +380,8 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - ⌘W on a shell closes it. ⌘W on an agent turns its tab red, and a second ⌘W within 3 s closes it.
 - After a close the tab after it is shown.
 - Closing a project's last tab leaves its empty page. A tab started there opens in the folder the last tab was in, and the page goes.
-- ⌘W on the page closes the project, and the next project shows its first tab.
+- ⌘W on the page closes the project, and the project after it on the same machine shows its first tab.
+- ⌘W on the page of a machine's last project shows the last tab of the project before it on that machine. No project of another machine comes on show.
 - Folding a machine hides its projects and shows the strip of their states.
 - Clicking a project's tile, or the chevron beside it, hides its tabs' rows and shows the strip of their states under its name. Clicking it again brings them back. Clicking the project's name, or the strip of a folded project, shows the project.
 - Within a few seconds of the layout showing, the line of a machine other than this computer has bars lit and a time after its name. The time is near what `hc exec --on <machine> true` takes when timed in a shell.
