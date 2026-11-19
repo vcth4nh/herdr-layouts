@@ -5,13 +5,25 @@
 //                  solid ring + tick = finished, no ring = idle (fainter the longer it rests)
 
 import { div, svg, image } from "gpui-kit";
+import { window as win } from "herdr";
 
 export const ICON = (name) => `mods/glyph/icons/${name}.svg`;
 // Ink on a filled hue (tiles, badges): dark in every theme, the hues are light.
 export const INK = "#11111b";
 // Letters that act as pictures (a project's two letters, a count) are set in a face
 // with a real bold: Herdr's own font draws every weight the same.
-export const DISPLAY = "Avenir Next";
+// On a Mac that is Avenir Next, which every Mac has. Linux and Windows have no such face in
+// common, so glyph brings one: Nunito Sans, semibold and bold, in fonts/ beside this file,
+// where Herdr loads a mod's fonts from.
+// Herdr can't say which system this is while the mod loads, so the name starts as the Mac's
+// and face() sets it before every draw (main.js). Whoever imports DISPLAY reads what it is
+// at that moment. Where the Mac's face is missing Herdr's own font draws, which is what
+// Linux and Windows had before.
+export let DISPLAY = "Avenir Next";
+export function face() {
+  const system = win()?.platform;
+  if (system) DISPLAY = system === "macos" ? "Avenir Next" : "Nunito Sans";
+}
 
 // How wide Herdr's own font (Geist) draws a line of text, for the few places that must
 // know before it is drawn (tab titles sharing the strip). Each letter's advance from

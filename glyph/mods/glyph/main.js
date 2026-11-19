@@ -22,6 +22,7 @@ import { Menu } from "./menu.js";
 import { Goto } from "./goto.js";
 import { Blank } from "./blank.js";
 import { Transfer } from "./transfer.js";
+import { face } from "./ui.js";
 
 export default class Glyph extends View {
   init(_props, cx) {
@@ -31,6 +32,8 @@ export default class Glyph extends View {
   }
 
   render(cx) {
+    // Which face bold letters are set in depends on the system: see DISPLAY in ui.js.
+    face();
     return this.part.render(cx);
   }
 

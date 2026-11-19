@@ -6,7 +6,7 @@ An icon-first window for watching coding agents. A dark rail on the left lists e
 
 ## What you see
 
-Three regions: the rail down the left, the bar across the top of the rest, and the shown tab's panes below the bar. Text is Herdr's UI font (Geist). Letters that act as pictures are Avenir Next bold.
+Three regions: the rail down the left, the bar across the top of the rest, and the shown tab's panes below the bar. Text is Herdr's UI font (Geist). Letters that act as pictures are bold: in Avenir Next on a Mac, and on Linux and Windows in Nunito Sans, which glyph brings.
 
 **Shared pieces**
 
@@ -205,6 +205,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - `main.js` picks a part from `props().role`: `rail.js`, `bar.js`, `pane.js`, `menu.js` (a popup the mod opens for a tab), `goto.js` (the Go-to list, a popup the bar opens) or `blank.js` (a project's empty page, as a tab's only pane).
 - `data.js` shapes Herdr's lists into machines, projects and tabs. `ui.js` draws the tile, the orb and the icon button.
 - `transfer.js` is the transfer window, opened as a Herdr window overlay with props `{ "role": "transfer" }`. `copy.js` reads folders, starts, lists and ends copies, and finds out whether one machine can log in to another.
+- `fonts/`: Nunito Sans SemiBold and Bold, for Linux and Windows, as they come from `github.com/googlefonts/NunitoSans`, with their license beside them (`OFL.txt`, the SIL Open Font License).
 - `icons/`: 32 SVGs on a 24px grid with round strokes, drawn in `currentColor`. Program logos are Herdr's own, from `icons/` in Herdr's home (`~/.config/herdr-app`).
 
 **From Herdr**
@@ -220,7 +221,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 **Programs**
 
 - The rail runs `hc machine ls --json` every 20 s, to learn of machines without projects and of those that need a login. The transfer window does too while it is open, for how ssh reaches each machine.
-- The rail runs `true` on every other machine in reach every 10 s, through Herdr's `exec`, and times it. It goes over the connection Herdr keeps to that machine.
+- The rail runs `whoami` on every other machine in reach every 10 s, through Herdr's `exec`, and times it. It goes over the connection Herdr keeps to that machine.
 - The transfer window lists a folder by running `sh` on the machine that side shows, through Herdr's `exec`: a loop over the folder's names and `ls -lnA` for the sizes.
 - A copy is `scp -3 -r -o BatchMode=yes -o ConnectTimeout=20`, started on this computer with `hc run --bg --no-parent --no-notify --label glyph.copy=1`. The window reads its screen with `hc read`. When it ends the bar asks how with `hc get`, reads scp's last lines if it failed, and removes the terminal with `hc rm`.
 - With two other machines on the sides, the window finds out whether one can log in to the other:
@@ -254,7 +255,9 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 
 **Drawing**
 
-- Herdr's UI font has one weight, so bold does nothing. Letters that must be bold use Avenir Next, a macOS font.
+- Herdr's UI font has one weight, so bold does nothing. Letters that must be bold use Avenir Next on a Mac, which every Mac has. Linux and Windows have no such face in common, so there the mod names Nunito Sans, which it brings in `fonts/`.
+- Herdr loads a mod's fonts when it starts and at the next change of look. Until then a glyph that was just put in place draws those letters in Herdr's own font, in one weight.
+- Herdr can't say which system it is on while a mod loads, so the mod asks before every draw and names the Mac's face until it knows.
 - A mod can't measure text. The bar shares its room among titles with a table of Geist's letter widths (`ADVANCE` in `ui.js`), which runs a few pixels wide, never narrow.
 - There is no z-order. The dragged tab is a copy drawn last, and the original keeps its place at zero opacity.
 - A slide is tied to its element's id. While a drag lasts every tab gets an id unique to that drag, so each drag starts its slides from rest.
@@ -301,7 +304,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - The time is longer than a network ping to the same machine. It is how long a program that does nothing takes to come back through Herdr's connection to that machine: the trip there and back, and some tens of milliseconds for Herdr to start the program there.
 - The time is written to the millisecond under 100 ms and to 10 ms above. Since two answers have to agree, the bars trail a change by 10 to 20 s.
 - A machine that is still being asked is not asked again, and an answer is given up on after 5 s.
-- `true` is a Unix program. What the bars show for a Windows machine was not tried.
+- The program is `whoami`, which macOS, Linux and Windows all have, and nothing is done with what it prints. A program a machine lacks can't start there, and that counts as no answer: `true`, which the rail ran before, is no program on Windows. A Windows machine was not tried.
 - Under `herdr-app check` the rail asks no machine anything.
 
 **The Dock badge**
@@ -332,6 +335,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 
 **Titles**
 
+- A folder on a Windows machine is written with `\`, and home there is `C:\Users\<name>`. A path that starts as a Windows path does is cut at either slash, so a tab that goes by its folder shows the folder's name there too. Any other path is cut at `/` only, where a `\` can be part of a name.
 - A terminal nobody titled reports its address as its title, which counts as none. So does a title that only repeats the program's name.
 - Leading status glyphs and Codex's trailing " | project" are cut.
 - An unnamed tab goes by its agent's title, not its number. That is why tabs have the mod's own right-click menu and rename hint. The project menu and ⇧F2, which renames the project, are Herdr's.
@@ -346,7 +350,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - A copy is not a tab and gets no row in the rail: its terminal has no pane and no parent. `hc ls --all --label glyph.copy=1` lists the copies hc still has.
 - The bar says how a copy ended. With another layout on show the copy still runs, and its notice comes when glyph shows again.
 - scp's percent and time left are for the file it is on, so the pill shows them for a single file only. Its speed is shown for any copy. A copy that scp calls stalled says "stalled" in peach where the time left would be.
-- Folders are read by the machine's own `sh`, so only Unix machines can be browsed. A folder shows its first 1000 entries. A size comes from `ls -l`, and a name with a line break in it shows none.
+- Folders are read by the machine's own `sh`, so only Unix machines can be browsed. A Windows computer has no `sh` unless someone installed one, and a side that shows it says so. One that has an `sh` was not tried. A folder shows its first 1000 entries. A size comes from `ls -l`, and a name with a line break in it shows none.
 - The app sorts text by letter codes, every capital before every small letter. The mod sorts names itself, whatever their case and with numbers by value.
 - Herdr's manual says a window overlay does not take the keyboard when it opens, and that a mod may. The window takes it as it starts and again 300 ms later, and the password field takes it at a press on the field. Esc is the window's only key besides that field. A layout switch closes it.
 - ⇧ and ⌘ work without the keyboard: every press tells the mod which keys were held.
@@ -382,6 +386,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 **Limits**
 
 - The launcher pill shows at most four agents.
+- The transfer window needs `sh`, `ls`, `scp` and `ssh` on this computer. A Mac and a Linux computer have them. On a Windows computer the window opens and can't list this computer's folders.
 - The rail's default must stay labelled. A rail of logos alone did not say which agent was which.
 - Only the rail shows a machine's bars. The bar, the Go-to list and the transfer window name machines without them.
 - Not built: git ahead and behind counts, dragging to reorder projects, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting, typing a path, picking with the keyboard, carrying rows onto a folder's row or out of the window, and a direct copy by key or forwarded agent. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
@@ -407,7 +412,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - ⌘W on the page of a machine's last project shows the last tab of the project before it on that machine. No project of another machine comes on show.
 - Folding a machine hides its projects and shows the strip of their states.
 - Clicking a project's tile, or the chevron beside it, hides its tabs' rows and shows the strip of their states under its name. Clicking it again brings them back. Clicking the project's name, or the strip of a folded project, shows the project.
-- Within a few seconds of the layout showing, the line of a machine other than this computer has bars lit and a time after its name. The time is near what `hc exec --on <machine> true` takes when timed in a shell.
+- Within a few seconds of the layout showing, the line of a machine other than this computer has bars lit and a time after its name. The time is near what `hc exec --on <machine> whoami` takes when timed in a shell.
 - ⌘P opens the Go-to list on the shown tab. An agent's tab nobody named is listed by its agent's title, never by its number. Typing narrows the list, and Enter shows the picked tab.
 - In that list every project's tabs stand in under its name, beside a line in the color of its tile that ends at its last tab. The line of the project on show is the brightest.
 - The transfer button opens a window with a folder of one machine on each side. Picking a file and pressing the arrow copies it to the other side: a pill turns in the window's head, with scp's percent, speed and time left, and an arc around the bar's button, and a notice says "Copied" with its name once the file is in the other folder.
@@ -417,4 +422,5 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Holding a picked row, moving to the other side and letting go there starts the same copy the arrow would. Let go on its own side, nothing is copied.
 - With two other machines on the sides, one of which can log in to the other by password, the head shows a bolt, the other machine's name and a password field. With a file picked and the field empty, the arrow wears a laptop and starts `scp -3` on this computer.
 - With the password typed, the arrow wears a bolt and starts scp on one of the two machines (`hc get` on the copy's address, `machine/t…`, shows it), its pill has a bolt, and the file lands on the other machine. A wrong password ends the copy with a notice that names the machine that refused it.
+- On Linux or Windows, project names and the letters on tiles are bold, in Nunito Sans, and the rail's first line reads "This computer".
 - On Linux or Windows, Ctrl+Shift+T starts a shell and Ctrl+Shift+K opens the Go-to list. The search button's hover reads "Go to a tab  Ctrl+Shift+K".

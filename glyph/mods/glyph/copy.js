@@ -8,7 +8,7 @@
 // one ended (settle): one that went well is forgotten, one that failed stays until dismissed.
 // Two other machines can also copy directly to each other, given a password: see hops().
 
-import { hc, exec, shared, setShared, notify, openOverlay, closeOverlay } from "herdr";
+import { hc, exec, shared, setShared, notify, openOverlay, closeOverlay, window as win } from "herdr";
 import { tilde, here } from "./data.js";
 
 export const COPIES = "glyph.copies";
@@ -114,12 +114,15 @@ export function parse(out) {
 }
 
 // Reads a folder of a machine (null: this computer). Rejects with why it can't be read.
+export const NO_SH = "Folders are read with sh, which this Windows computer lacks";
 export async function listing(on, path) {
   let r;
   try {
     r = await exec("sh", ["-c", LIST, "glyph", path ?? ""], { on });
   } catch (e) {
-    throw new Error(text(e));
+    // A Windows computer has no sh unless someone installed one: say that, not Herdr's
+    // words for a program that could not start.
+    throw new Error(on === null && win()?.platform === "windows" ? NO_SH : text(e));
   }
   if (r.code !== 0) throw new Error(lastLine(r.stderr).replace(/^.*\bcd: /, "") || "This folder can't be read");
   return parse(r.stdout);

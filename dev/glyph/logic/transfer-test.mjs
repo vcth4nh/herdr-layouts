@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Transfer } from "./transfer.mjs";
 import { Bar } from "./bar.mjs";
-import { LIST, parse, scpArgs, bytes, settle, reach, hops, hopFor, directArgs, meter } from "./copy.mjs";
+import { LIST, parse, scpArgs, bytes, settle, reach, hops, hopFor, directArgs, meter, listing, NO_SH } from "./copy.mjs";
 import { byId, walk } from "./kit-stub.mjs";
 import { CALLS, ASKS, SHARED, spaces, terminals } from "./herdr-fake.mjs";
 
@@ -823,5 +823,22 @@ await settle(copy("t75"));
 eq(SHARED["glyph.copies"].map((c) => c.id), ["t74", "t75"], "a machine that can't be asked just now: its copy stays listed too");
 globalThis.__hc = null;
 
+// A folder is read with the machine's own sh. A Windows computer has none unless someone
+// installed one: a side there says so, where any other says what Herdr said.
+{
+  const said = (on) => listing(on, "/nowhere").then(() => "listed", (e) => e.message);
+  globalThis.__nosh = true;
+  const mac = await said(null);
+  globalThis.__platform = "windows";
+  const here = await said(null), there = await said("alpha");
+  delete globalThis.__platform;
+  delete globalThis.__nosh;
+  eq([mac, here], ["could not start sh: program not found", NO_SH], "sh missing: a Mac says Herdr's words, a Windows computer that it has no sh");
+  ok(there !== NO_SH && /No such file/.test(there), "another machine, shown from a Windows computer, is still read with its own sh");
+  globalThis.__platform = "windows";
+  const fine = await listing(null, "").then((r) => r.entries.length > 0, () => false);
+  delete globalThis.__platform;
+  ok(fine, "a Windows computer that has an sh is read like any other");
+}
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

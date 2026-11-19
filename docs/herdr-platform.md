@@ -5,7 +5,8 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-15) and 
 ## Layout and drawing
 
 - In gpui-kit, a bare number in `line_height()` is a multiple of the font size, so write `"16px"`. `flex_shrink()` needs a number.
-- Herdr's UI font is Geist, and the app ships only its Regular face, so every weight draws the same and `font_bold()` does nothing. For letters that must be bold, use `font_family("Avenir Next")` (`DISPLAY` in glyph's ui.js).
+- Herdr's UI font is Geist, and the app ships only its Regular face, so every weight draws the same and `font_bold()` does nothing. Letters that must be bold need another face: glyph's `DISPLAY` (ui.js) is Avenir Next on a Mac, and elsewhere Nunito Sans, which the mod brings.
+- A mod can bring fonts. By Herdr's manual, `.ttf` and `.otf` files in a mod's `fonts/` folder load when Herdr starts and at the next change of look, as the shipped `win98` mod's do. Herdr itself ships Geist, Geist Mono and JetBrains Mono on every system (`assets/fonts` in herdr-app's source, tag `v0.1.16`). glyph's Nunito Sans has not been seen drawn by the app on any system (2026-11-20).
 - A mod can't measure text. glyph's `textWidth` (ui.js) sums Geist's letter widths, which were read from the font inside the app binary (`dev/glyph/fonts/geist.json`). It comes out 1–5px wide on a 120px label, never narrow.
 - To share a row's width fairly, give the row a definite width (`flex_1`) and give each item `flex_grow(1).flex_basis(0).max_w(<its own width>)`.
 - Slides: `.relative().left(n).transition("left", {duration, easing})` animates between renders. The animation is tied to the element's id.
@@ -42,6 +43,7 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-15) and 
 - `hc ls --json` gives a short record for each terminal (`address`, `agent`, `cwd`, `state`, `exit_code`, `reason`), without its labels or `argv`. `hc get <t> --json` has those. `hc ls --label k=v` keeps the terminals with that label, and `--all` adds the finished ones, which stay until `hc rm`. `hc get` on a terminal that is gone exits 3.
 - `hc machine ls` lists machines. With `--json` each has its `target` (what ssh is given: a Host, `user@host` or `user@host:port`) and `via` (false for a machine reached over ssh; one added with `--via` was not looked at). Nothing in it says how quick a machine is to answer.
 - `hc exec --on <machine> true` came back in the time of one ICMP ping to that machine plus 35 to 45 ms, on five machines, from a few milliseconds to over 200 ms away (2026-11-16). No ssh was started on this computer for a run, and eight runs in a row changed no file under `~/.local/state/herdr-core` here. What the other machine keeps of a run was not looked at. A mod's `exec` with `on` took about as long in glyph's rail, which times it as a measure of the connection.
+- A mod's `exec` rejects when the program can't start, a program the machine lacks among the reasons (`herdr.d.ts`). `true` is no program on Windows, so glyph's rail runs `whoami`, which macOS, Linux and Windows all have. `hc exec --on <machine> whoami` took as long as `true` on five machines, two runs of each (2026-11-20).
 
 ## Files between machines
 
@@ -83,6 +85,7 @@ Checked on 2026-11-14 with throwaway tabs.
 
 ## Mod code
 
+- `window()` is null while a mod's file loads: a throwaway mod that read `window().platform` at its top level failed `herdr-app check` with "cannot read property 'platform' of null" (2026-11-20). Whether it is null then in the running app too was not seen. Read it in `render`, as glyph does for the face its bold letters are set in.
 - `cx.notify()` throws during `render`. Herdr's manual (`~/.config/herdr-app/AGENTS.md`) allows it from an event handler or a task, and says nothing about running commands in `render`. glyph's bar runs its own follow-up commands from a timer (`look()` in bar.js).
 - Copies of a mod share its module code, but each has its own instance and `localStorage`. To pass something from one copy to another, use `setShared` (`closeTab` in glyph's data.js), which also redraws every copy. A module-level variable is shared by the copies too, and redraws nothing (`going` in glyph's data.js).
 - A copy in an overlay gets `close()` on its exported View when the overlay goes, whoever closed it: glyph's Go-to list was closed with `herdr-app do overlay.close` and had cleared `going` by the next command (2026-11-14).

@@ -5,7 +5,7 @@
 # is the tab's id. ACTIVE is the project on show (sp9: one showing its empty page; bravo/sp7:
 # one with a single tab, and the empty page that stands by behind it).
 # Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, TUCK, PING, HOVER,
-# SURE, COPIES, LISTED, PICK, CARRY, FIND, DIRECT.
+# SURE, COPIES, LISTED, PICK, CARRY, FIND, DIRECT, PLATFORM.
 export S=$(cd "$(dirname "$0")/.." && pwd)
 export L=$(cd "$S/../../glyph" && pwd)
 ROLE=$1; PANE=${2:-p3}; WIDTH=${3:-160}; TAG=${4:-$ROLE}; ACTIVE=${5:-sp2}
@@ -27,6 +27,9 @@ fake = open(S + "/harness/herdr-fake.js").read().replace("__ROLE__", role).repla
 # COPIES=direct: one that goes directly from alpha to bravo, and the window's right side on bravo.
 fake = fake.replace("__COPIES__", '"direct"' if os.environ.get("COPIES") == "direct" else "true" if os.environ.get("COPIES") else "false")
 fake = fake.replace("__THEME__", json.dumps(theme)).replace("__LAYOUT__", json.dumps(lay))
+# PLATFORM=linux or windows: the mod as on that system, in a window whose buttons the system
+# does not draw.
+if os.environ.get("PLATFORM"): fake = "globalThis.__platform = %s;\nglobalThis.__buttons = true;\n" % json.dumps(os.environ["PLATFORM"]) + fake
 open(d + "/herdr-fake.js", "w").write(fake)
 for f in glob.glob(d + "/*.js"):
     if f.endswith("herdr-fake.js"): continue

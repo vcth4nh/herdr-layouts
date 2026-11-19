@@ -41,3 +41,7 @@ Herdr's manual has the steps an agent follows to add a shared layout: "Layouts a
 Another look goes in the same way from its own folder. Its recipe lists the files it is built from.
 
 `dev/glyph/tools/sync.sh` updates a copy of glyph that is already installed ([dev/glyph/CONTRIBUTING.md](dev/glyph/CONTRIBUTING.md)).
+
+## Licenses
+
+Everything here is under the MIT license ([LICENSE](LICENSE)), except the fonts in `glyph/mods/glyph/fonts/`. Those are Nunito Sans, under the SIL Open Font License, which is beside them as `OFL.txt`.

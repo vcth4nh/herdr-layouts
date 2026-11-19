@@ -10,6 +10,9 @@ NAME=${1:-live}
 before=$(herdr-app shot "$S/.local/shots/.before.png" >/dev/null 2>&1; md5 -q "$S/.local/shots/.before.png")
 put() { cmp -s "$1" "$2" || { cp "$1" "$2" && echo "updated ${2#$H/}"; }; }
 for f in "$L"/mods/glyph/icons/*.svg; do put "$f" "$H/mods/glyph/icons/$(basename "$f")"; done
+# The fonts glyph brings for Linux and Windows. Herdr loads them at start and at the next look change.
+mkdir -p "$H/mods/glyph/fonts"
+for f in "$L"/mods/glyph/fonts/*; do put "$f" "$H/mods/glyph/fonts/$(basename "$f")"; done
 # Leaves first, so the app never reloads a file whose imports are not there yet.
 for n in mod.json ui.js data.js copy.js menu.js pane.js rail.js transfer.js goto.js bar.js blank.js main.js; do put "$L/mods/glyph/$n" "$H/mods/glyph/$n"; done
 for f in "$L"/mods/glyph/*.js; do put "$f" "$H/mods/glyph/$(basename "$f")"; done

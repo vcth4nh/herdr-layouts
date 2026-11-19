@@ -253,6 +253,12 @@ def main():
     face = ""
     if os.path.exists(geist):
         face = '@font-face { font-family: "Geist"; src: url(data:font/ttf;base64,%s); }\nbody { font-family: "Geist", sans-serif !important; }\n' % base64.b64encode(open(geist, "rb").read()).decode()
+    # The faces the mod brings in its fonts/ folder (Nunito Sans, for Linux and Windows).
+    brought = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "glyph", "mods", "glyph", "fonts")
+    for name, weight in (("NunitoSans-SemiBold.ttf", 600), ("NunitoSans-Bold.ttf", 700)):
+        f = os.path.join(brought, name)
+        if os.path.exists(f):
+            face += '@font-face { font-family: "Nunito Sans"; font-weight: %d; src: url(data:font/ttf;base64,%s); }\n' % (weight, base64.b64encode(open(f, "rb").read()).decode())
     open(out, "w").write('<!doctype html><meta charset="utf-8"><style>%s%s</style><body>%s</body>' % (CSS, face, body))
     if unknown: sys.stderr.write("unmapped ops: %s\n" % " ".join(sorted(unknown)))
     print(out)

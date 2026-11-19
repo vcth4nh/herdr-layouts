@@ -8,7 +8,7 @@
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { theme, panes, spaces, props, run } from "herdr";
-import { tilde, closeTab, ARM } from "./data.js";
+import { tilde, way, closeTab, ARM } from "./data.js";
 import { ICON, INK, logo, iconButton, danger } from "./ui.js";
 
 export class PaneHead {
@@ -24,14 +24,14 @@ export class PaneHead {
     if (!p) return div();
     // A project's empty page (blank.js) says everything itself.
     if (!p.terminal && p.mod === "glyph") return div().size_full().bg(t.background);
+    // The whole way there, home as ~, for the hover.
     const path = tilde(p.cwd).replace(/(.)\/+$/, "$1");
     const sp = spaces().find((x) => x.tabs.some((c) => c.id === p.tab));
     // Where it is, when that says more than the bar does: nothing at the project's own
-    // folder, the way down inside it ("docs/api"), else the folder's name.
-    const parts = path.split("/"), at = parts.lastIndexOf(sp?.name);
-    const folder = path === sp?.name ? ""
-      : at >= 0 ? parts.slice(at + 1).join("/")
-      : path === "~" || path === "/" ? path : parts[parts.length - 1];
+    // folder, the way down inside it ("docs/api", on Windows "docs\\api"), else the folder's
+    // name. The top folder is "/".
+    const { parts, slash } = way(p.cwd), at = parts.lastIndexOf(sp?.name);
+    const folder = at >= 0 ? parts.slice(at + 1).join(slash) : parts.length ? parts[parts.length - 1] : p.cwd ? "/" : "";
     const tone = p.focused ? t.muted : t.dim;
     // Alone in its tab there is nothing to zoom past, and closing it closes the tab.
     const alone = panes().filter((x) => x.tab === p.tab).length < 2;

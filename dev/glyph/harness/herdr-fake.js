@@ -220,8 +220,9 @@ const KEYS = [
 export const keys = () => globalThis.__keys ?? KEYS;
 export const theme = () => THEME;
 export const layout = () => LAYOUT;
-// A test may pretend another system with globalThis.__platform ("linux", "windows").
-export const window = () => ({ platform: globalThis.__platform ?? "macos", titlebar: "none", buttons: false, maximized: false, fullscreen: true, active: true });
+// A test may pretend another system with globalThis.__platform ("linux", "windows"), and a
+// window whose buttons the system does not draw with globalThis.__buttons.
+export const window = () => ({ platform: globalThis.__platform ?? "macos", titlebar: "none", buttons: Boolean(globalThis.__buttons), maximized: false, fullscreen: true, active: true });
 export const settings = () => ({ zoom: 1 });
 export const updates = () => ({ app: { version: "0.1.15", ready: "0.1.16", updates: true } });
 export const home = () => "/Users/me";
@@ -244,18 +245,20 @@ export const hc = async (args = []) => {
 };
 // A machine's sh listing a folder, in the form copy.js asks for and reads (LIST, parse), or
 // what ssh has to say about getting from one machine to another (net above).
-// `true` is the rail asking a machine how quick it is to answer. It gets no answer, so a
+// `whoami` is the rail asking a machine how quick it is to answer. It gets no answer, so a
 // check draws the answers it was given (check.sh's PING), unless a test answers for the
 // machine: globalThis.__ping = (machine) => true for an answer at once, false for none.
 export const exec = async (command, args = [], options = {}) => {
   ASKS.push(["exec", command, args, options]);
-  if (command === "true") {
+  if (command === "whoami") {
     const answer = globalThis.__ping?.(options?.on ?? null);
     if (answer === undefined) return new Promise(() => {});
     if (!answer) throw new Error(`${options?.on} is unreachable`);
     return { code: 0, stdout: "", stderr: "" };
   }
   if (command !== "sh" || String(args[1]).includes("getent")) return net(command, args, options?.on ?? null);
+  // A test may take sh away from this computer: globalThis.__nosh.
+  if (globalThis.__nosh && !options?.on) throw new Error("could not start sh: program not found");
   const out = listed(options?.on ?? null, args[3]);
   return out === null ? { code: 2, stdout: "", stderr: `sh: line 0: cd: ${args[3]}: No such file or directory\n` } : { code: 0, stdout: out, stderr: "" };
 };

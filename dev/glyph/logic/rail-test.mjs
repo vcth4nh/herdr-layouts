@@ -5,7 +5,7 @@ import { PaneHead } from "./pane.mjs";
 import { Menu } from "./menu.mjs";
 import { byId, walk } from "./kit-stub.mjs";
 import { CALLS, ASKS, SHARED, panes, terminals, layout, spaces } from "./herdr-fake.mjs";
-import { reach, PING } from "./data.mjs";
+import { reach, PING, model, tilde, way } from "./data.mjs";
 
 let failed = 0, passed = 0;
 const ok = (cond, what) => { if (cond) passed++; else { failed++; console.log("FAIL:", what); } };
@@ -45,9 +45,9 @@ ok(!byId(root, "space-new-charlie") && Boolean(byId(root, "space-new-alpha")), "
 // How quick the other machines are to answer. The rail asks each one in reach as soon as it
 // knows them: never this computer, nor a machine that needs a login or is out of reach.
 const tick = () => new Promise((r) => setTimeout(r, 10));
-const asked = () => ASKS.filter((a) => a[0] === "exec" && a[1] === "true").map((a) => a[3].on);
+const asked = () => ASKS.filter((a) => a[0] === "exec" && a[1] === PING.run).map((a) => a[3].on);
 eq(asked(), ["alpha", "bravo", "charlie", "foxtrot"], "the machines in reach are asked, each once");
-eq(ASKS.find((a) => a[1] === "true").slice(2), [[], { on: "alpha", timeout: PING.wait }], "what is run there does nothing, and is given up on after PING.wait");
+eq([PING.run, ASKS.find((a) => a[1] === PING.run).slice(2)], ["whoami", [[], { on: "alpha", timeout: PING.wait }]], "what is run there is a program every system has, with nothing asked of it, and is given up on after PING.wait");
 // What is drawn after a machine's name: how many bars are lit and in which color, the time,
 // and the hover words.
 const MUTED = "#a6adc8", OFF = "#45475a", PEACH = "#fab387";
@@ -362,6 +362,69 @@ const head = (pane) => {
   CALLS.length = 0;
   byId(r, "close-p-split").handlers.on_click({}, cx);
   eq(runs(), [["pane.close", { pane: "p-split" }]], "a shell pane in a split closes at once, alone");
+}
+
+// Folders on a Windows machine: written with "\\", home at C:\Users\<name>.
+{
+  eq(["/Users/me/dev", "/home/me", "/root/x", "C:\\Users\\me\\dev", "c:/Users/me", "D:\\work"].map(tilde), ["~/dev", "~", "~/x", "~\\dev", "~", "D:\\work"], "home is ~ on every system");
+  eq([way("C:\\Users\\me\\dev\\api"), way("D:\\work\\api"), way("\\\\box\\share\\x").parts, way("C:\\").parts],
+    [{ parts: ["~", "dev", "api"], slash: "\\" }, { parts: ["D:", "work", "api"], slash: "\\" }, ["box", "share", "x"], ["C:"]], "a Windows path is cut at its own slash");
+  eq([way("/srv/a\\b/c"), way("/").parts, way(null).parts], [{ parts: ["srv", "a\\b", "c"], slash: "/" }, [], []], "any other only at /: a backslash there is part of a name");
+  // tb4 is a plain shell in inventory-and-order-reports that goes by its folder, "notes".
+  const pane = panes().find((x) => x.tab === "tb4"), was = pane.cwd;
+  const label = () => model().flat.find((c) => c.id === "tb4").label;
+  const before = label();
+  pane.cwd = "C:\\Users\\me\\dev\\inventory-and-order-reports\\notes";
+  eq([before, label()], ["notes", "notes"], "a tab that goes by its folder goes by the folder's name there too, not by the whole path");
+  const { draw } = head(pane.pane);
+  const where = () => { const n = byId(draw(), `cwd-${pane.pane}`); return n ? [text(n), n.props.tooltip[0]] : null; };
+  eq(where(), ["notes", "~\\dev\\inventory-and-order-reports\\notes"], "the pane header shows the way down inside the project, and the whole way on hover");
+  pane.cwd = "C:\\Users\\me\\dev\\inventory-and-order-reports\\docs\\api";
+  eq(where()?.[0], "docs\\api", "deeper down, with the machine's own slash");
+  pane.cwd = "C:\\Users\\me\\dev\\inventory-and-order-reports";
+  eq(where(), null, "and nothing at the project's own folder");
+  pane.cwd = "D:\\scratch";
+  eq(where()?.[0], "scratch", "outside the project, the folder's name");
+  pane.cwd = was;
+}
+
+// The face for letters that act as pictures: the Mac's own there, and the one glyph brings
+// on Linux and Windows. Herdr can't say which system it is while the mod loads, so the mod
+// asks before every draw (face(), which main.js calls), and DISPLAY is read as it is then.
+{
+  const ui = await import("./ui.mjs");
+  const on = (system) => { if (system) globalThis.__platform = system; else delete globalThis.__platform; ui.face(); return ui.DISPLAY; };
+  eq([ui.DISPLAY, on("linux"), on("windows"), on(null)], ["Avenir Next", "Nunito Sans", "Nunito Sans", "Avenir Next"], "Avenir Next until Herdr says and on a Mac, Nunito Sans on Linux and Windows");
+  const linux = { DISPLAY: on("linux") };
+  on(null);
+  // main.js asks before it draws a part, so the part's first draw has the right face.
+  const { default: Glyph } = await import("./main.mjs");
+  globalThis.__platform = "linux";
+  globalThis.__props = { role: "blank" };
+  const whole = new Glyph();
+  whole.init({}, cx);
+  whole.render(cx);
+  const first = ui.DISPLAY;
+  on(null);
+  eq(first, "Nunito Sans", "the mod's first draw on Linux names Nunito Sans");
+  // The files in the mod's fonts/ folder are that family, in the two weights the mod asks for.
+  const { readFileSync, existsSync } = await import("node:fs");
+  const dir = `${process.env.L}/mods/glyph/fonts`;
+  const face = (file) => {
+    const d = readFileSync(`${dir}/${file}`), tables = {};
+    for (let i = 0; i < d.readUInt16BE(4); i++) tables[d.toString("latin1", 12 + 16 * i, 16 + 16 * i)] = d.readUInt32BE(20 + 16 * i);
+    const at = tables.name, strings = at + d.readUInt16BE(at + 4), names = {};
+    for (let i = 0; i < d.readUInt16BE(at + 2); i++) {
+      const r = at + 6 + 12 * i;
+      if (d.readUInt16BE(r) !== 3) continue;
+      const raw = d.subarray(strings + d.readUInt16BE(r + 10), strings + d.readUInt16BE(r + 10) + d.readUInt16BE(r + 8));
+      names[d.readUInt16BE(r + 6)] = Buffer.from(raw).swap16().toString("utf16le");
+    }
+    // The family a font goes by: its typographic one (16) when it has one, else its plain one (1).
+    return [names[16] ?? names[1], d.readUInt16BE(tables["OS/2"] + 4)];
+  };
+  eq([face("NunitoSans-SemiBold.ttf"), face("NunitoSans-Bold.ttf")], [[linux.DISPLAY, 600], [linux.DISPLAY, 700]], "the fonts glyph brings are that family, semibold and bold");
+  ok(existsSync(`${dir}/OFL.txt`) && /SIL Open Font License/.test(readFileSync(`${dir}/OFL.txt`, "utf8")), "and their license is beside them");
 }
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

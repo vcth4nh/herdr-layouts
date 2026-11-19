@@ -65,15 +65,16 @@ export async function fleet() {
   }
 }
 
-// How quick another machine is to answer: a program that does nothing is run there through
-// herdr-core's own connection, and timed. PING.every: ms from one asking to the next.
-// PING.wait: ms after which it has not answered.
-export const PING = { every: 10000, wait: 5000 };
+// How quick another machine is to answer: a small program is run there through herdr-core's
+// own connection, and timed. PING.run: the program, one that macOS, Linux and Windows all
+// have (`true` is no program on Windows, and one that can't start counts as no answer).
+// PING.every: ms from one asking to the next. PING.wait: ms after which it has not answered.
+export const PING = { every: 10000, wait: 5000, run: "whoami" };
 // The ms one answer took, or null when none came in time.
 export async function ping(name) {
   const at = Date.now();
   try {
-    await exec("true", [], { on: name, timeout: PING.wait });
+    await exec(PING.run, [], { on: name, timeout: PING.wait });
   } catch {
     return null;
   }
@@ -99,8 +100,17 @@ export function reach(answers = []) {
   };
 }
 
-// Home as ~, on this machine or another.
-export const tilde = (p) => (p ?? "").replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, "~").replace(/^\/root(?=\/|$)/, "~");
+// Home as ~, on this machine or another: /Users/me, /home/me, /root, C:\Users\me.
+export const tilde = (p) => (p ?? "").replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, "~").replace(/^\/root(?=\/|$)/, "~")
+  .replace(/^[A-Za-z]:[\\/]Users[\\/][^\\/]+(?=[\\/]|$)/, "~");
+// The way down to a folder: its parts from the top, home as "~", and the slash its machine
+// writes between them. A Windows path ("C:\work\api", "~\api", "\\box\share") is cut at
+// either slash. Any other is cut at "/" only: there a "\" can be part of a name.
+export function way(p) {
+  const path = tilde(p);
+  const windows = /^(?:[A-Za-z]:[\\/]|\\\\|~\\)/.test(path);
+  return { parts: (windows ? path.split(/[\\/]+/) : path.split("/")).filter(Boolean), slash: windows ? "\\" : "/" };
+}
 
 // Agents print a status glyph (a spinner, a star) before their title.
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}~/]+/u, "").trim();
@@ -148,7 +158,7 @@ export function model(machineInfo = []) {
   // A sub-agent as a line under its tab shows it. It goes by the name it was started
   // with, else by what it says it is doing, else by its program.
   const sub = (s, k, depth) => {
-    const own = telling(clean(k.report?.title), k.address, k.program, [s.name, ...tilde(k.cwd).split("/").filter(Boolean)]);
+    const own = telling(clean(k.report?.title), k.address, k.program, [s.name, ...way(k.cwd).parts]);
     return {
       id: k.address, depth, program: k.program ?? null, own,
       // It reports to its parent: its "done" is not news, its error is.
@@ -179,7 +189,7 @@ export function model(machineInfo = []) {
     for (const k of subs.list) if (rank(k.status) > rank(subs.status)) subs.status = k.status;
     if (rank(subs.status) > rank(status)) status = subs.status;
     const term = lead ? termBy.get(lead.terminal) : null;
-    const path = tilde(lead?.cwd).split("/").filter(Boolean);
+    const path = way(lead?.cwd).parts;
     const folder = path[path.length - 1] ?? "";
     const own = telling(clean(term?.report?.title) || clean(lead?.title), lead?.terminal ?? "", lead?.program, [s.name, ...path]);
     const named = c.named && !echoes(lead?.program, c.name);
