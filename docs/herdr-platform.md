@@ -10,6 +10,11 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-15) and 
 - A mod can't measure text. glyph's `textWidth` (ui.js) sums Geist's letter widths, which were read from the font inside the app binary (`dev/glyph/fonts/geist.json`). It comes out 1–5px wide on a 120px label, never narrow.
 - To share a row's width fairly, give the row a definite width (`flex_1`) and give each item `flex_grow(1).flex_basis(0).max_w(<its own width>)`.
 - Slides: `.relative().left(n).transition("left", {duration, easing})` animates between renders. The animation is tied to the element's id.
+- An element takes a transition for each of several properties. One placed with `absolute()` and given `transition("left", …)` and `transition("width", …)` moved and changed its width together in real frames, as the beads of glyph's status lines do (2026-11-19). `--print-spec` prints both.
+- A transition, a `loop` and a `spin` go on when the mod is rendered again with the same targets. A slide took as long while its mod was rendered every 45 ms, and a turning arc and a pulse kept their pace (filmed 2026-11-19 with `dev/glyph/tools/line-pass.sh`). A loop given another `from` or `to` starts over.
+- `loop("left", {from, to})` on a child placed with `absolute()` moves it there and back, as the glint on glyph's working beads does.
+- `overflow_hidden()` cuts a child to its parent's box, not to the parent's round corners. A child as tall as a `rounded_full()` parent squared the parent's end off when it stood there (seen 2026-11-19). Keep such a child clear of the corners.
+- glyph takes a size told by `on_size_change` to be in the window's pixels, which Herdr's zoom makes larger than a mod's own. It divides a measured width by `settings().zoom` (a tab's in bar.js, a status line's in rail.js). That was only tried at zoom 1, where the two are the same.
 - There is no z-order: whatever must be on top has to be drawn last.
 - A `flex_1` child after the rows of an `overflow_y_scrollbar` column takes the height the rows leave: 3px under 14 rows of glyph's transfer window, 0 under a list that scrolled (measured with `on_size_change`, 2026-11-15).
 - A popup opened without a fixed size is as tall as what it holds. A scrolling area (`overflow_y_scrollbar`) adds no height of its own: with only `max_h` it collapsed to nothing (seen 2026-11-14). Give it a height, the sum of its rows up to a cap, as the shipped `picker` does.
@@ -18,6 +23,7 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-15) and 
 
 - There is no pointer capture and no drag API. An element gets moves only while hovered (`on_mouse_move`) and a release only over itself (`on_mouse_up`). It gets `on_hover(false)` when the pointer leaves, even with a button held. Herdr's own `tabs` and `spaces` mods use the same hooks. "Watch out" in glyph/RECIPE.md says how the glyph bar and the transfer window cope.
 - A move does not say whether a button is down: `MouseMoveEvent` in `gpui-kit.d.ts` has `position`, `local_position`, `bounds` and `modifiers`. A mod that follows a held button has to remember the press and end the hold itself.
+- `hover()` styles the element under the pointer and no other: `gpui-kit.d.ts` has nothing that styles one element while another is hovered. A mod that wants that notes the hovered thing in `on_hover` and renders again. glyph's rail lights a tab's row for its bead that way, and one real frame had a row under the pointer with its bead grown taller (2026-11-19).
 - A press, a release and a move carry the keys held (`event.modifiers`: `shift`, `control`, `alt`, `platform`), by `gpui-kit.d.ts`. A mod that does not hold the keyboard can still tell a Shift-click. ⇧ and ⌘ clicks worked by hand in glyph's transfer window (2026-11-15).
 - When one mod fills several roles, `<mod>.<command>` keys go to whichever copy awaits `nextCommand()`, as the shipped `win98` does.
 - A `layout:<name>` section in `keys.json` binds keys only while that layout shows, and wins over `global`. Settings has no key editor; `keys.json` is where keys are set.
@@ -127,6 +133,8 @@ Checked on 2026-11-14 against Herdr's manual ("Layouts and mods other people mad
   4. Put the real file back in a `trap`.
 
   `dev/glyph/tools/drag-pass.sh` and `live-pass.sh` do this.
+- Something else may install files while a stand-in is in place: another checkout's install replaced one three seconds into a film (2026-11-19). Keep a copy of what was installed and put that back, and only over a file that is still the stand-in. `dev/glyph/tools/line-pass.sh` does.
+- `herdr-app check` warns after its verdict when the mod's `init` ran `hc` or `exec` ("mod called hc; it runs for real"). A tool has to look for `check passed` in all of the output, not in its last line.
 - Commands that end tabs can be tried on throwaway tabs in the real window, since `herdr-app do` returns the ids of what it made and `herdr-app status` and `ls` say what is shown. `dev/glyph/tools/close-pass.py` does this. It changes what the window shows while it runs.
 - `herdr-app check <dir>` writes the app's `gpui-kit.d.ts` and `jsconfig.json` into `<dir>`. Both are gitignored here.
 - `overlay.close` left a window overlay (`kind: "window"`) open, with no id and with the window's `key` as the id (2026-11-14). A window closes from inside, with `closeOverlay(props().overlay)`. Another copy of the same mod can close it with that id too: glyph's bar closes the transfer window with the id the window's copy noted in a module variable, so `herdr-app do glyph.transfer` sent again closed it (2026-11-15). To close a window whose mod has no such command from a tool, swap in for a moment a stand-in that closes itself as it starts (`dev/glyph/tools/transfer-pass.sh`).

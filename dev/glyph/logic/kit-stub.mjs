@@ -1,7 +1,9 @@
 // Stand-ins for gpui-kit / gpui-base: every builder call is recorded on a plain node,
 // so a test can find an element by id and call the handlers the mod gave it.
+// `props` keeps the last call of each builder, and `all` every call of it, in order: an
+// element may be given a transition for each of several properties.
 function el(kind, arg) {
-  const node = { kind, arg, id: null, props: {}, handlers: {}, children: [] };
+  const node = { kind, arg, id: null, props: {}, all: {}, handlers: {}, children: [] };
   const proxy = new Proxy(node, {
     get(target, key) {
       if (key === "__node") return target;
@@ -18,6 +20,7 @@ function el(kind, arg) {
           return proxy;
         }
         target.props[key] = args;
+        (target.all[key] ??= []).push(args);
         return proxy;
       };
     },

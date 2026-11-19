@@ -97,8 +97,32 @@ function control(el, o) {
     .when(Boolean(o.onMenu), (x) => x.on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); o.onMenu(); }));
 }
 
-// o: { id, program, status, size, current, fade, backdrop, subs, tip, onClick, onMenu }
-// Without onClick it is only a picture (a tab chip owns the click).
+// A tab on one of the rail's lines: a bead in its state's color, as wide as it is given.
+// Its motion is the orb's ring laid flat: a glint runs along one at work, one that needs
+// you breathes, a finished one is still, and an idle one is as faint as its logo.
+// `lit` (under the pointer, or its row is) makes it taller and as bright as it gets.
+// o: { id, status, width, glint, tall, fade, lit }. `glint`: the line's beads are wide
+// enough for one. In a line of narrower ones a working bead breathes instead, faster than
+// one that needs you and not as deep.
+export function bead(t, o) {
+  const el = div().id(o.id).relative().flex_1().min_w(0).h(o.lit ? o.tall + 4 : o.tall).rounded_full().overflow_hidden()
+    .bg(t[o.status] ?? t.idle)
+    .transition("height", { duration: 120, easing: "ease-out" });
+  if (o.status === "blocked") return el.loop("opacity", { from: 0.5, to: 1, period: 900 });
+  if (o.status === "idle") return el.opacity(o.lit ? 1 : o.fade ?? 1);
+  if (o.status !== "working") return el;
+  if (!o.glint) return el.loop("opacity", { from: 0.6, to: 1, period: 1300 });
+  // The glint goes to the far end and back once every 2.6 s, the time the orb's arc takes
+  // for two turns. It is 1px short of the bead above and below: what holds it is cut to the
+  // bead's box, not to its round ends, which a glint of the bead's own height would square off.
+  const glint = Math.max(2, Math.min(16, Math.round(o.width * 0.4)));
+  return el.child(div().absolute().top(1).bottom(1).left(0).w(glint).rounded_full().bg(mix(t.working, t.foreground, 0.6))
+    .loop("left", { from: 0, to: Math.max(glint, o.width) - glint, period: 2600 }));
+}
+
+// o: { id, program, status, size, current, fade, backdrop, subs, tip, lit, onClick, onMenu, onHover }
+// Without onClick it is only a picture (a tab chip owns the click). `lit`: drawn as under
+// the pointer. `onHover` hears the pointer come and go.
 export function orb(t, o) {
   const size = o.size ?? 24, pad = 3, outer = size + pad * 2;
   const lk = look(t, o.program);
@@ -111,7 +135,11 @@ export function orb(t, o) {
     .child(svg(ICON(icon)).size(mark - 4).text_color(INK));
 
   let el = div().relative().flex_none().size(outer).rounded_full();
-  if (o.onClick) el = control(el, o).hover((s) => s.bg(t.hover));
+  if (o.onClick) {
+    el = control(el, o).hover((s) => s.bg(t.hover))
+      .when(Boolean(o.lit), (x) => x.bg(t.hover))
+      .when(Boolean(o.onHover), (x) => x.on_hover(o.onHover));
+  }
 
   el = el.child(div().absolute().top(pad).left(pad).size(size).rounded_full().flex().items_center().justify_center()
     .bg(o.current ? alpha(t.accent, "47") : lk.bg ?? t.raised)

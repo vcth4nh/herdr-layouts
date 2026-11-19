@@ -18,7 +18,8 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 **Rail**
 
 - It is 256px wide on chrome `#11111b`, and resizes from 120px to 420px.
-- A strip on top, 5px tall, shows every tab by state in four colored runs.
+- A status line on top has a bead for every tab that has a state: a pill 5px tall, in the state's color. The beads share the width between the rail's 13px margins, 2px apart. "The status line" below has their order and what they do.
+- Under the bead of the tab on show is a 2px mark in the accent (`#cba6f7`), as wide as the bead and at most 14px.
 - Each machine with projects has a 26px line: a 10px chevron, a laptop or server icon, its name at 12.5px, a hairline, and a 18px "+". One machine alone gets no line.
 - Every machine but this computer has four bars after its name, each 2px wide and rising from 4px to 10px, as a phone shows its signal. After them comes the time that machine takes to answer, at 11px ("270ms").
 - Under it, each project is a 36px tile beside its name at 13px. The shown project also has a 3px bar at the rail's edge.
@@ -93,16 +94,27 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - A tab takes the most urgent state of its agents and their sub-agents: blocked comes first, then done, working and idle. Sub-agents add one small dot in their most urgent color.
 - A sub-agent's row shows working and blocked as a tab does, and its error counts as blocked. Finished or idle, the row is dim.
 - The badge on the Dock icon follows the bell within about a second, for when Herdr is not the app in front. Tabs that are done are not counted there. The badge comes off when another layout is shown.
+- A bead moves as its orb's ring does. A lighter glint runs along a working bead and back, once every 2.6 s. A blocked bead pulses, a done one is still, and an idle one fades as its logo does.
+
+**The status line**
+
+- Each tab that has a state is one bead. Those that need you come first, then the finished, the working and the idle.
+- Within a color the beads stand as their tabs' rows do in the rail, from top to bottom. The bell and the tick in the bar step through a color in that order too.
+- When a tab changes state, its bead takes the new color at once and slides to its new place in 420 ms. A bead on its way to the ones that need you passes over the others. One that comes to rest passes under them.
+- Hover a bead and it grows 4px taller, and its tab's row in the rail is drawn as under the pointer. In the rail narrower than 200px its logo is. Hover a row or a logo, and its bead grows the same way.
+- Click a bead to show its tab. Right-click it for the tab's menu.
+- A folded machine or project has a status line of its own tabs, 4px tall ("Folding" below). It works the same way, and the same tab's bead grows on every line it is on.
+- A bead that needs you or has finished keeps 8px for as long as the others then have 2px each. In a crowd the beads stand 1px apart once they would be under 4px wide, and touch once they would be under 2px.
 
 **Going places**
 
-- Click a rail row or a bar pill to show that tab. Click a project's name in the rail to show the project. A project whose tabs are folded away shows a strip of their states in their place ("Folding" below), and a click on that strip shows the project too.
+- Click a rail row, a bar pill or a bead of a status line to show that tab. Click a project's name in the rail to show the project.
 - Click a sub-agent's row for Herdr's peek at its terminal, over the shown tab. ⌘W or the peek's × closes the peek, and the sub-agent keeps running.
-- Click a color in the strip at the top of the rail, or the bell or the tick in the bar, to go to the next tab in that state.
+- Click the bell or the tick in the bar to go to the next tab in that state.
 - Click the project's name in the bar, or search, or press ⌘P, for the Go-to list. It opens on the shown tab.
 - Type in it to narrow the list: every word typed must be in a tab's label, its agent's title, its project, its machine or its program. ↑ and ↓ move, and Enter or a click shows the picked tab. A click on a project's line shows that project. Esc or ⌘P again closes the list.
 - Scroll over the bar to step through its tabs.
-- Hover a tab or a sub-agent for its words: a tab's title, project, machine, state, how long it has been working or idle, and how many sub-agents; a sub-agent's name, title and state.
+- Hover a tab, its bead or a sub-agent for its words: a tab's title, project, machine, state, how long it has been working or idle, and how many sub-agents; a sub-agent's name, title and state.
 
 **Tabs**
 
@@ -132,10 +144,10 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 
 **Folding**
 
-- Click a machine's name to fold its projects away, and again to bring them back. Folded, the line shows the machine's tabs by state as a 4px strip.
-- Click a project's tile, or the chevron beside it, to fold its tabs away, their sub-agents with them, and again to bring them back. Folded, the project shows its tabs by state as a 4px strip: under its name, or beside its tile in the rail narrower than 200px.
+- Click a machine's name to fold its projects away, and again to bring them back. Folded, the machine's line has a status line of its tabs where the hairline was.
+- Click a project's tile, or the chevron beside it, to fold its tabs away, their sub-agents with them, and again to bring them back. Folded, the project shows a status line of its tabs: under its name, or beside its tile in the rail narrower than 200px.
 - A chevron points down when what it folds shows, and right when it is folded.
-- A project's name shows the project, folded or not. Folded, the name and the strip are one block, 36px tall like the tile, and a click anywhere on it shows the project.
+- A project's name shows the project, folded or not. Folded, the name and the status line are one block, 36px tall like the tile. A click on the name shows the project as it was left. A click on a bead shows that tab, which shows the project too.
 - A fold is kept across restarts. A folded machine keeps the folds of its projects.
 
 **Machines**
@@ -203,7 +215,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 
 - `mods/glyph/`, whose `mod.json` is `{ "place": "none", "title": "Glyph" }`.
 - `main.js` picks a part from `props().role`: `rail.js`, `bar.js`, `pane.js`, `menu.js` (a popup the mod opens for a tab), `goto.js` (the Go-to list, a popup the bar opens) or `blank.js` (a project's empty page, as a tab's only pane).
-- `data.js` shapes Herdr's lists into machines, projects and tabs. `ui.js` draws the tile, the orb and the icon button.
+- `data.js` shapes Herdr's lists into machines, projects and tabs. `ui.js` draws the tile, the orb, the bead and the icon button.
 - `transfer.js` is the transfer window, opened as a Herdr window overlay with props `{ "role": "transfer" }`. `copy.js` reads folders, starts, lists and ends copies, and finds out whether one machine can log in to another.
 - `fonts/`: Nunito Sans SemiBold and Bold, for Linux and Windows, as they come from `github.com/googlefonts/NunitoSans`, with their license beside them (`OFL.txt`, the SIL Open Font License).
 - `icons/`: 32 SVGs on a 24px grid with round strokes, drawn in `currentColor`. Program logos are Herdr's own, from `icons/` in Herdr's home (`~/.config/herdr-app`).
@@ -290,12 +302,24 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - A sub-agent that was given a pane (`terminal.keep`, or keep in the peek) is a pane like any other and has no row. Closing that pane ends the sub-agent. What it started is listed under the tab that holds its pane.
 - The rail keeps times for tabs only, so a resting sub-agent does not fade by age as a tab does. It is dim at once.
 
+**The status line**
+
+- A tab with no agent in it, such as a plain shell, has no state and no bead. Sub-agents have none either: a tab's bead takes their most urgent state, as its orb does. With no bead at all the rail has no status line on top, and a folded machine or project shows a hairline.
+- Only what is placed by hand can slide, so the beads are not laid out by Herdr: the rail gives each its left edge and its width. For that it has to know how wide the line is. On top that is the rail's width less the margins. A folded machine's line gets what its name and bars leave, which the rail estimates for the first frame and then measures.
+- What was measured holds for the rail's width it was measured at. After a resize the rail goes by the estimate again until Herdr has laid the line out.
+- The rail takes a measured width to be in the window's pixels and divides it by Herdr's zoom, as the bar does with its tabs' widths. This was only tried at zoom 1.
+- A slide belongs to a bead's id, which names its line and its tab. A line that has just changed its width is drawn in place, with no slide.
+- There is no z-order, so the beads are drawn last to first: the ones that need you are on top.
+- Herdr styles the element under the pointer, not another one. To light a row for its bead, the rail keeps which tab the pointer is on, and is drawn again each time that changes. Slides, turning arcs and pulses go on through that.
+- Herdr cuts a child to its parent's box, not to its round ends. So the glint is 1px short of its bead above and below: at the bead's own height it squared the ends off.
+- On a line whose working and idle beads are under 4px wide a glint has no room: there a working bead pulses instead, down to 60%, once every 1.3 s.
+- The line has no words of its own. How many tabs need you and how many have finished is on the bell and the tick in the bar.
+
 **Folding**
 
-- Going to a tab inside a folded project does not unfold it. The project's tile is filled and its row has the 3px bar, and the tab's own row stays out of sight. Inside a folded machine, the machine's name turns as bright as the shown project's.
+- Going to a tab inside a folded project does not unfold it. The project's tile is filled and its row has the 3px bar, and the tab's own row stays out of sight: the mark under its bead says which tab it is. Inside a folded machine, the machine's name turns as bright as the shown project's.
 - A press anywhere from the rail's edge to the far side of a project's tile folds: the margin with the chevron is 13px wide, the tile 36px.
-- The rail narrower than 200px has no names. An open project is shown there by one of its tabs' logos, and a folded one by its strip.
-- A strip counts the tabs that have a state, as the strip on top does. A tab with no agent in it, such as a plain shell, has none. A folded project where no tab has one shows a hairline.
+- The rail narrower than 200px has no names. An open project is shown there by one of its tabs' logos, and a folded one by a bead of its status line, which is as tall as the tile there.
 - A project showing its empty page has no tab to fold, and no chevron. Its tile shows the project, as its name does.
 - A project's fold is kept by its id. It is forgotten at the next fold after the project has closed, but not while a machine is out of reach: that machine's projects are only missing.
 
@@ -399,6 +423,9 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - With projects on two machines, each has a line with its name, and machines with nothing running share one dashed row.
 - An agent at work shows the turning blue arc. One that needs you pulses peach and raises the bell's count. One that finished wears the green ring and raises the tick's count.
 - On macOS, Herdr's Dock icon wears the bell's count as a badge, and none when the bell is gone. `lsappinfo info -only StatusLabel -app Herdr` reads it back.
+- The status line on top has one bead for each tab that has a state: peach for those that need you, then green, blue and grey, with a mark under the bead of the tab on show.
+- Hovering a bead makes it taller and lights its tab's row. Clicking it shows that tab.
+- When an agent finishes while another tab is on show, its bead turns green and slides to the green ones. Once you look at it, the bead turns grey and slides back to its place among the grey ones.
 - Clicking a rail row shows that tab. F2 opens the rename dialog with the agent's own title as its hint.
 - An agent that runs `hc run --bg --name helper claude "…"` gets a row named helper under its tab, with the turning arc while the helper works. Clicking the row opens Herdr's peek at it.
 - With that peek on show, ⌘W closes it. The helper is still running, and its tab has not turned red.
@@ -410,8 +437,8 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Closing a project's last tab leaves its empty page. A tab started there opens in the folder the last tab was in, and takes the page's place on show.
 - ⌘W on the page closes the project, and the project after it on the same machine shows its first tab.
 - ⌘W on the page of a machine's last project shows the last tab of the project before it on that machine. No project of another machine comes on show.
-- Folding a machine hides its projects and shows the strip of their states.
-- Clicking a project's tile, or the chevron beside it, hides its tabs' rows and shows the strip of their states under its name. Clicking it again brings them back. Clicking the project's name, or the strip of a folded project, shows the project.
+- Folding a machine hides its projects and shows a status line of their tabs on its line.
+- Clicking a project's tile, or the chevron beside it, hides its tabs' rows and shows a status line of them under its name. Clicking it again brings them back. Clicking the project's name shows the project, and clicking a bead of a folded project shows that tab.
 - Within a few seconds of the layout showing, the line of a machine other than this computer has bars lit and a time after its name. The time is near what `hc exec --on <machine> whoami` takes when timed in a shell.
 - ⌘P opens the Go-to list on the shown tab. An agent's tab nobody named is listed by its agent's title, never by its number. Typing narrows the list, and Enter shows the picked tab.
 - In that list every project's tabs stand in under its name, beside a line in the color of its tile that ends at its last tab. The line of the project on show is the brightest.

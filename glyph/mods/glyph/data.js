@@ -378,6 +378,17 @@ export function since(c, seen) {
   return (c.status === "working" ? c.workingSince : null) ?? c.changedAt ?? seen?.[c.id]?.at ?? null;
 }
 
+// The tabs of a status line in the order their beads stand in: those that need you, the
+// finished, the working, the idle. Within a state they keep the order they were given in,
+// which is the rail's, top to bottom: an order by time looked random, since nothing on a
+// bead says how long it has waited. A tab without a state has no bead.
+export function lineUp(tabs) {
+  return tabs.filter((c) => c.status in RANK)
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => RANK[b.c.status] - RANK[a.c.status] || a.i - b.i)
+    .map((x) => x.c);
+}
+
 // The words a logo stands for, on hover: what it is, where, and how it is doing.
 export function tabTip(c, now, seen) {
   const what = c.title || c.program?.name || `Tab ${c.index}`;

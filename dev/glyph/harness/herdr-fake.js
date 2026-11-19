@@ -223,7 +223,8 @@ export const layout = () => LAYOUT;
 // A test may pretend another system with globalThis.__platform ("linux", "windows"), and a
 // window whose buttons the system does not draw with globalThis.__buttons.
 export const window = () => ({ platform: globalThis.__platform ?? "macos", titlebar: "none", buttons: Boolean(globalThis.__buttons), maximized: false, fullscreen: true, active: true });
-export const settings = () => ({ zoom: 1 });
+// A test may pretend Herdr's zoom with globalThis.__zoom.
+export const settings = () => ({ zoom: globalThis.__zoom ?? 1 });
 export const updates = () => ({ app: { version: "0.1.15", ready: "0.1.16", updates: true } });
 export const home = () => "/Users/me";
 // A test may say the mod is only being checked: globalThis.__checking = true.
