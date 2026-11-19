@@ -1,10 +1,12 @@
 // A project with nothing running: the page its last tab leaves behind. Herdr closes a
-// project with its last tab and shows the next one; the bar puts this page in the tab's
-// place instead (bar.js, shut()), so you stay where you were. It is a tab whose only pane
+// project with its last tab and shows the next one; the bar has this page in the tab's
+// place instead, so you stay where you were (bar.js: stand() keeps one behind the one tab
+// of the project on show, out of sight, and shut() shows it). It is a tab whose only pane
 // is this mod, which the lists don't count as a tab.
 // The page is the project's tile and name over the bar's dashed pill of starters, larger:
 // a logo is "a tab running that", the prompt is a plain terminal, the dots are the full
-// + menu. Starting something replaces the page; looking at another project closes this one.
+// + menu. Starting something takes the page's place on show; looking at another project
+// closes this one.
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";

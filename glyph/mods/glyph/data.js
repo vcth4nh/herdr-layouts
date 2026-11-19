@@ -12,9 +12,10 @@ const rank = (s) => RANK[s] ?? 0;
 // Project hues. The names are the ones the shipped Spaces list stores in shared
 // "space.colors", so a project keeps its place on the wheel in every layout; the colors
 // stay clear of the three that mean something (working, needs you, finished).
-// A project whose last tab was closed keeps showing, as an empty page (blank.js): a tab
-// whose only pane is this mod. Shared BLANK remembers, by project id, what the page can't
-// tell any more with no terminal left: the project's name and the folder its tabs were in.
+// A project whose last tab was closed, or ended by itself, keeps showing, as an empty page
+// (blank.js): a tab whose only pane is this mod. Shared BLANK remembers, by project id, what
+// the page can't tell any more with no terminal left: the project's name and the folder its
+// tabs were in.
 export const BLANK = "glyph.blank";
 // How closing a tab is asked of the bar (see closeTab): shared SHUT names the tab.
 export const SHUT = "glyph.shut";
@@ -187,6 +188,8 @@ export function model(machineInfo = []) {
       id: c.id, index: c.index, name: c.name, named, active: c.active, shown: s.active && c.active,
       status, subs, lead, program: lead?.program ?? null, panes: mine.length, zoomed: c.zoomed,
       blank, careful, cwd: lead?.cwd ?? null,
+      // Put away on this screen (tab.settle): Herdr's own steps through the tabs skip it.
+      settled: Boolean(c.settled),
       // `title` is what it goes by: the name someone gave it (`given`), else what its
       // agent calls it (`own`), else nothing.
       title, own, given: c.named ? c.name : "",

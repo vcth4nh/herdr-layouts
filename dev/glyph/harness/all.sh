@@ -32,6 +32,8 @@ one - blank p-page 256 blank sp9
 one - bar p-page 256 bar-blank sp9
 one "PING=1" rail p-page 256 rail-blank sp9
 one - pane p-page 256 pane-blank sp9
+one - bar p3 256 bar-standby bravo/sp7
+one "PING=1" rail p3 256 rail-standby bravo/sp7
 one - goto p3 256 goto sp2
 one "FIND=codex" goto p3 256 goto-find sp2
 one "SURE=1" goto p3 256 goto-sure alpha/sp4

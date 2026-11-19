@@ -1,11 +1,14 @@
 // Closing, as the bar does it: two presses for what isn't a plain shell, the tab after the
-// closed one shown next, a project's empty page in place of its last tab, the project beside
-// it on its machine when one closes, and the keys that start things.
+// closed one shown next, a project's empty page in place of its last tab, the page that
+// stands by for a last tab that ends by itself, the project beside it on its machine when
+// one closes, and the keys that start things.
 // Run: ACTIVE=sp2 sh logic/run.sh close-test.mjs
 // The fake app does nothing by itself: after each command the test changes the flock the
-// way Herdr was seen to (a new tab is shown; closing the shown tab shows the one after it,
-// the one before it for the last; closing an unshown tab moves nothing; a closed peek gives
-// the keyboard back to the pane under it).
+// way Herdr was seen to (a new tab is shown; one made with focus false goes last and is not
+// shown; closing the shown tab shows the one after it, the one before it for the last, put
+// away or not; closing an unshown tab moves nothing; a project goes with its last tab; a
+// closed peek gives the keyboard back to the pane under it). By Herdr's manual, not seen: a
+// tab that was put away comes back when a command shows it.
 import { Bar } from "./bar.mjs";
 import { model } from "./data.mjs";
 import { byId } from "./kit-stub.mjs";
@@ -37,15 +40,27 @@ function world(id, n) {
   FOCUS.pane = undefined; FOCUS.peek = null;
   CALLS.length = 0; timers.length = 0;
 }
-async function bar() {
+// What the bar asks for the project on show when it is down to one tab: an empty page to
+// stand by behind that tab, made without being shown.
+const standby = (space) => ["tab.new", { space, mod: "glyph", props: { role: "blank" }, focus: false }];
+// With one tab on show, the bar asks for that page at its second look, the first that finds
+// the same project on show again (`first`: what those two looks ran). The page stays on its
+// way, so a test that is not about it sees none of it, until the test lets it come (`come`).
+// `standing`: it has come and been put away before the test starts.
+async function bar(standing = false) {
   const b = new Bar(cx);
   // A render, then the bar's look at what changed (in the app, a timer's; the bar runs
   // commands of its own only from there), then what that leaves on screen.
   const draw = () => { b.render(); b.look(cx); return b.render(); };
   let root = draw();
   await tick(); // knownAgents answers
+  root = draw();
+  const first = runs();
+  CALLS.length = 0;
+  const come = () => { for (const [name, args] of first) CALLS.push(["run", name, args]); obey(); };
+  if (standing) { come(); root = draw(); obey(); root = draw(); }
   const api = {
-    b, render: () => (root = draw()), root: () => root,
+    b, first, come, render: () => (root = draw()), root: () => root,
     key: async (name) => { globalThis.__deliver(name); await tick(); root = draw(); },
     x: (id) => { byId(root, `close-${id}`).handlers.on_click({}, cx); root = draw(); },
     red: (id) => Boolean(byId(root, `close-${id}`)?.props.bg),
@@ -70,10 +85,12 @@ function obey() {
   for (const [name, args] of runs().splice(0)) {
     const s = spaces().find((x) => x.tabs.some((c) => c.id === args?.id)) ?? sp(args?.space);
     if (name === "overlay.close") FOCUS.peek = null;
+    else if (!s) continue; // what it names is gone
     else if (name === "tab.select") {
       for (const x of spaces()) x.active = x === s;
-      s.tabs.forEach((c) => { c.active = c.id === args.id; });
-    } else if (name === "tab.close") {
+      s.tabs.forEach((c) => { c.active = c.id === args.id; if (c.active) c.settled = false; });
+    } else if (name === "tab.settle") s.tabs.find((c) => c.id === args.id).settled = true;
+    else if (name === "tab.close") {
       const at = s.tabs.findIndex((c) => c.id === args.id);
       const [gone] = s.tabs.splice(at, 1);
       panes().splice(0, panes().length, ...panes().filter((p) => p.tab !== gone.id));
@@ -85,15 +102,18 @@ function obey() {
     } else if (name === "tab.new") {
       made += 1;
       const id = `${s.machine ? s.machine + "/" : ""}new${made}`;
-      s.tabs.forEach((c) => { c.active = false; });
-      s.tabs.push({ id, index: s.tabs.length + 1, name: String(s.tabs.length + 1), named: false, active: true, status: null, panes: 1, zoomed: false });
+      const shown = args.focus !== false;
+      if (shown) s.tabs.forEach((c) => { c.active = false; });
+      s.tabs.push({ id, index: s.tabs.length + 1, name: String(s.tabs.length + 1), named: false, active: shown, status: null, panes: 1, zoomed: false, settled: false });
       const shellP = panes().find((p) => p.program?.shell).program;
-      panes().push(args.mod ? { pane: `p-${id}`, terminal: null, mod: args.mod, tab: id, title: "Glyph", focused: true, zoomed: false }
-        : { pane: `p-${id}`, terminal: `t-${id}`, tab: id, title: "", cwd: args.folder ?? s.folder, branch: null, status: null, app: null, program: shellP, focused: true, zoomed: false });
+      panes().push(args.mod ? { pane: `p-${id}`, terminal: null, mod: args.mod, tab: id, title: "Glyph", focused: shown, zoomed: false }
+        : { pane: `p-${id}`, terminal: `t-${id}`, tab: id, title: "", cwd: args.folder ?? s.folder, branch: null, status: null, app: null, program: shellP, focused: shown, zoomed: false });
     }
   }
   CALLS.length = 0;
 }
+// A tab ends by itself (its shell exits): it goes the way a closed one does.
+const exits = (id) => { CALLS.push(["run", "tab.close", { id }]); obey(); };
 
 // 1. A plain shell closes at the first press, and the tab after it is shown.
 {
@@ -146,36 +166,201 @@ function obey() {
   await a.key("close");
   eq(runs(), [], "armed, away, back: the next press is a first one");
 }
-// 6. A project's last tab: the empty page first, then the tab goes, and the project stays.
+// 6. A project's last tab, closed while the page asked to stand by is still on its way: the
+// page is waited for, not asked for twice. Once it is there it is shown, the tab goes, and
+// the project stays.
 {
   world("bravo/sp6", 0); // fieldnotes: one Claude tab, bravo/tb19
   const a = await bar();
+  eq(a.first, [standby("bravo/sp6")], "one tab on show: a page is asked to stand by, not to be shown");
   await a.key("close"); await a.key("close");
-  eq(runs(), [["tab.new", { space: "bravo/sp6", mod: "glyph", props: { role: "blank" } }]], "last tab: the page is asked for, nothing closes yet");
+  eq(runs(), [], "last tab, its page on the way: no second page is asked for, nothing closes yet");
   eq(SHARED["glyph.blank"], { "bravo/sp6": { name: "fieldnotes", folder: "/home/me/fieldnotes" } }, "its name and folder are kept");
-  obey(); a.render();
-  eq(runs(), [["tab.close", { id: "bravo/tb19", confirmed: true }]], "the page is there: now the tab closes");
+  a.come();
+  const page = sp("bravo/sp6").tabs[1].id;
+  a.render();
+  eq(runs(), [["tab.select", { id: page }], ["tab.close", { id: "bravo/tb19", confirmed: true }]], "the page is there: it is shown, and now the tab closes");
   obey(); a.render(); a.render();
   eq(runs(), [], "and nothing more");
   const m = model();
   eq([m.active?.id, m.active?.empty, m.active?.tabs.length, m.active?.label, m.counts.total], ["bravo/sp6", true, 0, "fieldnotes", 17], "the project is still on show, empty, and its page is no tab");
   ok(spaces().some((s) => s.id === "bravo/sp6"), "the project was not closed");
-  // Starting something there starts it where the last tab was, and the page makes way.
+  // Starting something there starts it where the last tab was, and the page stands by for it.
   await a.key("new");
   eq(runs(), [["tab.new", { space: "bravo/sp6", folder: "/home/me/fieldnotes" }]], "new tab on an empty page: in the folder the last tab was in");
   CALLS.length = 0;
   await a.key("new-codex");
   eq(runs(), [["tab.new", { space: "bravo/sp6", argv: ["codex", "--no-daemon"], folder: "/home/me/fieldnotes" }]], "new-codex there too");
   obey(); a.render();
-  eq(runs().map((r) => r[0]), ["tab.close"], "a tab beside the page: the page goes");
-  ok(runs()[0][1].id.includes("new") && runs()[0][1].confirmed === true, "it is the page that goes");
+  eq(runs(), [["tab.settle", { id: page }]], "a tab beside the page: the page stays, and is put away again");
   obey(); a.render();
-  eq([runs(), model().active.empty, model().active.tabs.length], [[], false, 1], "one tab left, no page");
+  eq([runs(), model().active.empty, model().active.tabs.length, model().active.blanks.map((b) => [b.id, b.settled])], [[], false, 1, [[page, true]]], "one tab on show, and the page behind it");
+}
+// 6a. The usual way: the page has come before anything closes. It is put away, and is no tab.
+// The close key on the one tab then shows it and closes the tab, with no wait.
+{
+  world("bravo/sp6", 0);
+  const a = await bar();
+  a.render(); a.render();
+  eq(runs(), [], "the page is on its way: not asked for again");
+  a.come();
+  const page = sp("bravo/sp6").tabs[1].id;
+  eq([sp("bravo/sp6").tabs.map((c) => c.active), spaces().find((s) => s.active).id], [[true, false], "bravo/sp6"], "(the fake makes it last and does not show it)");
+  a.render();
+  eq(runs(), [["tab.settle", { id: page }]], "the page is there: it is put away");
+  a.render();
+  eq(runs().length, 1, "asked once");
+  obey(); a.render(); a.render();
+  eq(runs(), [], "and nothing more");
+  const m = model();
+  eq([m.active.id, m.active.empty, m.active.tabs.map((c) => [c.id, c.active]), m.counts.total, m.active.blanks.map((b) => [b.settled, b.active])],
+    ["bravo/sp6", false, [["bravo/tb19", true]], 18, [[true, false]]], "the tab is still the one on show, and the page is no tab");
+  await a.key("close");
+  eq(runs(), [], "an agent's tab: the first press closes nothing");
+  await a.key("close");
+  eq(runs(), [["tab.select", { id: page }], ["tab.close", { id: "bravo/tb19", confirmed: true }]], "the second: the page that stood by is shown, and the tab goes at once");
+  ok(a.b.leaving === null, "nothing is waited for");
+  obey(); a.render(); a.render();
+  eq([runs(), model().active?.id, model().active?.empty, model().active?.label], [[], "bravo/sp6", true, "fieldnotes"], "the project is on show as its empty page");
+}
+// 6b. The one tab ends by itself (its shell exits). Herdr closes a project with its last tab:
+// with the page standing by there is a tab left, so the project stays on show, as its empty
+// page, by the name and the folder noted while the tab was there.
+{
+  world("bravo/sp6", 0);
+  const a = await bar(true);
+  exits("bravo/tb19");
+  eq([spaces().find((s) => s.active)?.id, sp("bravo/sp6")?.tabs.map((c) => [c.active, c.settled])], ["bravo/sp6", [[true, true]]], "(the fake: the project has its page left, which it shows)");
+  a.render(); a.render();
+  eq(runs(), [], "a last tab ending by itself: nothing to correct");
+  sp("bravo/sp6").name = "me"; // with no terminal left Herdr calls it after the folder it was made in
+  const m = model();
+  eq([m.active?.id, m.active?.empty, m.active?.tabs.length, m.active?.label, m.counts.total], ["bravo/sp6", true, 0, "fieldnotes", 17], "the project is still on show, as its empty page, by the name it had");
+  await a.key("new");
+  eq(runs(), [["tab.new", { space: "bravo/sp6", folder: "/home/me/fieldnotes" }]], "a tab started there starts in the folder the tab was in");
+  // Before the page has come, the project still goes with its tab.
+  world("bravo/sp6", 0);
+  await bar();
+  exits("bravo/tb19");
+  ok(!sp("bravo/sp6"), "(the fake: with no page there yet, the project closes with its tab)");
+}
+// 6c. A page stands by only for the one tab of the project on show.
+{
+  world("sp2", 0);
+  eq((await bar()).first, [], "three tabs on show: no page, and none for a one-tab project that is not on show");
+  world("sp1", 0);
+  eq((await bar()).first, [], "two tabs on show: no page");
+  // Another project on show: the page goes, and its project keeps its tab.
+  world("bravo/sp6", 0);
+  const a = await bar(true);
+  const page = sp("bravo/sp6").tabs[1].id;
+  for (const s of spaces()) s.active = s.id === "sp1";
+  a.render();
+  eq(runs(), [["tab.close", { id: page, confirmed: true }]], "another project on show: the page goes");
+  a.render();
+  eq(runs().length, 1, "asked once");
+  obey(); a.render();
+  eq([runs(), sp("bravo/sp6").tabs.map((c) => c.id)], [[], ["bravo/tb19"]], "and its project keeps its tab");
+  for (const s of spaces()) s.active = s.id === "bravo/sp6";
+  a.b.render(); a.b.look(cx);
+  eq([runs(), a.b.dirty], [[], true], "on show again: no page at the first look, which asks for another look at once");
+  a.b.look(cx);
+  eq([runs(), a.b.dirty], [[standby("bravo/sp6")], false], "still on show at the next look: a page is asked for again");
+  // A second tab: the page goes. Down to one again: a page again.
+  world("bravo/sp6", 0);
+  const b = await bar(true);
+  const first = sp("bravo/sp6").tabs[1].id;
+  await b.key("new");
+  eq(runs(), [["tab.new", { space: "bravo/sp6" }]], "(a new tab beside a tab starts where Herdr starts it)");
+  obey(); b.render();
+  eq(runs(), [["tab.close", { id: first, confirmed: true }]], "a second tab: the page goes");
+  obey(); b.render();
+  eq([runs(), sp("bravo/sp6").tabs.length], [[], 2], "two tabs, no page");
+  const second = sp("bravo/sp6").tabs[1].id; // a plain shell, on show
+  await b.key("close");
+  eq(runs(), [["tab.select", { id: "bravo/tb19" }], ["tab.close", { id: second, confirmed: true }], standby("bravo/sp6")], "the second tab is closed: a page is asked for at once, for the one that stays");
+}
+// 6d. What the page will show is noted while the tab can still tell, and only when it changes.
+{
+  world("bravo/sp6", 0);
+  const a = await bar(true);
+  const was = SHARED["glyph.blank"];
+  eq(was, { "bravo/sp6": { name: "fieldnotes", folder: "/home/me/fieldnotes" } }, "one tab on show: the project's name and the tab's folder are noted");
+  a.render(); a.render();
+  ok(SHARED["glyph.blank"] === was, "not written again while nothing changed");
+  panes().find((p) => p.tab === "bravo/tb19").cwd = "/home/me/fieldnotes/docs";
+  a.render();
+  eq(SHARED["glyph.blank"]["bravo/sp6"], { name: "fieldnotes", folder: "/home/me/fieldnotes/docs" }, "the tab is in another folder: noted");
+  sp("bravo/sp6").name = "docs";
+  a.render();
+  eq(SHARED["glyph.blank"]["bravo/sp6"], { name: "docs", folder: "/home/me/fieldnotes/docs" }, "the project goes by another name: noted");
+  eq(runs(), [], "and no command is run for it");
+}
+// 6e. The page on show beside the tab hands back to the tab. A page that never comes is asked
+// for again after 4 s.
+{
+  world("bravo/sp6", 0);
+  const a = await bar(true);
+  const [tab, page] = sp("bravo/sp6").tabs;
+  tab.active = false; page.active = true; page.settled = false; // something showed the page
+  a.render();
+  eq(runs(), [["tab.select", { id: "bravo/tb19" }], ["tab.settle", { id: page.id }]], "the page on show beside the tab: the tab is shown again, and the page put away again");
+  obey(); a.render();
+  eq([runs(), sp("bravo/sp6").tabs.map((c) => [c.active, c.settled])], [[], [[true, false], [false, true]]], "and nothing more");
+  world("bravo/sp6", 0);
+  const b = await bar();
+  b.b.paged.at -= 4000;
+  b.render();
+  eq(runs(), [standby("bravo/sp6")], "no page after 4 s: it is asked for again");
+  b.render();
+  eq(runs().length, 1, "once");
+}
+// 6h. The page that stood by is gone and the bar did not close it: something else did (Herdr
+// on another computer, with this layout on show, closes the pages of projects it is not
+// showing). The bar does not ask for another at once, which would never end, but a minute later.
+{
+  world("bravo/sp6", 0);
+  const a = await bar(true);
+  const page = sp("bravo/sp6").tabs.pop();
+  panes().splice(0, panes().length, ...panes().filter((p) => p.tab !== page.id));
+  a.render(); a.render();
+  eq(runs(), [], "the page was closed by something else: no other is asked for at once");
+  a.b.shy.set("bravo/sp6", Date.now() - 60000);
+  a.render();
+  eq(runs(), [standby("bravo/sp6")], "a minute later: one is asked for again");
+  // One the bar closed itself is not held against the project (6c: asked for again at once).
+}
+// 6f. A close key before the bar has looked at all: the page is asked for and shown, and the
+// tab waits for it, as before pages stood by.
+{
+  world("bravo/sp6", 0);
+  const b = new Bar(cx);
+  await tick();
+  globalThis.__deliver("close"); await tick();
+  globalThis.__deliver("close"); await tick();
+  eq(runs(), [["tab.new", { space: "bravo/sp6", mod: "glyph", props: { role: "blank" } }]], "last tab, no page asked for yet: one is asked for, to be shown");
+  obey(); b.render(); b.look(cx);
+  eq(runs(), [["tab.close", { id: "bravo/tb19", confirmed: true }]], "the page is there, on show: now the tab closes");
+  obey(); b.render(); b.look(cx);
+  eq([runs(), model().active?.id, model().active?.empty], [[], "bravo/sp6", true], "and the project stays");
+}
+// 6g. A look that goes wrong does not end the looking: a notice says why, once.
+{
+  world("sp2", 0);
+  const a = await bar();
+  const said = () => CALLS.filter((c) => c[0] === "notify").map((c) => c[1].body);
+  Object.defineProperty(spaces()[0], "tabs", { get() { throw new Error("no list"); }, configurable: true });
+  a.b.dirty = true; a.b.look(cx);
+  a.b.dirty = true; a.b.look(cx);
+  eq(said(), ["no list"], "two looks that go wrong the same way: one notice, and nothing thrown");
+  world("sp2", 0);
+  a.b.dirty = true; a.b.look(cx);
+  eq([said(), a.b.tripped], [[], ""], "a look that goes well: nothing said");
 }
 // 7. Looking at another project closes one left with only its page.
 {
   world("bravo/sp6", 0);
-  const a = await bar();
+  const a = await bar(true);
   await a.key("close"); await a.key("close");
   obey(); a.render(); obey(); a.render();
   for (const s of spaces()) s.active = s.id === "sp1";
@@ -190,7 +375,7 @@ function obey() {
 // after it on its machine is shown before it goes. The close-pane key there does the same.
 for (const key of ["close", "close-pane"]) {
   world("bravo/sp6", 0);
-  const a = await bar();
+  const a = await bar(true);
   await a.key("close"); await a.key("close");
   obey(); a.render(); obey(); a.render();
   const page = sp("bravo/sp6").tabs[0].id;
@@ -199,6 +384,8 @@ for (const key of ["close", "close-pane"]) {
   obey(); a.render();
   ok(!spaces().some((s) => s.id === "bravo/sp6"), `${key} on the page closes the project`);
   eq([runs(), spaces().find((s) => s.active)?.id], [[], "bravo/sp7"], "and nothing more moves");
+  a.render();
+  eq(runs(), [standby("bravo/sp7")], "at the next look the project now on show, which has one tab, gets its page");
 }
 // 8a. Which tab that is, by where the project stood: the row after it in the rail, else the
 // row before it, on its own machine while that has another project.
@@ -328,6 +515,20 @@ const closes = async (id, next, set = () => {}) => {
   a.b.look(cx);
   eq(runs(), [["tab.select", { id: "alpha/tb16" }]], "the eighth looks without a render");
 }
+// 10c. Both rules at once. The project Herdr shows for a moment after another closed gets no
+// page to stand by: the bar moves the window on from it. The project it moves to has one tab
+// here, and gets its page once it has stayed on show for a look.
+{
+  world("bravo/sp7", 0); // bravo's last project. After it in Herdr's list: foxtrot/sp8, one tab
+  const a = await bar(true);
+  herdrCloses("bravo/sp7", "foxtrot/sp8");
+  a.render();
+  eq(runs(), [["tab.select", { id: "bravo/tb19" }]], "a machine's last project closes: the one before it there is shown, and no page is asked for the project Herdr showed meanwhile");
+  obey(); a.render();
+  eq([runs(), spaces().find((s) => s.active)?.id], [[], "bravo/sp6"], "the window is on that project: nothing at the first look");
+  a.render();
+  eq(runs(), [standby("bravo/sp6")], "at the next it gets its page");
+}
 // 11. Close pane: a tab's only pane is the tab; in a split, an agent's pane takes two.
 {
   world("sp2", 0);
@@ -393,7 +594,8 @@ for (const key of ["close", "close-pane"]) {
   CALLS.length = 0;
   SHARED["glyph.shut"] = { id: "tb3", at: Date.now() };
   await a.key("shut");
-  eq(runs(), [["tab.select", { id: "tb4" }], ["tab.close", { id: "tb3", confirmed: true }]], "shut the shown tab: no second press, same order");
+  // tb5 and tb3 are both on their way out by now: tb4, the one that stays, gets its page.
+  eq(runs(), [["tab.select", { id: "tb4" }], ["tab.close", { id: "tb3", confirmed: true }], standby("sp2")], "shut the shown tab: no second press, same order");
   CALLS.length = 0;
   SHARED["glyph.shut"] = { id: "tb4", at: Date.now() - 60000 };
   await a.key("shut");

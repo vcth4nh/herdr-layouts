@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 """close-pass.py: the installed glyph's closing, start keys and empty page against the real app.
 
-It takes over the Herdr window for about a minute and a half: it opens a throwaway project
+It takes over the Herdr window for about a minute and a half: it opens throwaway projects
 of plain shells (sitting in an empty temporary folder), sends the commands the keys send
-(`herdr-app do glyph.close` is what the close key does), and reads back what Herdr shows.
-Don't type in Herdr while it runs.
+(`herdr-app do glyph.close` is what the close key does), tells one shell to exit by itself,
+and reads back what Herdr shows. Don't type in Herdr while it runs.
 
 What keeps it off real work: every glyph command is sent only while a throwaway project is
-the one on show (else the pass stops), every explicit close names an id the pass made, and at
-the end the window is put back on what it was showing before its projects are closed. A
-project that closes while on show always has another throwaway project beside it on this
-computer, which is the one the bar then shows: the one after it, or for this computer's last
-project the one before it. That last project is closed by the close key on its page only. At
-Herdr's own close, Herdr would show a project of the next machine for a moment before the
-bar moved the window back.
+the one on show (else the pass stops), every explicit close names an id the pass made, the one
+shell told to exit is one the pass started, and at the end the window is put back on what it
+was showing before its projects are closed. A project that closes while on show always has
+another throwaway project beside it on this computer, which is the one the bar then shows: the
+one after it, or for this computer's last project the one before it. That last project is
+closed by the close key on its page only. At Herdr's own close, Herdr would show a project of
+the next machine for a moment before the bar moved the window back. The project whose shell is
+told to exit has a throwaway project after it too: should the page that stands by for its one
+tab fail, the project closes, and that is where Herdr and the bar land.
 
 Run it with the Bash sandbox off, after tools/sync.sh: a bar older than the pass shows
-another machine's project in step 9. Frames land in .local/shots/ (close-armed.png,
-close-page.png); they are only new while the window is on screen.
+another machine's project in step 9, and in step 10 lets the project go with its shell.
+Frames land in .local/shots/ (close-armed.png, close-page.png, close-exit.png); they are only
+new while the window is on screen.
 """
 import json, os, subprocess, tempfile, time
 
@@ -66,6 +69,17 @@ def check(what, got, want):
     print(("PASS  " if ok else "FAIL  ") + what + ("" if ok else f"\n      got  {got}\n      want {want}"), flush=True)
 
 
+def once(fn, want, limit=6.0):
+    """What fn gives as soon as it gives `want`, or what it gives when the time is up. For what
+    the bar does by itself: it looks only about once a second while the window is not drawn."""
+    end = time.time() + limit
+    got = fn()
+    while got != want and time.time() < end:
+        time.sleep(0.3)
+        got = fn()
+    return got
+
+
 def press(sid, command, wait=0.6):
     """A glyph key, only while the throwaway project is the one on show."""
     if status()["space"] != sid:
@@ -102,12 +116,19 @@ try:
         time.sleep(0.3)
 
     def tabs(sid):
-        """The project's tabs in order, by the names above ("page": a tab with no terminal)."""
+        """The project's tabs in order, by the names above. An empty page (a tab with no terminal) is none."""
         s = space(sid)
         if s is None:
             return None
         by = {v["tab"]: k for k, v in n.items()}
-        return [by.get(t["id"], "page" if not t["terminals"] else "?") for t in s["tabs"]]
+        return [by.get(t["id"], "?") for t in s["tabs"] if t["terminals"]]
+
+    def pages(sid):
+        """The project's empty pages: for each, whether it is put away (settled)."""
+        s = space(sid)
+        if s is None:
+            return None
+        return [t["settled"] for t in s["tabs"] if not t["terminals"]]
 
     def shown():
         by = {v["tab"]: k for k, v in n.items()}
@@ -163,35 +184,38 @@ try:
     press(A, "glyph.close-pane")
     check("close-pane again: the tab goes", (tabs(A), shown()), (["a2", "a5"], "a5"))
 
-    # 5. The last tab: the project stays on show, as an empty page that remembers it.
-    do("tab.close", id=n["a2"]["tab"], confirmed=True)
+    # 5. The last tab: the project stays on show, as an empty page that remembers it. The page
+    # stood by behind the tab from the moment it was the only one.
+    do("tab.close", id=n["a2"]["tab"], confirmed=True, wait=1.5)
     check("(one tab left, shown)", (tabs(A), shown()), (["a5"], "a5"))
+    check("one tab on show: a page stands by behind it, put away", once(lambda: pages(A), [True]), [True])
     press(A, "glyph.close", wait=1.5)
-    check("last tab: the project is still there and on show, holding only its page", (status()["space"], tabs(A)), (A, ["page"]))
+    check("last tab: the project is still there and on show, holding only its page", (status()["space"], tabs(A), len(pages(A) or [])), (A, [], 1))
     kept = json.load(open(os.path.join(HOME, ".config/herdr-app/shared.json"))).get("glyph.blank", {}).get(A) or {}
     check("its name and folder are remembered", (kept.get("name"), os.path.realpath(kept.get("folder") or "/")), (name, CWD))
     print(f"      it went by {name!r}; with no terminal left Herdr itself calls it {space(A)['name']!r}", flush=True)
     time.sleep(0.6)
     app("shot", os.path.join(SHOTS, "close-page.png"))
 
-    # 6. A new tab from the page starts where the last one was, and the page goes.
+    # 6. A new tab from the page starts where the last one was, and the page stands by for it.
     press(A, "glyph.new", wait=1.5)
     s = space(A)
-    check("new tab on the page: one tab with a terminal, the page is gone", None if s is None else [len(t["terminals"]) for t in s["tabs"]], [1])
-    where = json.loads(hc("get", s["tabs"][0]["terminals"][0]["terminal"], "--json")).get("cwd") if s and s["tabs"][0]["terminals"] else None
+    live = [t for t in s["tabs"] if t["terminals"]] if s else []
+    check("new tab on the page: one tab with a terminal, on show, and the page put away again", (len(live), once(lambda: pages(A), [True]), status()["tab"] == (live[0]["id"] if live else None)), (1, [True], True))
+    where = json.loads(hc("get", live[0]["terminals"][0]["terminal"], "--json")).get("cwd") if live else None
     check("it started in the folder the last tab was in, not the project's own", os.path.realpath(where or "/"), CWD)
 
     # 7. The close key on the page closes the project, and the next project (Z, left on z2)
     # shows its first tab.
     press(A, "glyph.close", wait=1.5)
-    check("(the page again)", tabs(A), ["page"])
+    check("(the page again)", (tabs(A), len(pages(A) or [])), ([], 1))
     press(A, "glyph.close", wait=1.2)
     check("close on the page: the project goes, the next one shows its first tab", (space(A), status()["space"], shown()), (None, Z, "z1"))
 
     # 8. Looking at another project closes one that shows only its page.
     B = project("b1")
     press(B, "glyph.close", wait=1.5)
-    check("(another project, on its page)", tabs(B), ["page"])
+    check("(another project, on its page)", (tabs(B), len(pages(B) or [])), ([], 1))
     do("space.select", id=Z, wait=1.2)
     check("looking at another project: the empty one is closed, the window stays put", (space(B), status()["space"], shown()), (None, Z, "z1"))
 
@@ -204,9 +228,32 @@ try:
     check("(a new project is this computer's last, right after Z)", last, [Z, C])
     if last == [Z, C]:
         press(C, "glyph.close", wait=1.5)
-        check("(it is on its page)", tabs(C), ["page"])
+        check("(it is on its page)", (tabs(C), len(pages(C) or [])), ([], 1))
         press(C, "glyph.close", wait=1.2)
         check("close on the page of this computer's last project: the one before it shows its last tab", (space(C), status()["space"], shown()), (None, Z, "z2"))
+
+    # 10. A lone tab that ends by itself (its shell is told to exit): the page that stood by is
+    # what Herdr has left to show, so the project stays on show, with its name and folder kept.
+    # G comes after E on this computer: were E to close with its shell, Herdr would show G, and
+    # the bar would leave the window there, not on real work.
+    E = project("e1"); G = project("g1")
+    do("space.select", id=E, wait=1.5)
+    name = space(E)["name"]
+    check("one tab on show: a page stands by behind it, put away, and the tab is still the one shown", (tabs(E), once(lambda: pages(E), [True]), shown()), (["e1"], [True], "e1"))
+    check("the project left behind keeps its tab, and no page", (tabs(G), once(lambda: pages(G), [])), (["g1"], []))
+    hc("send", n["e1"]["terminal"], "exit")
+    time.sleep(1.5)
+    check("its shell exits: the project is still there and on show, holding only its page", (status()["space"], tabs(E), len(pages(E) or [])), (E, [], 1))
+    kept = json.load(open(os.path.join(HOME, ".config/herdr-app/shared.json"))).get("glyph.blank", {}).get(E) or {}
+    check("its name and folder are remembered", (kept.get("name"), os.path.realpath(kept.get("folder") or "/")), (name, CWD))
+    time.sleep(0.6)
+    app("shot", os.path.join(SHOTS, "close-exit.png"))
+    if status()["space"] == E:
+        press(E, "glyph.new", wait=1.5)
+        s = space(E)
+        live = [t for t in s["tabs"] if t["terminals"]] if s else []
+        where = json.loads(hc("get", live[0]["terminals"][0]["terminal"], "--json")).get("cwd") if live else None
+        check("a new tab from that page starts in the folder the shell was in", (len(live), os.path.realpath(where or "/")), (1, CWD))
 finally:
     # Back to the real project first: a throwaway project closed while on show would hand
     # over to whatever comes after it.

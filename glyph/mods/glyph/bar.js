@@ -18,6 +18,8 @@
 // project on show as an empty page (blank.js), which goes once you look elsewhere. When
 // the project on show closes, its neighbour on its machine shows. With Herdr's peek on show
 // (a sub-agent's terminal, over the tab), a close key closes the peek only: see unpeek().
+// A last tab that ends by itself (its shell exits) leaves the same page: while the project
+// on show has a single tab, one stands by behind it, out of sight. See stand().
 // Keys bound to this layout in keys.json ("layout:glyph") arrive as commands:
 //   rename, close, close-pane, new, new-<program key> (new-claude, new-codex, ...), transfer, goto.
 // transfer and goto close what they opened when asked again. transfer-show, which a copy's
@@ -39,8 +41,9 @@ const TITLE_MIN = 32;   // with less than this for each, resting tabs go back to
 const GAP = 3;          // between two tabs
 const AWAY = 400;       // ms a held tab waits for a pointer that left the strip
 const LAND = 2000;      // ms a dropped tab's preview waits for the move to really happen
-const PAGE = 4000;      // ms a project's last tab waits for the empty page to take its place
+const PAGE = 4000;      // ms an empty page that was asked for is given to come: a last tab waits that long for it
 const GONE = 5000;      // ms a tab asked to close counts as closed before it really is
+const SHY = 60000;      // ms no page is asked to stand by for a project after something else closed one: see tend()
 const LOOK = 120;       // ms between looks at what changed: see look()
 const REST = 8;         // with nothing drawn, only every so many looks really look
 const ASK = 2000;       // ms before hc is asked again how a copy ended
@@ -89,6 +92,11 @@ export class Bar {
     this.asked = {};
     this.armed = null;      // what a first close press was for: see ask()
     this.leaving = null;    // a project's last tab, waiting for its empty page: see shut()
+    this.paged = null;      // the project a page was last asked to stand by for, and when: see stand()
+    this.stowed = new Map(); // empty page -> when it was asked to be put away, until it is
+    this.stood = null;      // the page that stood by at the last look, and its project: see tend()
+    this.shy = new Map();   // project -> when a page standing by for it was closed by something else
+    this.tripped = "";      // what the last look that went wrong said: see look()
     this.going = new Map(); // tab id -> when it was asked to close
     this.swept = new Map(); // empty page -> when it was asked to close
     this.last = null;       // the project and tab on show at the last look: see follow()
@@ -200,6 +208,7 @@ export class Bar {
   // order Herdr keeps when a tab ends by itself. A project's last tab first gets the
   // project's empty page beside it, and goes once that is there (tend() sees to it): Herdr
   // closes a project with its last tab and shows another one, which is the jump this avoids.
+  // A page that already stands by (stand()) is shown at once, and the tab goes with no wait.
   shut(m, id, cx) {
     const c = m.flat.find((x) => x.id === id);
     if (!c) return;
@@ -215,14 +224,17 @@ export class Bar {
       run("tab.select", { id: next.id });
       end();
     } else {
-      // What the page can't know once no terminal is left: see BLANK in data.js.
-      const settled = machines().every((k) => k.layout === "ready");
-      const kept = Object.fromEntries(Object.entries(shared(BLANK) ?? {}).filter(([k]) => !settled || m.spaces.some((x) => x.id === k)));
-      kept[s.id] = { name: s.name, folder: c.cwd ?? "" };
-      setShared(BLANK, kept);
+      this.note(m, s, c);
+      const page = s.blanks.find((b) => !this.swept.has(b.id));
+      if (page) {
+        run("tab.select", { id: page.id });
+        end();
+        return;
+      }
       const mine = { tab: id, space: s.id };
       this.leaving = mine;
-      run("tab.new", { space: s.id, mod: "glyph", props: { role: "blank" } });
+      // One asked to stand by a moment ago is on its way: tend() shows it once it is there.
+      if (!this.due(s, Date.now())) run("tab.new", { space: s.id, mod: "glyph", props: { role: "blank" } });
       // If the page never comes, the tab closes all the same.
       cx.timer.after(PAGE, (cx) => {
         if (this.leaving !== mine) return;
@@ -237,14 +249,23 @@ export class Bar {
   // run commands, so it only notes that something was drawn (Herdr redraws a mod whenever
   // its lists change), and this, on a timer, does the looking. With nothing drawn it still
   // looks about once a second, in case the window is not being drawn at all.
+  // A command that fails (its machine just went out of reach) must not end the looking: the
+  // next look tries again, and a notice says what went wrong, once for each thing said.
   look(cx) {
     this.rests = this.dirty ? 0 : this.rests + 1;
     if (!this.dirty && this.rests % REST) return;
     this.dirty = false;
-    const m = model();
-    this.tend(m, Date.now());
-    this.mind(cx);
-    if (this.follow(m)) cx.notify();
+    try {
+      const m = model();
+      this.tend(m, Date.now());
+      this.mind(cx);
+      if (this.follow(m)) cx.notify();
+      this.tripped = "";
+    } catch (e) {
+      const said = String(e?.message ?? e);
+      if (said !== this.tripped) notify({ title: "Glyph could not keep its tabs in order", body: said, level: "error" });
+      this.tripped = said;
+    }
   }
 
   // Copies the transfer window started (copy.js) go on by themselves, in terminals of
@@ -279,15 +300,67 @@ export class Bar {
     run("tab.close", { id: b.id, confirmed: true });
   }
 
+  // What an empty page shows of its project, noted while a tab can still tell: the project's
+  // name, and the folder that tab is in (see BLANK in data.js). Written only when it changed:
+  // every copy of the mod is drawn again for it.
+  note(m, s, c) {
+    const all = shared(BLANK) ?? {};
+    const was = all[s.id];
+    const now = { name: s.name, folder: c.cwd ?? was?.folder ?? "" };
+    if (was?.name === now.name && was.folder === now.folder) return;
+    // Closed projects are forgotten here, once every machine's projects are in.
+    const kept = Object.fromEntries(Object.entries(all).filter(([k]) => !m.settled || m.spaces.some((x) => x.id === k)));
+    kept[s.id] = now;
+    setShared(BLANK, kept);
+  }
+
+  // Whether an empty page asked to stand by for this project is still on its way.
+  due(s, now) {
+    return this.paged?.space === s.id && now - this.paged.at < PAGE;
+  }
+
+  // The project on show, down to one tab `c`, keeps an empty page standing by. A tab that
+  // ends by itself (its shell exits) is not the bar's to close: Herdr closes a project with
+  // its last tab, and the bar hears of it afterwards. With `page` there the project has a
+  // tab left, which Herdr shows, so it stays on show as after a close key.
+  // The page is made without being shown (`focus: false`: last in the project, the keyboard
+  // stays where it is) and put away (`tab.settle`), so stepping through the tabs skips it.
+  // It is asked for once and then waited for, and asked to be put away once, and again only
+  // if it is still out much later. One that is on show beside the tab (Herdr handed over to
+  // it, or something picked it) hands back to the tab.
+  // It is not asked for at the first look that finds the project on show, but at the next:
+  // when a project closes, Herdr shows the next one in its list for a moment, and follow()
+  // moves the window on from there, to a project the closed one's machine still has.
+  stand(m, s, c, page, now) {
+    this.note(m, s, c);
+    if (!page) {
+      if (this.last?.space !== s.id) {
+        this.dirty = true; // the next look comes at once, drawn or not
+        return;
+      }
+      if (this.due(s, now) || now - (this.shy.get(s.id) ?? -SHY) < SHY) return;
+      this.paged = { space: s.id, at: now };
+      run("tab.new", { space: s.id, mod: "glyph", props: { role: "blank" }, focus: false });
+      return;
+    }
+    if (page.active) run("tab.select", { id: c.id });
+    if (page.settled) this.stowed.delete(page.id);
+    else if (now - (this.stowed.get(page.id) ?? 0) >= GONE) {
+      this.stowed.set(page.id, now);
+      run("tab.settle", { id: page.id });
+    }
+  }
+
   // Empty pages come and go by themselves. A last tab that was waiting for its page goes
-  // once the page is there. A page makes way for a tab that started beside it. And a
-  // project left with only its page closes once another project is on show, the way it
-  // would have closed with its last tab.
+  // once the page is there. The one tab of the project on show has a page standing by
+  // (stand()). Any other page makes way for a tab that started beside it. And a project
+  // left with only its page closes once another project is on show, the way it would have
+  // closed with its last tab.
   tend(m, now) {
     for (const [id, at] of this.going) if (now - at > GONE || !m.flat.some((c) => c.id === id)) this.going.delete(id);
     const d = this.leaving;
     const home = d ? m.spaces.find((s) => s.id === d.space) : null;
-    const page = home?.blanks[0];
+    const page = home?.blanks.find((b) => !this.swept.has(b.id));
     if (page) {
       this.leaving = null;
       // Only while its project is still on show: showing a tab shows its project too.
@@ -295,10 +368,27 @@ export class Bar {
       this.going.set(d.tab, now);
       run("tab.close", { id: d.tab, confirmed: true });
     }
+    const was = this.stood;
+    this.stood = null;
     for (const s of m.spaces) {
       const real = s.tabs.filter((c) => !this.going.has(c.id));
-      s.blanks.forEach((b, i) => {
-        const spare = i > 0 || real.length > 0;
+      // Its first page that was not asked to close. One that was on its way has come.
+      const own = s.blanks.find((b) => !this.swept.has(b.id));
+      if (own && this.paged?.space === s.id) this.paged = null;
+      // The one tab of the project on show, unless it is waiting for a page of its own.
+      const lone = s.active && real.length === 1 && this.leaving?.space !== s.id ? real[0] : null;
+      // The page that stays: the one standing by for that tab, or an empty project's first.
+      const keep = lone ? own : real.length ? null : s.blanks[0];
+      if (lone) {
+        // The page that stood by a look ago is gone, and the bar did not ask it to go: something
+        // else closes pages here, as Herdr on another computer does with this layout on show,
+        // for a project it is not showing. Asking again at once would go on for ever.
+        if (!own && was?.space === s.id && !this.swept.has(was.id)) this.shy.set(s.id, now);
+        this.stand(m, s, lone, keep, now);
+        if (own) this.stood = { space: s.id, id: own.id };
+      }
+      s.blanks.forEach((b) => {
+        const spare = b !== keep;
         const left = !s.active && this.leaving?.space !== s.id;
         if (!spare && !left) return;
         // A page on show hands over to a tab first, so closing it changes nothing you see.
@@ -306,7 +396,8 @@ export class Bar {
         this.sweep(b);
       });
     }
-    for (const id of this.swept.keys()) if (!m.spaces.some((s) => s.blanks.some((b) => b.id === id))) this.swept.delete(id);
+    for (const map of [this.swept, this.stowed]) for (const id of map.keys()) if (!m.spaces.some((s) => s.blanks.some((b) => b.id === id))) map.delete(id);
+    for (const [id, at] of this.shy) if (now - at >= SHY) this.shy.delete(id);
   }
 
   // What changed on show since the last look. When the project that was on show has closed

@@ -78,6 +78,12 @@ space("alpha/sp5", "acme.cpp-codex-rework", "alpha", null, "/home/me/acme.cpp", 
 space("bravo/sp6", "fieldnotes", "bravo", "main", "/home/me/fieldnotes", ACTIVE === "bravo/sp6", [[null, "claude", "idle", "Smoke test the release build", 1140, { active: true }]]);
 space("bravo/sp7", "kettle", "bravo", "refactor", "/home/me/kettle", ACTIVE === "bravo/sp7", [[null, "claude", "idle", "Review refactor impl", 1380, { active: true }]]);
 space("foxtrot/sp8", "lantern", "foxtrot", null, "/home/me/lantern", ACTIVE === "foxtrot/sp8", [[null, "claude", "idle", "PR 7", 300, { active: true }]]);
+// ACTIVE "bravo/sp7": a project on show with one tab has, behind that tab, the empty page the
+// bar keeps standing by: a tab whose only pane is the mod, put away, which the lists don't count.
+if (ACTIVE === "bravo/sp7") {
+  SPACES.find((s) => s.id === "bravo/sp7").tabs.push({ id: "bravo/tb-standby", index: 2, name: "2", named: false, active: false, status: null, panes: 1, zoomed: false, settled: true, settled_at: now, changed_at: null, working_since: null });
+  PANES.push({ pane: "bravo/p-standby", terminal: null, mod: "glyph", tab: "bravo/tb-standby", title: "Glyph", focused: false, zoomed: false });
+}
 // ACTIVE "sp9": a project whose last tab was closed, showing its empty page: a tab whose only
 // pane is the mod. With no terminal left the app calls it after the folder it was made in;
 // shared "glyph.blank" (below) remembers what it went by and where its tabs were.

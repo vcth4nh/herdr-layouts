@@ -8,7 +8,7 @@
 //   { "role": "goto" }       the list you type in to go to a tab (goto.js)
 //   { "role": "transfer" }   the window that copies files between machines (transfer.js)
 // and one it puts in a tab of its own, as that tab's only pane:
-//   { "role": "blank" }  the page of a project whose last tab was closed (blank.js)
+//   { "role": "blank" }  the page of a project with no tab left (blank.js)
 // Words stay only where you named something (a project, a tab, a branch, a machine).
 // A program is its logo, a state is a color and a motion, a button is an icon; hover
 // any of them for the words. ui.js draws the shared pieces, data.js reads Herdr.

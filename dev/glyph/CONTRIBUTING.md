@@ -17,7 +17,7 @@ Tune glyph; don't rebuild it.
 - Rows that can be picked follow a file manager's rules: a click picks one, ⇧ a range, ⌘ one more, and a held row can be swept over others or carried.
 - Words on show, in glyph or in a Herdr dialog it opens, must match what glyph does. A row that holds nothing should not take a row's room.
 - Keep the labelled rail as the default. The first version had a logos-only 160px rail with small machine names, and it wasn't clear at a glance which agent was which.
-- Closing a tab never moves you to another project.
+- Closing a tab never moves you to another project. Neither does a tab that ends by itself, such as a shell left with Ctrl+D.
 - Closing a project never moves you to another machine while its machine has another project. What shows next is the row after the closed one in the rail, else the row before it, as after a closed tab.
 - Ending anything that isn't a plain shell takes a second press.
 - With a peek over a tab, a close key closes the peek. It never ends what the peek shows or the tab under it.
@@ -35,7 +35,7 @@ Paths below are relative to `dev/glyph/`. Every script finds that folder and the
   - An installed `mods/glyph/` also has the app-provided `gpui-kit.d.ts` and `jsconfig.json`, which aren't kept here.
   - Then it runs `herdr-app check`, prints the app's errors, and saves `.local/shots/NAME.png`. It says "STALE" if the window wasn't drawing.
 - `harness/check.sh ROLE [PANE] [WIDTH] [TAG] [ACTIVE]` copies `glyph/mods/glyph/` and swaps `from "herdr"` for `harness/herdr-fake.js`, a fixed sample fleet. Then it runs `herdr-app check --print-spec` and writes `.local/harness/out/TAG.txt`.
-  - ROLE is `rail`, `bar`, `pane`, `menu`, `blank`, `transfer` or `goto`. For `menu`, PANE is the tab's id. ACTIVE `sp9` adds a project showing its empty page.
+  - ROLE is `rail`, `bar`, `pane`, `menu`, `blank`, `transfer` or `goto`. For `menu`, PANE is the tab's id. ACTIVE `sp9` adds a project showing its empty page. ACTIVE `bravo/sp7` shows a project with one tab, and gives it the empty page that stands by behind that tab.
   - Env hooks pretend states the check can't reach by itself. `ROOM=n`: the tab strip measured n px. `DRAG=from:to`: a tab held and moved. `ARMED=tab`: a first close press on that tab. `FOLD=a,b`: those machines folded. `TUCK=a,b`: those projects folded, by id (`sp1`, `alpha/sp4`). `PING=1`: the other machines have answered the rail, `alpha` in 38 ms, `bravo` in 270, `charlie` in 640 and `foxtrot` in 1400. `PING=name:ms,name:x`: those answers instead, with `x` for none in time. `HOVER=1`: the pane header under the pointer. `SURE=1`: a close clicked or chosen once (in the Go-to list, a first close press on the picked tab), or the transfer window's arrow pressed once. `FIND=word`: that word typed in the Go-to list. `COPIES=1`: two copies under way and one that failed. `LISTED=1`: the transfer window with its folders and the machines read. `PICK=side:name,name`: those rows picked on that side (0 is the left). `CARRY=x,y`: the picked rows held and carried to that point of the window, over the other side.
   - For the direct way between two machines, with `LISTED=1` and ACTIVE `alpha/sp4`: `COPIES=direct` puts the window's right side on `bravo` and lists one direct copy, `DIRECT=1` has the window know that `alpha` can log in to `bravo`, and `DIRECT=typed` also puts a word in the password field.
   - A hook rewrites a line of the copy and stops the run if that line is gone.
@@ -50,7 +50,7 @@ Paths below are relative to `dev/glyph/`. Every script finds that folder and the
 - `logic/run.sh TEST.mjs` puts the mod next to `logic/kit-stub.mjs`, a gpui-kit/gpui-base stub whose builders record ids, props and handlers. A test calls the handlers with made-up events and reads what the fake `run`/`openOverlay` were asked to do. [VERIFIED.md](VERIFIED.md) has what each test covers and how its last run ended.
   - `bar-test.mjs`: the bar's tabs.
   - `rail-test.mjs`: the rail, the tab menu and the pane header. Its menu section needs the menu role and a tab: `ROLE=menu PANE=alpha/tb8 sh logic/run.sh rail-test.mjs`. The fake app leaves the rail's `true` on a machine unanswered, unless the test answers for it with `globalThis.__ping`. Its machine `echo` is out of reach unless the test sets `globalThis.__ready`.
-  - `close-test.mjs`: closing and the start keys, with `ACTIVE=sp2 sh logic/run.sh close-test.mjs`. The fake app does nothing by itself, so the test changes the fleet after each command the way Herdr was seen to ("Tabs and projects" in the platform doc).
+  - `close-test.mjs`: closing, the page that stands by for a last tab, and the start keys, with `ACTIVE=sp2 sh logic/run.sh close-test.mjs`. The fake app does nothing by itself, so the test changes the fleet after each command the way Herdr was seen to ("Tabs and projects" in the platform doc).
   - `goto-test.mjs`: the Go-to list. The stub's text field is typed in with `state.type(text, cx)`.
   - `keys-test.mjs`: `glyph/keys.json` against Herdr's own default keys on each system, which it lists, and the keys the hover words show. The fake app pretends another system with `globalThis.__platform`, and other bindings with `globalThis.__keys`.
   - `transfer-test.mjs`: the transfer window, `copy.js` and the bar's part in a copy, with `ACTIVE=sp2 sh logic/run.sh transfer-test.mjs`.
@@ -58,10 +58,10 @@ Paths below are relative to `dev/glyph/`. Every script finds that folder and the
     - The fake fleet has three machines with ssh facts: `alpha` reaches `bravo` by address only, `bravo` reaches `foxtrot`, nothing reaches `alpha`, and `foxtrot`'s OpenSSH is too old to run the copy.
 - `tools/await-then-drag.sh` waits until the window is drawing, then runs drag-pass.sh once.
 - `tools/drag-pass.sh` and `tools/live-pass.sh` are the filmed live stand-ins. drag-pass plays a pretended drag. live-pass plays every state, then the wider rail. Both restore the real files from `glyph/` in a `trap`.
-- `tools/close-pass.py` checks closing, the empty page, the project that shows after one closes and the start keys in the real app, after `tools/sync.sh`.
-  - It opens throwaway projects of plain shells, sends the commands the keys send (`herdr-app do glyph.close`), and reads back what Herdr shows.
+- `tools/close-pass.py` checks closing, the empty page, a last tab that ends by itself, the project that shows after one closes and the start keys in the real app, after `tools/sync.sh`.
+  - It opens throwaway projects of plain shells, sends the commands the keys send (`herdr-app do glyph.close`), tells one lone shell to `exit`, and reads back what Herdr shows.
   - It takes over the Herdr window for about a minute and a half, then closes its projects and puts the window back.
-  - It sends a glyph command only while one of its own projects is on show, and closes only ids it made. A project it closes while on show always has another of its projects beside it on this computer: after it, or before it for the last one. So the project the bar shows next is never a real one.
+  - It sends a glyph command only while one of its own projects is on show, and closes only ids it made. A project it closes while on show always has another of its projects beside it on this computer: after it, or before it for the last one. So does the project whose one shell it tells to exit. So the project the bar shows next is never a real one.
 - `tools/copy-pass.sh A B` runs the mod's own `copy.js` against two real machines, named as `hc machine ls` names them. Nothing shows in the Herdr window.
   - It puts the mod beside a `herdr` module whose `hc` and `exec` are the real ones.
   - It reads folders through each machine's `sh`, copies files with awkward names from this computer to A, from A to B through here and from B back, and compares what came back byte for byte. It lets one copy fail and dismisses it.

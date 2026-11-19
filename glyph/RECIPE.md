@@ -46,7 +46,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 **Empty page**
 
-- A project whose last tab was closed shows a 56px tile, its name at 16px, and a larger dashed pill of the same launchers, centered.
+- A project whose last tab was closed, or ended by itself, shows a 56px tile, its name at 16px, and a larger dashed pill of the same launchers, centered.
 
 **Go-to list**
 
@@ -120,6 +120,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - While Herdr's peek is on show, ⌘W and ⇧⌘W close the peek and nothing else. The sub-agent or the copy it showed keeps running, and the tab under it is not asked to close.
 - After a close, the tab after it is shown, or the one before it for the last. Closing a tab that isn't shown moves nothing.
 - Closing a project's last tab leaves the project on show as its empty page. A tab started there starts in the folder the last tab was in.
+- A last tab that ends by itself leaves the same page, as when you leave its shell with Ctrl+D or `exit`.
 - The empty project closes once another project is shown, or at ⌘W on the page.
 - When the project on show closes, the window stays on its machine. The project after it there shows its first tab. After the machine's last project, the one before it shows its last tab.
 - Only a machine's only project hands over to another machine. The next project in the rail shows its first tab, or after the rail's last project, the one before it shows its last tab.
@@ -205,9 +206,9 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 
 - Reads: `spaces`, `panes`, `terminals`, `agents`, `machines`, `focused`, `layout`, `window`, `settings`, `keys`, `updates`, `theme`, `props`, `knownAgents`, `checking`.
 - Calls: `run`, `hc`, `exec`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`.
-- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read: the agents each machine can start, as Herdr's `new-menu` mod keeps them, for the launchers and the start keys before `knownAgents` has answered), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
+- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read: the agents each machine can start, as Herdr's `new-menu` mod keeps them, for the launchers and the start keys before `knownAgents` has answered), `glyph.blank` (the name and folder an empty project's page shows, noted while its last tab is still there), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
 - Kept in the rail's `localStorage`: `seen` (since when each tab has rested), `folded` (the folded machines) and `tucked` (the folded projects). Each place the layout puts the mod is a copy with a `localStorage` of its own.
-- Commands: `tab.select`, `tab.new`, `tab.close`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `overlay.close`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
+- Commands: `tab.select`, `tab.new`, `tab.close`, `tab.settle`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `overlay.close`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
 - Herdr's own mods, opened as they are: `menu` (the project menu), `prompt` (rename), `new-menu`, `machine-add`, `files`, `changes`.
 - `setAgentOrder` follows the rail, so `agent.next` and `agent.prev` walk it top to bottom.
 
@@ -256,15 +257,20 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 
 **Closing**
 
-- Herdr closes a project with its last tab and shows another project. The empty page is a tab whose only pane is the mod, opened just before the last tab closes. The rail and bar must not count it as a tab.
-- With no terminal left, Herdr calls a project after the folder it was made in and starts new tabs there. The page's name and folder come from `glyph.blank`.
-- A last tab that ends by itself gets no page: Herdr closes the project and shows the next one.
+- Herdr closes a project with its last tab and shows another project. The empty page is a tab whose only pane is the mod, which is there before the last tab goes. The rail and bar must not count it as a tab.
+- With no terminal left, Herdr calls a project after the folder it was made in and starts new tabs there. The page's name and folder come from `glyph.blank`, which the bar keeps current while the project on show has one tab.
+- A mod is not told that a program is about to exit. So while the project on show has one tab, the bar keeps a page standing by behind it. The page is made with `focus: false`, which neither shows it nor takes the keyboard, and put away with `tab.settle`, so stepping through the tabs skips it. When the tab ends, the page is the tab Herdr has left to show, and the project stays.
+- The bar asks for that page at the second look that finds the project on show, within a quarter of a second. A project Herdr shows only for a moment, after another one closed, gets none: the bar moves the window on from it.
+- The page that stands by is a tab like any other to Herdr, and the only hidden one there is: it goes when its project gets a second tab, and when another project is shown. Until then another layout, Herdr's own picker, and Herdr on another computer that shows the same machine list it as one more tab, whose pane is empty. A tab is put away on one screen only.
+- A bar closes every page it finds in a project it is not showing. So Herdr on another computer, with glyph on show there, closes the page that stands by here. When a page goes that this bar did not close, it waits a minute before it asks for another.
+- A last tab that ends by itself still takes its project with it in two cases. One is the last tab of a project that is not on show, which changes nothing on screen. The other is a tab that ends within a moment of becoming the only tab on show, before the page is there. The project on show then closes as it does from Herdr's own menu.
+- `focus: false` came with herdr-app 0.1.16, so the page that stands by needs that version or a later one.
 - A tab whose panes aren't known yet counts as more than a shell.
 - Showing a tab also shows its project, so the bar never selects a tab in a project that isn't on show, except to move there.
-- When the shown project closes, Herdr shows the next one in its list, on the tab it was last left on. After a machine's last project, that can be a project on another machine. The bar selects the tab its own rule gives ("Closing" under "How it behaves"): before the page goes for ⌘W on a page, and just after for a close from Herdr's own menu or a last tab that ended by itself. A project that is only missing because its machine went out of reach is left alone.
+- When the shown project closes, Herdr shows the next one in its list, on the tab it was last left on. After a machine's last project, that can be a project on another machine. The bar selects the tab its own rule gives ("Closing" under "How it behaves"): before the page goes for ⌘W on a page, and just after for a close from Herdr's own menu, or for a last tab that ended by itself with no page behind it. A project that is only missing because its machine went out of reach is left alone.
 - For a close that is not the bar's own, the window is on Herdr's choice for a moment before the bar moves it. After a machine's last project, that moment can show another machine's project.
 - The rule passes over a project left with only its empty page, since that one closes once another project is on show.
-- Every close ends in the bar's `shut()`, because a last tab has to wait for its page. The menu and the pane header ask through `glyph.shut`, since copies of a mod share code but not state.
+- Every close ends in the bar's `shut()`, because a last tab hands over to its page first, and waits for one that is not there yet. The menu and the pane header ask through `glyph.shut`, since copies of a mod share code but not state.
 - Herdr does not tell a mod which overlays are open. The bar knows a peek by what has the keyboard: a terminal, and no pane (`focused()`). It closes the peek with `overlay.close`, which closes the top dialog or popup. With a menu open over the peek that would be the menu, which was not tried.
 - The bar runs its follow-up commands from a 120 ms timer, not from `render`. With nothing drawn it still looks about once a second.
 - An error inside the loop around `nextCommand()` would end every key. The loop catches it and posts a notice.
@@ -379,7 +385,9 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Dragging a pill moves the tab to where it stood when released.
 - ⌘W on a shell closes it. ⌘W on an agent turns its tab red, and a second ⌘W within 3 s closes it.
 - After a close the tab after it is shown.
-- Closing a project's last tab leaves its empty page. A tab started there opens in the folder the last tab was in, and the page goes.
+- With one tab in the project on show, `herdr-app ls` lists a second tab in that project, with no terminal and `settled`. The window shows no sign of it.
+- `exit` in the only shell of the project on show leaves the project on show as its empty page, by its name. A tab started there opens in the folder the shell was in.
+- Closing a project's last tab leaves its empty page. A tab started there opens in the folder the last tab was in, and takes the page's place on show.
 - ⌘W on the page closes the project, and the project after it on the same machine shows its first tab.
 - ⌘W on the page of a machine's last project shows the last tab of the project before it on that machine. No project of another machine comes on show.
 - Folding a machine hides its projects and shows the strip of their states.

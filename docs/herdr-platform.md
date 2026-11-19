@@ -74,6 +74,12 @@ Checked on 2026-11-14 with throwaway tabs.
 - A new project goes after this computer's other projects, before those of other machines.
 - A project always has a tab, but the tab's only pane can be a mod: `tab.new {space, mod, props}`. `panes()` lists that pane with `terminal: null` and `mod`, and `herdr-app ls` lists the tab with no terminals.
 - With no terminal left, an unnamed project is called after the folder it was made in (`~` for home), and a new tab starts in that folder (`spaces()[i].folder`). Before that, both followed its terminals, so the folder is often a different one.
+- `space.new` and `tab.new` take `focus: false` since herdr-app 0.1.16. Checked on 2026-11-19 with that version, by `herdr-app do` on a throwaway project that was never on show:
+  - The project and the tab on show, and the pane with the keyboard, stayed as they were (`herdr-app status`). The new tab went last in its project, which kept showing the tab it showed.
+  - `tab.settle {id}` put away a tab that its project was not showing: `herdr-app ls` then lists it with `settled: true`. Herdr's changelog does not say which version brought the command.
+  - A shell that exited took its tab with it, and its project stayed, because it had another tab: one whose only pane is a mod. That tab became the one the project shows. Put away, it stayed put away.
+  - When the shown tab's program exits, the tab after it takes over even when it is put away. By Herdr's manual `tab.next`, `tab.prev` and `tab.select {index}` skip such a tab, which was not tried.
+  - The same held in the project on show: its only shell was told to `exit`, and the project stayed on show on its mod tab, which had been put away (glyph's `close-pass.py`, 2026-11-19).
 
 ## Mod code
 
