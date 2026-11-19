@@ -371,7 +371,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - The rail's default must stay labelled. A rail of logos alone did not say which agent was which.
 - Only the rail shows a machine's bars. The bar, the Go-to list and the transfer window name machines without them.
 - Not built: git ahead and behind counts, dragging to reorder projects, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting, typing a path, picking with the keyboard, carrying rows onto a folder's row or out of the window, and a direct copy by key or forwarded agent. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
-- Built and checked on macOS with herdr-app 0.1.15. The window buttons for Linux and Windows have never been drawn there, and their keys have never been pressed there.
+- Built and checked on macOS, first with herdr-app 0.1.15 and since with 0.1.16. It needs 0.1.16 or later: the rail reads `checking`, which came with that version. The window buttons for Linux and Windows have never been drawn there, and their keys have never been pressed there.
 - The mod runs under any theme, but the hues, the ink on filled tiles and the focus border were picked for a dark one.
 
 ## Done when

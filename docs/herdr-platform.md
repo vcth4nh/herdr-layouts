@@ -1,6 +1,6 @@
 # herdr-app / gpui-kit: limits and gotchas
 
-Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-15). Recheck after an app update.
+Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-15) and 0.1.16 (since). Recheck after an app update.
 
 ## Layout and drawing
 
@@ -87,15 +87,16 @@ Checked on 2026-11-14 with throwaway tabs.
 - Copies of a mod share its module code, but each has its own instance and `localStorage`. To pass something from one copy to another, use `setShared` (`closeTab` in glyph's data.js), which also redraws every copy. A module-level variable is shared by the copies too, and redraws nothing (`going` in glyph's data.js).
 - A copy in an overlay gets `close()` on its exported View when the overlay goes, whoever closed it: glyph's Go-to list was closed with `herdr-app do overlay.close` and had cleared `going` by the next command (2026-11-14).
 - `InputState.set_masked(true)` draws a field's text as dots. A field in a window overlay showed its placeholder, and dots for a value set from code (2026-11-14). glyph's field asks for the keyboard at a press, and what was typed after a click reached it (by hand, 2026-11-15).
+- `herdr-app check` runs a mod's `init` for real, an `exec` or an `hc` in it included. Since herdr-app 0.1.16 `checking()` is true there, so a mod can leave such work out: glyph's rail asks no machine anything under a check.
+- Since herdr-app 0.1.16 a mod can put a badge on Herdr's Dock icon on macOS: `setBadge(text)`, and `null` or `""` takes it off (`herdr.d.ts`). The last call wins, whichever mod made it, and the badge does not outlive the app. It was not tried. Before 0.1.16 there was no way: lsappinfo only stores strings.
 - The app's JavaScript sorts text by letter codes, even through `localeCompare` with options: "README.md" came before "import.py" in `herdr-app check`, where Node puts it after (2026-11-14). Sort names with a comparison of your own (`byName` in glyph's copy.js).
 
 ## Can't be done (checked)
 
-- No cursor trail or any cursor animation (checked 2026-11-14). A theme file is colors only (`background`, `foreground`, `selection`, `cursor`, `ansi`, `colors`). The keys on a layout's root that set its look are `theme`, `colors`, `font`, `font_size`, `ui_font`, `terminal_padding` and `terminal_opacity`, and no trail-like name is in the binary. A mod can't fake a trail either:
+- No cursor trail or any cursor animation (checked 2026-11-14 on 0.1.15, and the changelog of 0.1.16 names nothing for it). A theme file is colors only (`background`, `foreground`, `selection`, `cursor`, `ansi`, `colors`). The keys on a layout's root that set its look are `theme`, `colors`, `font`, `font_size`, `ui_font`, `terminal_padding` and `terminal_opacity`, and no trail-like name is in the binary. A mod can't fake a trail either:
   - Mods can't change how a terminal draws.
   - Neither `herdr.d.ts` nor `hc schema` gives the cursor's position (only its color; `hc read` returns text alone), the cell size or a pane's pixel rectangle.
   - Every way to draw over a terminal (floating block, popup/window overlay, hover header) swallows the pointer.
-- A layout can't set a Dock badge (lsappinfo only stores strings).
 
 ## Installing and reloading
 

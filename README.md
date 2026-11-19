@@ -1,6 +1,6 @@
 # herdr-layouts
 
-Custom looks (layout + theme + mods) for the Herdr desktop app, built against herdr-app 0.1.15 and hc 0.1.20 on macOS. The app reads looks from `~/.config/herdr-app`. ⌘⇧L or Settings switches layouts; `main` is the stock one.
+Custom looks (layout + theme + mods) for the Herdr desktop app, built against herdr-app 0.1.16 and hc 0.1.21 on macOS. The app reads looks from `~/.config/herdr-app`. ⌘⇧L or Settings switches layouts; `main` is the stock one.
 
 ## The looks
 
