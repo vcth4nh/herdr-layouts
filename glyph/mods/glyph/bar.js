@@ -16,7 +16,8 @@
 // pane's header): see ask() and shut(). Closing what isn't a plain shell takes two presses.
 // Closing the shown tab shows the one after it; closing a project's last tab leaves the
 // project on show as an empty page (blank.js), which goes once you look elsewhere. When
-// the project on show closes, the next one shows its first tab.
+// the project on show closes, the next one shows its first tab. With Herdr's peek on show
+// (a sub-agent's terminal, over the tab), a close key closes the peek only: see unpeek().
 // Keys bound to this layout in keys.json ("layout:glyph") arrive as commands:
 //   rename, close, close-pane, new, new-<program key> (new-claude, new-codex, ...), transfer, goto.
 // transfer and goto close what they opened when asked again. transfer-show, which a copy's
@@ -100,9 +101,12 @@ export class Bar {
     const c = s?.tabs.find((x) => x.active);
     if (name === "rename") {
       if (c) renameTab(c);
-    } else if (name === "close") this.close(m, cx);
-    else if (name === "close-pane") this.closePane(m, cx);
-    else if (name === "shut") {
+    } else if (name === "close" || name === "close-pane") {
+      // A peek on show is all a close key closes.
+      if (this.unpeek()) return;
+      if (name === "close") this.close(m, cx);
+      else this.closePane(m, cx);
+    } else if (name === "shut") {
       const asked = shared(SHUT);
       if (asked?.id && Date.now() - asked.at < GONE) this.shut(m, asked.id, cx);
     } else if (name === "transfer") openTransfer();
@@ -129,6 +133,19 @@ export class Bar {
       this.armed = null;
       cx.notify();
     });
+  }
+
+  // Herdr's peek shows a terminal that has no pane (a sub-agent's, a copy's) over the shown
+  // tab. Herdr does not say which overlays are open, but while a peek is, its terminal has
+  // the keyboard and no pane does. A close key then closes the peek and nothing else: what
+  // it showed keeps running, and the tab under it is not asked to close, a first press on
+  // it taken back. True when there was a peek.
+  unpeek() {
+    const at = focused();
+    if (!at?.terminal || at.pane) return false;
+    this.armed = null;
+    run("overlay.close");
+    return true;
   }
 
   // The close key: the shown tab. A project showing its empty page has only that to close,

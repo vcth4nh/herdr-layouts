@@ -87,7 +87,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 **Going places**
 
 - Click a rail row or a bar pill to show that tab. Click a tile or a project's name to show the project.
-- Click a sub-agent's row for Herdr's peek at its terminal, over the shown tab.
+- Click a sub-agent's row for Herdr's peek at its terminal, over the shown tab. ⌘W or the peek's × closes the peek, and the sub-agent keeps running.
 - Click a color in the strip at the top of the rail, or the bell or the tick in the bar, to go to the next tab in that state.
 - Click the project's name in the bar, or search, or press ⌘P, for the Go-to list. It opens on the shown tab.
 - Type in it to narrow the list: every word typed must be in a tab's label, its agent's title, its project, its machine or its program. ↑ and ↓ move, and Enter or a click shows the picked tab. A click on a project's line shows that project. Esc or ⌘P again closes the list.
@@ -112,6 +112,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 - A plain shell closes at one press. Anything else takes two within 3 s: the first turns the tab red. This goes for ⌘W, a tab's ×, a pane header's ×, ⇧⌘W, Close in the tab menu, whose row turns red in place, and Ctrl+D on the picked row of the Go-to list, which turns red too.
 - A pane alone in its tab closes the tab.
+- While Herdr's peek is on show, ⌘W and ⇧⌘W close the peek and nothing else. The sub-agent or the copy it showed keeps running, and the tab under it is not asked to close.
 - After a close, the tab after it is shown, or the one before it for the last. Closing a tab that isn't shown moves nothing.
 - Closing a project's last tab leaves the project on show as its empty page. A tab started there starts in the folder the last tab was in.
 - The empty project closes once another project is shown, or at ⌘W on the page.
@@ -193,7 +194,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Calls: `run`, `hc`, `exec`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`.
 - Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
 - Kept in the rail's `localStorage`: `seen` (since when each tab has rested) and `folded` (the folded machines). Each place the layout puts the mod is a copy with a `localStorage` of its own.
-- Commands: `tab.select`, `tab.new`, `tab.close`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
+- Commands: `tab.select`, `tab.new`, `tab.close`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `overlay.close`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
 - Herdr's own mods, opened as they are: `menu` (the project menu), `prompt` (rename), `new-menu`, `machine-add`, `files`, `changes`.
 - `setAgentOrder` follows the rail, so `agent.next` and `agent.prev` walk it top to bottom.
 
@@ -236,6 +237,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Showing a tab also shows its project, so the bar never selects a tab in a project that isn't on show, except to move there.
 - When the shown project closes, Herdr shows the next one on the tab it was last left on. The bar selects that project's first tab: before the page goes for ⌘W on a page, and just after for a close from Herdr's own menu or a last tab that ended by itself. A project that is only missing because its machine went out of reach is left alone.
 - Every close ends in the bar's `shut()`, because a last tab has to wait for its page. The menu and the pane header ask through `glyph.shut`, since copies of a mod share code but not state.
+- Herdr does not tell a mod which overlays are open. The bar knows a peek by what has the keyboard: a terminal, and no pane (`focused()`). It closes the peek with `overlay.close`, which closes the top dialog or popup. With a menu open over the peek that would be the menu, which was not tried.
 - The bar runs its follow-up commands from a 120 ms timer, not from `render`. With nothing drawn it still looks about once a second.
 - An error inside the loop around `nextCommand()` would end every key. The loop catches it and posts a notice.
 
@@ -243,7 +245,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 
 - Only terminals get rows. A helper that runs inside its agent's own process, such as Claude Code's Agent tool, is not a terminal, and Herdr reports nothing about it.
 - A row lasts as long as its terminal. A program an agent runs through `hc run` and waits for has a row until it exits, so rows come and go.
-- A sub-agent that was given a pane (`terminal.keep`, or keep in the peek) is a pane like any other and has no row. What it started is listed under the tab that holds its pane.
+- A sub-agent that was given a pane (`terminal.keep`, or keep in the peek) is a pane like any other and has no row. Closing that pane ends the sub-agent. What it started is listed under the tab that holds its pane.
 - The rail keeps times for tabs only, so a resting sub-agent does not fade by age as a tab does. It is dim at once.
 
 **A machine's bars**
@@ -330,6 +332,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - An agent at work shows the turning blue arc. One that needs you pulses peach and raises the bell's count. One that finished wears the green ring and raises the tick's count.
 - Clicking a rail row shows that tab. F2 opens the rename dialog with the agent's own title as its hint.
 - An agent that runs `hc run --bg --name helper claude "…"` gets a row named helper under its tab, with the turning arc while the helper works. Clicking the row opens Herdr's peek at it.
+- With that peek on show, ⌘W closes it. The helper is still running, and its tab has not turned red.
 - Dragging a pill moves the tab to where it stood when released.
 - ⌘W on a shell closes it. ⌘W on an agent turns its tab red, and a second ⌘W within 3 s closes it.
 - After a close the tab after it is shown.

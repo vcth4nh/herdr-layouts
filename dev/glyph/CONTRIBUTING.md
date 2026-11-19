@@ -19,6 +19,7 @@ Tune glyph; don't rebuild it.
 - Keep the labelled rail as the default. The first version had a logos-only 160px rail with small machine names, and it wasn't clear at a glance which agent was which.
 - Closing a tab never moves you to another project.
 - Ending anything that isn't a plain shell takes a second press.
+- With a peek over a tab, a close key closes the peek. It never ends what the peek shows or the tab under it.
 - Copying a file over another takes a second press, and glyph never removes a file.
 - A password is typed for one copy and kept in memory only until that copy has it: never in a shared value, `localStorage` or a file. glyph gives no machine a lasting way into another.
 - Keys are bound in `keys.json`, not in mod code.

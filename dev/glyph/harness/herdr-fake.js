@@ -187,11 +187,12 @@ export const setAgentOrder = noop;
 export const closeOverlay = (id) => { CALLS.push(["closeOverlay", id]); return null; };
 export const notify = (n) => { CALLS.push(["notify", n]); return "n1"; };
 // The pane with the keyboard: the shown tab's first one, unless a test says otherwise.
-export const FOCUS = { pane: undefined };
+// FOCUS.peek: the terminal Herdr's peek shows, which then has the keyboard, and no pane does.
+export const FOCUS = { pane: undefined, peek: null };
 export const focused = () => {
   const s = SPACES.find((x) => x.active), c = s?.tabs.find((x) => x.active);
-  const pane = FOCUS.pane !== undefined ? FOCUS.pane : PANES.find((p) => p.tab === c?.id)?.pane ?? null;
-  return s && c ? { space: s.id, tab: c.id, pane, terminal: PANES.find((p) => p.pane === pane)?.terminal ?? null, shown: null, agent: null, cwd: null } : null;
+  const pane = FOCUS.peek ? null : FOCUS.pane !== undefined ? FOCUS.pane : PANES.find((p) => p.tab === c?.id)?.pane ?? null;
+  return s && c ? { space: s.id, tab: c.id, pane, terminal: FOCUS.peek ?? PANES.find((p) => p.pane === pane)?.terminal ?? null, shown: null, agent: null, cwd: null } : null;
 };
 // A test delivers a key command by calling globalThis.__deliver(name).
 export const nextCommand = () => new Promise((resolve) => { globalThis.__deliver = resolve; });

@@ -4,7 +4,8 @@
 // Run: ACTIVE=sp2 sh logic/run.sh close-test.mjs
 // The fake app does nothing by itself: after each command the test changes the flock the
 // way Herdr was seen to (a new tab is shown; closing the shown tab shows the one after it,
-// the one before it for the last; closing an unshown tab moves nothing).
+// the one before it for the last; closing an unshown tab moves nothing; a closed peek gives
+// the keyboard back to the pane under it).
 import { Bar } from "./bar.mjs";
 import { model } from "./data.mjs";
 import { byId } from "./kit-stub.mjs";
@@ -33,7 +34,7 @@ function world(id, n) {
   for (const s of spaces()) s.active = s.id === id;
   if (n !== undefined) sp(id).tabs.forEach((c, i) => { c.active = i === n; });
   for (const k of Object.keys(SHARED)) delete SHARED[k];
-  FOCUS.pane = undefined;
+  FOCUS.pane = undefined; FOCUS.peek = null;
   CALLS.length = 0; timers.length = 0;
 }
 async function bar() {
@@ -56,7 +57,8 @@ let made = 0;
 function obey() {
   for (const [name, args] of runs().splice(0)) {
     const s = spaces().find((x) => x.tabs.some((c) => c.id === args?.id)) ?? sp(args?.space);
-    if (name === "tab.select") {
+    if (name === "overlay.close") FOCUS.peek = null;
+    else if (name === "tab.select") {
       for (const x of spaces()) x.active = x === s;
       s.tabs.forEach((c) => { c.active = c.id === args.id; });
     } else if (name === "tab.close") {
@@ -279,6 +281,34 @@ const herdrCloses = (id, next) => {
   ok(b.red("tb3"), "and its tab shows it");
   await b.key("close-pane");
   eq(runs(), [["pane.close", { pane: "p3" }]], "split: second press closes the pane only");
+}
+// 11a. Herdr's peek on show over a tab: a sub-agent's terminal has the keyboard, and no pane
+// does. Either close key closes the peek and nothing else.
+for (const key of ["close", "close-pane"]) {
+  world("sp3", 0); // tb6: a Claude tab whose agent started t6-1, t6-1-1 and t6-2
+  const a = await bar();
+  FOCUS.peek = "t6-2";
+  await a.key(key);
+  eq(runs().map((r) => r[0]), ["overlay.close"], `${key} with a peek on show: the peek closes, and nothing else is asked`);
+  ok(!a.red("tb6") && a.b.armed === null, `${key} with a peek on show: the tab under it is not armed`);
+  obey(); a.render(); // the peek is gone, and the tab's pane has the keyboard again
+  await a.key(key);
+  eq(runs(), [], `${key} once the peek is gone: a first press on the tab, which closes nothing`);
+  ok(a.red("tb6"), `${key} once the peek is gone: the tab is armed`);
+}
+// A first press on the tab, then a peek: the press that closes the peek takes it back.
+{
+  world("sp3", 0);
+  const a = await bar();
+  await a.key("close");
+  ok(a.red("tb6"), "(a first press arms the tab)");
+  FOCUS.peek = "t6-1";
+  await a.key("close");
+  eq(runs().map((r) => r[0]), ["overlay.close"], "armed, then a peek: the next press closes the peek, not the tab");
+  ok(!a.red("tb6"), "and the tab is no longer armed");
+  obey(); a.render();
+  await a.key("close");
+  eq(runs(), [], "so the press after that is a first one again");
 }
 // 12. What the other parts ask (closeTab in data.js): the tab named in shared, already sure.
 {

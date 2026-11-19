@@ -23,6 +23,7 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-15). Rec
 - `herdr-app do <mod>.<command>` sends a mod the same command its key would. That tests what a key does without pressing it.
 - `openOverlay` takes `at: "top"` with `offset: n` for a popup under the window's top edge, as the shipped `terminals-bar` opens `picker`. `herdr.d.ts` lists only `"pointer"` and `{x, y}`.
 - Popups stack: a second `openOverlay` leaves the first one open under it. `overlay.close` with no id closed the top popup, and `herdr-app commands` says it closes "the top dialog or popup". It leaves a window overlay open ("Looking at the real window" below).
+- Herdr's peek (`terminal.peek`) dims the window as a dialog does, and holds a layout: `herdr-app status` lists it as `layout`. While it is open, `focused()` gives the peeked terminal with `pane` null, no pane in `panes()` is `focused`, and a `<mod>.<command>` still reaches a mod under it. `overlay.close` with no id closes it: its terminal keeps running, and the pane under it has the keyboard again (herdr-app 0.1.16, 2026-11-19, a peek opened by command on a terminal without a pane).
 - An error thrown inside the loop around `nextCommand()` ends the loop, and every key bound to the mod stops working until it reloads. Catch errors inside the loop.
 
 ## Data
