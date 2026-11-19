@@ -1,7 +1,7 @@
 // Closing, as the bar does it: two presses for what isn't a plain shell, the tab after the
 // closed one shown next, a project's empty page in place of its last tab, the page that
 // stands by for a last tab that ends by itself, the project beside it on its machine when
-// one closes, and the keys that start things.
+// one closes, and the keys that start things. Also the number the bar puts on the Dock icon.
 // Run: ACTIVE=sp2 sh logic/run.sh close-test.mjs
 // The fake app does nothing by itself: after each command the test changes the flock the
 // way Herdr was seen to (a new tab is shown; one made with focus false goes last and is not
@@ -12,7 +12,7 @@
 import { Bar } from "./bar.mjs";
 import { model } from "./data.mjs";
 import { byId } from "./kit-stub.mjs";
-import { spaces, panes, CALLS, SHARED, FOCUS } from "./herdr-fake.mjs";
+import { spaces, panes, CALLS, SHARED, FOCUS, BADGES } from "./herdr-fake.mjs";
 
 let failed = 0, passed = 0;
 const ok = (cond, what) => { if (cond) passed++; else { failed++; console.log("FAIL:", what); } };
@@ -622,6 +622,57 @@ for (const key of ["close", "close-pane"]) {
   let pic = null;
   for (const ch of byId(a.root(), "start-shell").children) if (ch?.__node?.kind === "svg") pic = ch.__node;
   eq([pic?.arg, pic?.props.text_color?.[0]], ["icons/shell.svg", "#4ec95f"], "terminal starter: the shell tab's logo and color");
+}
+
+// 14. The Dock icon wears the number of tabs that need you, wherever they are.
+{
+  world("sp2", 0);
+  BADGES.length = 0;
+  const need = () => model().counts.blocked;
+  const a = await bar();
+  eq([need(), BADGES], [2, ["2"]], "the bar's first look puts the number on the icon, and its second says nothing more");
+  sp("sp2").tabs[0].status = "idle";
+  a.render();
+  eq([need(), BADGES], [1, ["2", "1"]], "the number changes: the icon is told");
+  a.render(); a.render();
+  eq(BADGES.length, 2, "and not again while it stays");
+  // A tab that finished is the tick's, not the badge's.
+  sp("sp2").tabs[0].status = "done";
+  a.render();
+  eq([model().counts.done > 0, BADGES.length], [true, 2], "a tab that finished is not counted");
+  // The app loaded the mod again: the bar that went may have taken the badge off after this
+  // one put it on. A moment after it started, this one says its number once more.
+  a.b.born -= 2000;
+  a.render(); a.render();
+  eq(BADGES, ["2", "1", "1"], "a moment after the start the icon is told once more, and only once");
+  // None left that needs you: the badge comes off.
+  const quiet = spaces().filter((s) => s.id === "sp1");
+  spaces().splice(0, spaces().length, ...quiet);
+  quiet[0].active = true;
+  a.render();
+  eq([need(), BADGES.at(-1), BADGES.length], [0, null, 4], "no tab needs you: no badge");
+  // The bar goes (another layout, the mod loaded again): the badge goes with it.
+  world("sp2", 0);
+  BADGES.length = 0;
+  const b = await bar();
+  b.b.gone();
+  eq(BADGES, ["2", null], "the bar going takes the badge off");
+  // With nothing that needs you from the start, the icon is still told once: a badge left
+  // by a bar before this one would stay.
+  world("sp2", 0);
+  spaces().splice(0, spaces().length, ...spaces().filter((s) => s.id === "sp1"));
+  spaces()[0].active = true;
+  BADGES.length = 0;
+  await bar();
+  eq(BADGES, [null], "a bar that starts with no tab needing you clears the icon once");
+  // Under `herdr-app check` the mod is only loaded to be looked at: the icon is left alone.
+  world("sp2", 0);
+  BADGES.length = 0;
+  globalThis.__checking = true;
+  const c = await bar();
+  c.b.gone();
+  delete globalThis.__checking;
+  eq(BADGES, [], "under herdr-app check nothing is put on the icon or taken off");
 }
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

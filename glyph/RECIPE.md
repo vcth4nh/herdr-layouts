@@ -48,6 +48,10 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 - A project whose last tab was closed, or ended by itself, shows a 56px tile, its name at 16px, and a larger dashed pill of the same launchers, centered.
 
+**Dock icon**
+
+- On macOS, Herdr's icon in the Dock wears a red badge with the number of tabs that are blocked, the bell's number. With no such tab it wears none.
+
 **Go-to list**
 
 - A popup 560px wide under the window's top edge: a search field, then every tab as a 30px row, a 20px orb and its label at 13px, in the rail's order and words.
@@ -88,6 +92,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - Idle: no ring. The logo fades to 75% after 15 minutes of rest and to 50% after two hours.
 - A tab takes the most urgent state of its agents and their sub-agents: blocked comes first, then done, working and idle. Sub-agents add one small dot in their most urgent color.
 - A sub-agent's row shows working and blocked as a tab does, and its error counts as blocked. Finished or idle, the row is dim.
+- The badge on the Dock icon follows the bell within about a second, for when Herdr is not the app in front. Tabs that are done are not counted there. The badge comes off when another layout is shown.
 
 **Going places**
 
@@ -205,7 +210,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 **From Herdr**
 
 - Reads: `spaces`, `panes`, `terminals`, `agents`, `machines`, `focused`, `layout`, `window`, `settings`, `keys`, `updates`, `theme`, `props`, `knownAgents`, `checking`.
-- Calls: `run`, `hc`, `exec`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`.
+- Calls: `run`, `hc`, `exec`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`, `setBadge`.
 - Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read: the agents each machine can start, as Herdr's `new-menu` mod keeps them, for the launchers and the start keys before `knownAgents` has answered), `glyph.blank` (the name and folder an empty project's page shows, noted while its last tab is still there), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
 - Kept in the rail's `localStorage`: `seen` (since when each tab has rested), `folded` (the folded machines) and `tucked` (the folded projects). Each place the layout puts the mod is a copy with a `localStorage` of its own.
 - Commands: `tab.select`, `tab.new`, `tab.close`, `tab.settle`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `overlay.close`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
@@ -299,6 +304,15 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - `true` is a Unix program. What the bars show for a Windows machine was not tried.
 - Under `herdr-app check` the rail asks no machine anything.
 
+**The Dock badge**
+
+- The badge is the app's, not the layout's: Herdr has one, and the last mod to set it wins. Another mod that sets one would take turns with glyph's.
+- The system draws every badge red, so only tabs that are blocked are counted. A number that mixed in the done ones would not say whether anything waits for you.
+- The bar sets the badge when the number changes, not at every look, and takes it off as it goes: when another layout is shown, and when Herdr loads the mod again.
+- When Herdr loads the mod again, the bar that goes may take the badge off after the new bar has put it on. So a bar says its number once more two seconds after it started.
+- Only macOS shows a badge, and `setBadge` came with herdr-app 0.1.16. Under `herdr-app check` the bar sets none.
+- The badge does not outlive Herdr, and a bar that starts says its number, or none, at its first look.
+
 **Go-to list**
 
 - Herdr's own picker lists an unnamed tab by its number, so the bar opens the mod's list instead. ⌘P reaches it only through the `layout:glyph` keys. Without them ⌘P still opens Herdr's picker.
@@ -379,6 +393,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - `herdr-app check mods/glyph` passes, and `herdr-app status` shows no errors with the layout on show.
 - With projects on two machines, each has a line with its name, and machines with nothing running share one dashed row.
 - An agent at work shows the turning blue arc. One that needs you pulses peach and raises the bell's count. One that finished wears the green ring and raises the tick's count.
+- On macOS, Herdr's Dock icon wears the bell's count as a badge, and none when the bell is gone. `lsappinfo info -only StatusLabel -app Herdr` reads it back.
 - Clicking a rail row shows that tab. F2 opens the rename dialog with the agent's own title as its hint.
 - An agent that runs `hc run --bg --name helper claude "…"` gets a row named helper under its tab, with the turning arc while the helper works. Clicking the row opens Herdr's peek at it.
 - With that peek on show, ⌘W closes it. The helper is still running, and its tab has not turned red.

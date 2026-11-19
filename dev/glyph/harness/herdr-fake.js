@@ -193,6 +193,9 @@ export const openOverlay = (spec) => { CALLS.push(["openOverlay", spec]); return
 export const setAgentOrder = noop;
 export const closeOverlay = (id) => { CALLS.push(["closeOverlay", id]); return null; };
 export const notify = (n) => { CALLS.push(["notify", n]); return "n1"; };
+// What the mod told the Dock icon to wear, in order (null: nothing).
+export const BADGES = [];
+export const setBadge = (text) => { BADGES.push(text); return null; };
 // The pane with the keyboard: the shown tab's first one, unless a test says otherwise.
 // FOCUS.peek: the terminal Herdr's peek shows, which then has the keyboard, and no pane does.
 export const FOCUS = { pane: undefined, peek: null };

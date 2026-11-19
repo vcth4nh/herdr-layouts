@@ -25,10 +25,11 @@
 // transfer and goto close what they opened when asked again. transfer-show, which a copy's
 // notice sends when clicked, only opens.
 // The bar also says how each copy the transfer window started has ended: see mind().
+// And it keeps the number of tabs that need you on Herdr's Dock icon (macOS): see flag().
 
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { theme, run, layout, settings, spaces, panes, terminals, focused, machines, shared, setShared, notify, window as win, openOverlay, knownAgents, nextCommand } from "herdr";
+import { theme, run, layout, settings, spaces, panes, terminals, focused, machines, shared, setShared, notify, window as win, openOverlay, knownAgents, nextCommand, setBadge, checking } from "herdr";
 import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM } from "./data.js";
 import { copies, settle, openTransfer, showTransfer, STARTING } from "./copy.js";
 import { ICON, INK, DISPLAY, alpha, mix, logo, inkOf, danger, orb, tile, iconButton, textWidth } from "./ui.js";
@@ -47,6 +48,7 @@ const SHY = 60000;      // ms no page is asked to stand by for a project after s
 const LOOK = 120;       // ms between looks at what changed: see look()
 const REST = 8;         // with nothing drawn, only every so many looks really look
 const ASK = 2000;       // ms before hc is asked again how a copy ended
+const AGAIN = 2000;     // ms after the bar starts that the Dock icon is told its number once more: see flag()
 
 // The room each title gets when `room` is shared out: those that need less keep their
 // own width, the rest get this much each. Infinity: all of them fit as they are.
@@ -103,6 +105,9 @@ export class Bar {
     this.dirty = true;      // something was drawn since the last look: see look()
     this.rests = 0;         // looks since then that found nothing drawn
     this.settling = new Map(); // copy id -> when hc was last asked how it ended: see mind()
+    this.badge = undefined; // what the Dock icon was last told to wear (null: nothing): see flag()
+    this.born = Date.now(); // when this bar started
+    this.told = false;      // the Dock icon was told once more, a moment after the start
     this.learn(cx);
     cx.timer.every(3000, (cx) => this.learn(cx));
     cx.timer.every(LOOK, (cx) => this.look(cx));
@@ -260,6 +265,7 @@ export class Bar {
       this.tend(m, Date.now());
       this.mind(cx);
       if (this.follow(m)) cx.notify();
+      this.flag(m, Date.now());
       this.tripped = "";
     } catch (e) {
       const said = String(e?.message ?? e);
@@ -290,6 +296,30 @@ export class Bar {
         cx.notify();
       });
     }
+  }
+
+  // Herdr's Dock icon wears the number of tabs that need you, wherever they are: the bell's
+  // number, there for when Herdr is not the app in front. None need you: no badge. Tabs that
+  // finished are not counted, since a badge is red whatever it says.
+  // The badge is the app's, not this layout's, and the last mod to set it wins. So the icon is
+  // told when the number changes, not at every look, and the bar takes the badge off as it
+  // goes (gone()). When the app loads the mod again, the bar that goes may take off what the
+  // new one has just put on: the new one says its number once more a moment after it started.
+  // Only macOS shows a badge. Under `herdr-app check` nothing is set.
+  flag(m, now) {
+    if (checking()) return;
+    const text = m.counts.blocked ? String(m.counts.blocked) : null;
+    const again = !this.told && now - this.born >= AGAIN;
+    if (text === this.badge && !again) return;
+    if (again) this.told = true;
+    this.badge = text;
+    setBadge(text);
+  }
+
+  // The bar goes: another layout takes the window, or the app loads the mod again. Nobody
+  // would keep the badge true, so it comes off.
+  gone() {
+    if (!checking()) setBadge(null);
   }
 
   // Asks an empty page to close, once: again only if it is still there much later.

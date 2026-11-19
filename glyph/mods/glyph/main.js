@@ -34,7 +34,8 @@ export default class Glyph extends View {
     return this.part.render(cx);
   }
 
-  // The app's last call to a copy that goes: an overlay closed, however it was.
+  // The app's last call to a copy that goes: an overlay closed, however it was, or the
+  // layout's own place for it gone (another layout shown, the mod loaded again).
   async close() {
     this.part.gone?.();
   }
