@@ -2,11 +2,12 @@
 // each project is a square tile in its hue beside its name, and each of the project's
 // tabs is a row: a round logo (its ring says how it is doing) and the few words that
 // tell it from the others. Click a row to go there, right-click for its menu; click a
-// tile or a name for the project. The sub-agents a tab's agents started are smaller
+// project's name for the project, or anywhere beside the tile of a folded one. The sub-agents a tab's agents started are smaller
 // rows under it: click one to peek at it. The strip on top is every tab by state (needs
 // you, finished, working, idle): click a color to visit the next one in it.
 // A machine's line folds its projects away and back (click its name): folded, the line
 // shows how its tabs are doing as one small strip, so nothing that needs you is hidden.
+// A project folds its tabs the same way, by its tile or the chevron beside it.
 // Machines with nothing running share one row of dashed pills at the end: click one to
 // start a project there.
 // After another machine's name, four bars say how quick it is to answer, as a phone shows
@@ -38,6 +39,9 @@ export class Rail {
     this.seen = JSON.parse(localStorage.getItem("seen") ?? "{}");
     // Machines whose projects are folded away ("" is this computer), kept across restarts.
     this.folded = JSON.parse(localStorage.getItem("folded") ?? "{}");
+    // Projects whose tabs are folded away, by id, kept across restarts.
+    this.tucked = JSON.parse(localStorage.getItem("tucked") ?? "{}");
+    this.live = null; // the ids of the projects there are, once every machine's are known
     this.refreshMachines(cx);
     cx.timer.every(20000, (cx) => this.refreshMachines(cx));
     cx.timer.every(PING.every, (cx) => this.probe(cx));
@@ -128,13 +132,15 @@ export class Rail {
           .when(k === "blocked", (el) => el.loop("opacity", { from: 0.5, to: 1, period: 900 })))));
   }
 
-  // A folded machine's tabs by state, as the strip on top shows the whole flock.
-  tally(t, g) {
+  // What a folded machine or project shows in place of its tabs: those tabs by state, as the
+  // strip on top shows the whole flock. A hairline when none of them has a state. Whoever
+  // asks gives it its size.
+  tally(t, id, tabs) {
     const n = { blocked: 0, done: 0, working: 0, idle: 0 };
-    for (const s of g.spaces) for (const c of s.tabs) if (c.status in n) n[c.status] += 1;
+    for (const c of tabs) if (c.status in n) n[c.status] += 1;
     const kinds = Object.keys(n).filter((k) => n[k] > 0);
-    if (!kinds.length) return div().flex_1().h(1).bg(t.border);
-    return h_flex().id(`tally-${g.name ?? "local"}`).flex_1().min_w(0).h(18).gap(2).items_center()
+    if (!kinds.length) return h_flex().items_center().child(div().flex_1().h(1).bg(t.border));
+    return h_flex().id(`tally-${id}`).gap(2).items_center()
       .tooltip(kinds.map((k) => SAID[k](n[k])).join(", "))
       .children(kinds.map((k) => div().h(4).min_w(5).flex_grow(n[k]).flex_shrink(1).flex_basis(0).rounded_full().bg(t[k])
         .when(k === "blocked", (el) => el.loop("opacity", { from: 0.5, to: 1, period: 900 }))));
@@ -172,13 +178,14 @@ export class Rail {
       localStorage.setItem("folded", JSON.stringify(this.folded));
       cx.notify();
     };
-    // The chevron sits in the margin, so the machine's icon stays in line with the tiles.
+    // The chevron sits in the margin, so the machine's icon stays in line with the tiles,
+    // 2px in: a project's chevron is under it, clear of the bar that marks the shown one.
     return h_flex().id(`machine-${g.name ?? "local"}`).h(26).flex_none().mt(first ? 2 : 6).pl(1).pr(7).gap(7).items_center()
       .child(h_flex().id(`fold-${g.name ?? "local"}`).h(22).flex_none().min_w(0).pr(5).items_center().rounded(7).cursor_pointer()
         .hover((x) => x.bg(t.hover))
         .tooltip(tip)
         .on_click(toggle)
-        .child(svg(ICON(folded ? "chevron-right" : "chevron-down")).size(10).flex_none().mr(2).text_color(t.dim))
+        .child(svg(ICON(folded ? "chevron-right" : "chevron-down")).size(10).flex_none().ml(1).mr(1).text_color(t.dim))
         .child(svg(ICON(local ? "laptop" : "server")).size(14).flex_none().mr(7).text_color(ink).opacity(there || login ? 1 : 0.45))
         .child(div().flex_none().max_w(room).truncate().text_size(12.5).font_family(DISPLAY).font_semibold()
           .text_color(ink).opacity(there || login ? 1 : 0.55).child(name)))
@@ -186,7 +193,7 @@ export class Rail {
         .when(Boolean(heardTip), (x) => x.tooltip(heardTip))
         .child(bars(t, sig.lit, sig.bad ? t.blocked : t.muted))
         .when(Boolean(said), (x) => x.child(div().flex_none().text_size(11).text_color(sig.bad ? t.blocked : t.dim).child(said)))))
-      .child(folded ? this.tally(t, g) : div().flex_1().h(1).bg(t.border))
+      .child(folded ? this.tally(t, g.name ?? "local", g.spaces.flatMap((s) => s.tabs)).flex_1().min_w(0).h(18) : div().flex_1().h(1).bg(t.border))
       .when(there, (el) => el.child(iconButton(t, {
         id: `space-new-${g.name ?? "local"}`, icon: "plus", size: 18, glyph: 11,
         tip: local ? "New project" : `New project on ${g.name}`,
@@ -263,18 +270,48 @@ export class Rail {
         .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(ink).child(k.label)));
   }
 
+  // Folds a project's tabs away, or brings them back. The fold of a project that has closed
+  // is forgotten here.
+  tuck(id, away, cx) {
+    if (away) this.tucked[id] = true;
+    else delete this.tucked[id];
+    if (this.live) for (const k of Object.keys(this.tucked)) if (!this.live.has(k)) delete this.tucked[k];
+    localStorage.setItem("tucked", JSON.stringify(this.tucked));
+    cx.notify();
+  }
+
   space(t, s, wide, now, width) {
     const select = () => run("space.select", { id: s.id });
     const menu = () => openOverlay({ mod: "menu", kind: "popup", width: 200, height: 260, props: { tab: "space", target: { id: s.id } } });
     const about = s.label + (s.branch ? `, ${s.branch}` : "");
     // A name longer than the rail is cut short: hovering it says all of it.
     const cut = s.label.length * 7 > width - 66;
-    const square = tile(t, { id: `space-${s.id}`, name: s.name, hue: s.hue, active: s.active, tip: about, onClick: select, onMenu: menu });
+    // A project with tabs folds them away and back by its tile, or by the chevron in the
+    // margin beside it, under its machine's: a press anywhere from the rail's edge to the
+    // tile's far side counts. Folded, a strip of the tabs' states stands in for them. The
+    // tile of a project without tabs shows the project instead.
+    const folds = s.tabs.length > 0;
+    const folded = folds && Boolean(this.tucked[s.id]);
+    const does = `${folded ? "Show" : "Hide"} ${s.tabs.length} tab${s.tabs.length === 1 ? "" : "s"}`;
+    const toggle = (_e, cx) => this.tuck(s.id, !folded, cx);
+    const square = tile(t, {
+      id: `space-${s.id}`, name: s.name, hue: s.hue, active: s.active,
+      tip: folds ? says(about, does) : about, onClick: folds ? toggle : select, onMenu: menu,
+    });
     // The shown project: its tile is filled, and a bar marks the row.
     const mark = () => div().absolute().left(0).top(9).w(3).h(26).rounded_r(3).bg(t.foreground);
+    const fold = () => div().id(`tuck-${s.id}`).absolute().left(0).top(0).w(13).h(44).pl(2).flex().items_center().cursor_pointer()
+      .text_color(t.dim).hover((x) => x.text_color(t.foreground))
+      .tooltip(does)
+      .on_click(toggle)
+      .child(svg(ICON(folded ? "chevron-right" : "chevron-down")).size(10).flex_none());
+
+    // What shows the project at a click and opens its menu at a right-click: its name. On a
+    // folded project that is the whole block beside the tile, the name and the strip.
+    const shows = (el) => el.cursor_pointer().on_click(select).on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); menu(); });
 
     if (!wide) {
-      const orbs = s.tabs.map((c) => orb(t, {
+      const orbs = () => s.tabs.map((c) => orb(t, {
         id: `tab-${c.id}`, program: c.program, status: c.status, current: c.shown, subs: c.subs,
         fade: this.fade(c, now), tip: tabTip(c, now, this.seen),
         onClick: () => goTab(c),
@@ -282,21 +319,24 @@ export class Rail {
       }));
       return h_flex().id(`row-${s.id}`).relative().flex_none().pl(13).pr(6).py(4).gap(7).items_start()
         .when(s.active, (el) => el.child(mark()))
+        .when(folds, (el) => el.child(fold()))
         .child(square)
-        .child(h_flex().flex_wrap().gap(1).flex_1().min_w(0).pt(3).children(orbs));
+        .child(folded ? shows(h_flex().id(`body-${s.id}`).flex_1().min_w(0).h(36).items_center()).child(this.tally(t, s.id, s.tabs).flex_1().min_w(0))
+          : h_flex().flex_wrap().gap(1).flex_1().min_w(0).pt(3).children(orbs()));
     }
+
+    const name = div().id(`name-${s.id}`).h(20).line_height("20px").truncate().text_size(13).font_family(DISPLAY).font_semibold()
+      .text_color(s.active ? t.foreground : t.muted)
+      .when(Boolean(s.branch) || cut, (el) => el.tooltip(about))
+      .child(s.label);
 
     return h_flex().id(`row-${s.id}`).relative().flex_none().pl(13).pr(8).py(4).gap(9).items_start()
       .when(s.active, (el) => el.child(mark()))
+      .when(folds, (el) => el.child(fold()))
       .child(square)
-      .child(v_flex().flex_1().min_w(0)
-        .child(div().id(`name-${s.id}`).h(20).line_height("20px").truncate().text_size(13).font_family(DISPLAY).font_semibold().cursor_pointer()
-          .text_color(s.active ? t.foreground : t.muted)
-          .when(Boolean(s.branch) || cut, (el) => el.tooltip(about))
-          .on_click(select)
-          .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); menu(); })
-          .child(s.label))
-        .children(s.tabs.flatMap((c) => [this.row(t, c, s, now), ...c.subs.list.map((k) => this.sub(t, k))])));
+      .child(folded ? shows(v_flex().id(`body-${s.id}`).flex_1().min_w(0)).child(name).child(this.tally(t, s.id, s.tabs).h(16))
+        : v_flex().flex_1().min_w(0).child(shows(name))
+          .children(s.tabs.flatMap((c) => [this.row(t, c, s, now), ...c.subs.list.map((k) => this.sub(t, k))])));
   }
 
   foot(t, wide) {
@@ -318,6 +358,7 @@ export class Rail {
     const now = Date.now();
     const m = model(this.machineInfo);
     this.track(m, now);
+    this.live = m.settled ? new Set(m.spaces.map((s) => s.id)) : null;
     // agent.next / agent.prev walk the rail top to bottom.
     setAgentOrder(agents().map((a) => a.address));
     const w = win();

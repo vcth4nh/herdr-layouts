@@ -3,7 +3,7 @@
 # for the fixed sample, and runs `herdr-app check --print-spec` on that copy.
 # Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu, blank, transfer or goto; for menu, PANE
 # is the tab's id. ACTIVE is the project on show (sp9: one showing its empty page).
-# Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, PING, HOVER,
+# Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, TUCK, PING, HOVER,
 # SURE, COPIES, LISTED, PICK, CARRY, FIND, DIRECT.
 export S=$(cd "$(dirname "$0")/.." && pwd)
 export L=$(cd "$S/../../glyph" && pwd)
@@ -42,6 +42,11 @@ for f in glob.glob(d + "/*.js"):
         head = 'this.folded = JSON.parse(localStorage.getItem("folded") ?? "{}");'
         assert s.count(head) == 1
         s = s.replace(head, "this.folded = %s;" % json.dumps({("" if k == "local" else k): True for k in os.environ["FOLD"].split(",")}))
+    # TUCK=a,b: pretend those projects are folded (rail.js; by id: sp1, alpha/sp4).
+    if os.environ.get("TUCK") and f.endswith("/rail.js"):
+        head = 'this.tucked = JSON.parse(localStorage.getItem("tucked") ?? "{}");'
+        assert s.count(head) == 1
+        s = s.replace(head, "this.tucked = %s;" % json.dumps({k: True for k in os.environ["TUCK"].split(",")}))
     # PING=1: the other machines have answered the rail: alpha in 38 ms, bravo in 270, charlie in
     # 640 and foxtrot in 1400. PING=name:ms,name:x: those answers instead, x for none in time.
     if os.environ.get("PING") and f.endswith("/rail.js"):

@@ -22,11 +22,12 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Each machine with projects has a 26px line: a 10px chevron, a laptop or server icon, its name at 12.5px, a hairline, and a 18px "+". One machine alone gets no line.
 - Every machine but this computer has four bars after its name, each 2px wide and rising from 4px to 10px, as a phone shows its signal. After them comes the time that machine takes to answer, at 11px ("270ms").
 - Under it, each project is a 36px tile beside its name at 13px. The shown project also has a 3px bar at the rail's edge.
+- A project with tabs has a 10px chevron in the margin left of its tile, under its machine's.
 - Each tab is a 28px row: a 20px orb and a label at 12.5px. The shown tab's row is raised (`#313244`).
 - Each sub-agent is a 24px row under its tab's: a hook in `#45475a` hanging from the logo of whatever started it, a 16px orb and a name at 12px. A sub-agent is a terminal that one of the tab's agents started with Herdr's `hc run`, a helper agent or a plain program, and that has no pane.
 - Machines with nothing running share one row of dashed pills at the end. The pill of a machine other than this computer has the bars after its name.
 - A 42px foot has four icon buttons: settings, add a machine, new project, and one that switches the rail between 256px and 160px.
-- Narrower than 200px, the rows go, sub-agents' too, and each project's orbs wrap beside its tile. A machine keeps its bars and loses the time.
+- Narrower than 200px, the rows go, sub-agents' too, and each project's orbs wrap beside its tile. A machine keeps its bars and loses the time. The chevrons stay.
 
 **Bar**
 
@@ -34,7 +35,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - The shown project's 22px tile and name at 13.5px, and its machine if it is another one.
 - Its tabs as 32px pills: a 24px orb and a title at 12.5px. The shown tab is raised and has an ×.
 - A dashed pill of launchers: a plus, up to four installed agents' logos, the terminal logo, and three dots.
-- On the right: a peach bell with a count and a green tick with a count when any tab wants you, then Files, Changes, the transfer button (two opposed arrows) and search.
+- On the right: a peach bell with the number of tabs that are blocked and a green tick with the number that are done, each only while there is such a tab ("Agent states" below), then Files, Changes, the transfer button (two opposed arrows) and search.
 - While files are being copied a blue arc turns around the transfer button. A peach dot on it says a copy failed.
 - Where the system draws no window buttons (Linux, Windows), minimize, maximize and close come last.
 
@@ -83,18 +84,18 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - Blocked: a peach (`#fab387`) ring pulses and carries a "!" badge. The tab's label turns peach in the rail.
 - Done: a green (`#a6e3a1`) ring with a tick badge.
 - Idle: no ring. The logo fades to 75% after 15 minutes of rest and to 50% after two hours.
-- A tab takes the most urgent state of its agents and their sub-agents. Sub-agents add one small dot in their most urgent color.
+- A tab takes the most urgent state of its agents and their sub-agents: blocked comes first, then done, working and idle. Sub-agents add one small dot in their most urgent color.
 - A sub-agent's row shows working and blocked as a tab does, and its error counts as blocked. Finished or idle, the row is dim.
 
 **Going places**
 
-- Click a rail row or a bar pill to show that tab. Click a tile or a project's name to show the project.
+- Click a rail row or a bar pill to show that tab. Click a project's name in the rail to show the project. A project whose tabs are folded away shows a strip of their states in their place ("Folding" below), and a click on that strip shows the project too.
 - Click a sub-agent's row for Herdr's peek at its terminal, over the shown tab. ⌘W or the peek's × closes the peek, and the sub-agent keeps running.
 - Click a color in the strip at the top of the rail, or the bell or the tick in the bar, to go to the next tab in that state.
 - Click the project's name in the bar, or search, or press ⌘P, for the Go-to list. It opens on the shown tab.
 - Type in it to narrow the list: every word typed must be in a tab's label, its agent's title, its project, its machine or its program. ↑ and ↓ move, and Enter or a click shows the picked tab. A click on a project's line shows that project. Esc or ⌘P again closes the list.
 - Scroll over the bar to step through its tabs.
-- Hover a tab or a sub-agent for its words: a tab's title, project, machine, state, how long, and how many sub-agents; a sub-agent's name, title and state.
+- Hover a tab or a sub-agent for its words: a tab's title, project, machine, state, how long it has been working or idle, and how many sub-agents; a sub-agent's name, title and state.
 
 **Tabs**
 
@@ -120,9 +121,16 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - The empty project closes once another project is shown, or at ⌘W on the page.
 - When the project on show closes, the next project shows its first tab.
 
+**Folding**
+
+- Click a machine's name to fold its projects away, and again to bring them back. Folded, the line shows the machine's tabs by state as a 4px strip.
+- Click a project's tile, or the chevron beside it, to fold its tabs away, their sub-agents with them, and again to bring them back. Folded, the project shows its tabs by state as a 4px strip: under its name, or beside its tile in the rail narrower than 200px.
+- A chevron points down when what it folds shows, and right when it is folded.
+- A project's name shows the project, folded or not. Folded, the name and the strip are one block, 36px tall like the tile, and a click anywhere on it shows the project.
+- A fold is kept across restarts. A folded machine keeps the folds of its projects.
+
 **Machines**
 
-- Click a machine's name to fold its projects away, and again to bring them back. The chevron points down when they show and right when they are folded. Folded, the line shows the machine's tabs by state as a 4px strip. The fold is kept across restarts.
 - "+" on a machine's line starts a project there. A dashed pill does the same for a machine with nothing running.
 - A machine that needs a login is drawn in peach and says what to run on hover.
 - The bars after a machine's name say how quick it is to answer. Four are lit up to 100 ms, three up to 400 ms, two up to a second, and one beyond that.
@@ -137,7 +145,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 
 **Moving files**
 
-- The transfer button in the bar, or ⇧⌘T, opens the transfer window, and closes it when it is on show. Its left side opens at the shown tab's folder. Its right side opens where it was left. The first time that is this computer's home, or from this computer the first other machine's.
+- The transfer button in the bar, or ⇧⌘T, opens the transfer window, and closes it when it is on show. Its left side opens at the shown tab's folder. Its right side opens where it was left. The first time, that is the home of the first other machine in reach when the left side is on this computer, and this computer's home otherwise.
 - Click a machine's chip for its home, a tile for that place, a part of the way down to go back up, and its last part to read the folder again.
 - A folder opens by its chevron or a double-click.
 - Picking rows works as in a file manager:
@@ -194,8 +202,8 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 
 - Reads: `spaces`, `panes`, `terminals`, `agents`, `machines`, `focused`, `layout`, `window`, `settings`, `keys`, `updates`, `theme`, `props`, `knownAgents`, `checking`.
 - Calls: `run`, `hc`, `exec`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`.
-- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
-- Kept in the rail's `localStorage`: `seen` (since when each tab has rested) and `folded` (the folded machines). Each place the layout puts the mod is a copy with a `localStorage` of its own.
+- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read: the agents each machine can start, as Herdr's `new-menu` mod keeps them, for the launchers and the start keys before `knownAgents` has answered), `glyph.blank` (an empty project's name and folder), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
+- Kept in the rail's `localStorage`: `seen` (since when each tab has rested), `folded` (the folded machines) and `tucked` (the folded projects). Each place the layout puts the mod is a copy with a `localStorage` of its own.
 - Commands: `tab.select`, `tab.new`, `tab.close`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `overlay.close`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
 - Herdr's own mods, opened as they are: `menu` (the project menu), `prompt` (rename), `new-menu`, `machine-add`, `files`, `changes`.
 - `setAgentOrder` follows the rail, so `agent.next` and `agent.prev` walk it top to bottom.
@@ -262,6 +270,15 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - A row lasts as long as its terminal. A program an agent runs through `hc run` and waits for has a row until it exits, so rows come and go.
 - A sub-agent that was given a pane (`terminal.keep`, or keep in the peek) is a pane like any other and has no row. Closing that pane ends the sub-agent. What it started is listed under the tab that holds its pane.
 - The rail keeps times for tabs only, so a resting sub-agent does not fade by age as a tab does. It is dim at once.
+
+**Folding**
+
+- Going to a tab inside a folded project does not unfold it. The project's tile is filled and its row has the 3px bar, and the tab's own row stays out of sight. Inside a folded machine, the machine's name turns as bright as the shown project's.
+- A press anywhere from the rail's edge to the far side of a project's tile folds: the margin with the chevron is 13px wide, the tile 36px.
+- The rail narrower than 200px has no names. An open project is shown there by one of its tabs' logos, and a folded one by its strip.
+- A strip counts the tabs that have a state, as the strip on top does. A tab with no agent in it, such as a plain shell, has none. A folded project where no tab has one shows a hairline.
+- A project showing its empty page has no tab to fold, and no chevron. Its tile shows the project, as its name does.
+- A project's fold is kept by its id. It is forgotten at the next fold after the project has closed, but not while a machine is out of reach: that machine's projects are only missing.
 
 **A machine's bars**
 
@@ -359,6 +376,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Closing a project's last tab leaves its empty page. A tab started there opens in the folder the last tab was in, and the page goes.
 - ⌘W on the page closes the project, and the next project shows its first tab.
 - Folding a machine hides its projects and shows the strip of their states.
+- Clicking a project's tile, or the chevron beside it, hides its tabs' rows and shows the strip of their states under its name. Clicking it again brings them back. Clicking the project's name, or the strip of a folded project, shows the project.
 - Within a few seconds of the layout showing, the line of a machine other than this computer has bars lit and a time after its name. The time is near what `hc exec --on <machine> true` takes when timed in a shell.
 - ⌘P opens the Go-to list on the shown tab. An agent's tab nobody named is listed by its agent's title, never by its number. Typing narrows the list, and Enter shows the picked tab.
 - The transfer button opens a window with a folder of one machine on each side. Picking a file and pressing the arrow copies it to the other side: a pill turns in the window's head, with scp's percent, speed and time left, and an arc around the bar's button, and a notice says "Copied" with its name once the file is in the other folder.

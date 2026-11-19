@@ -16,6 +16,8 @@ one - rail p3 256 rail-asking sp2
 one "PING=alpha:x,bravo:95,charlie:x" rail p3 256 rail-lost sp2
 one "FOLD=alpha,local PING=1" rail p3 256 rail-fold sp2
 one "FOLD=alpha PING=1" rail p3 160 rail-fold-compact alpha/sp4
+one "TUCK=sp1,alpha/sp4,bravo/sp7 PING=1" rail p3 256 rail-tuck sp2
+one "TUCK=sp2,alpha/sp4,bravo/sp7 PING=1" rail p3 160 rail-tuck-compact sp2
 one - bar p3 256 bar sp2
 one "ARMED=tb3" bar p3 256 bar-armed sp2
 one - bar p9 256 bar-crowd alpha/sp4

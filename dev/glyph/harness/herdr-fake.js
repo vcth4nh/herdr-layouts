@@ -163,7 +163,8 @@ export const spaces = () => SPACES;
 export const panes = () => PANES;
 export const terminals = () => TERMS;
 export const agents = () => PANES.filter((p) => p.status).map((p) => ({ address: p.terminal, pane: p.pane, tab: p.tab, status: p.status, program: p.program }));
-export const machines = () => [null, "alpha", "bravo", "charlie", "delta-2", "echo", "foxtrot"].map((name) => ({ name, layout: name === "echo" ? "unavailable" : "ready" }));
+// echo is out of reach, unless a test brings it back with globalThis.__ready.
+export const machines = () => [null, "alpha", "bravo", "charlie", "delta-2", "echo", "foxtrot"].map((name) => ({ name, layout: name === "echo" && !globalThis.__ready ? "unavailable" : "ready" }));
 // Shared values: what a test or the mod set, over what the app would hold.
 export const SHARED = {
   "glyph.blank": { sp9: { name: "garden-planner", folder: "/Users/me/code/garden-planner" } },

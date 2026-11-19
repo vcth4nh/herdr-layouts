@@ -21,16 +21,20 @@ export const SHUT = "glyph.shut";
 // ms a first close press waits for the second.
 export const ARM = 3000;
 
+// Whether every machine's projects are in Herdr's list. While a machine is out of reach its
+// projects are only missing, so what is kept for a project (its hue, its fold in the rail)
+// is not forgotten yet.
+const settled = () => machines().every((k) => k.layout === "ready");
+
 const NAMES = ["ansi6", "ansi3", "ansi4", "ansi5", "ansi2", "ansi1"];
 const HUE = { ansi6: "#94e2d5", ansi3: "#f9e2af", ansi4: "#b4befe", ansi5: "#cba6f7", ansi2: "#89dceb", ansi1: "#f5c2e7" };
 
 function hues(sp) {
   const all = shared("space.colors") ?? {};
   const ids = new Set(sp.map((s) => s.id));
-  // Forget closed projects' hues, but not while a machine is still out of reach:
-  // its projects are only missing, and should come back in the hue they had.
-  const settled = machines().every((k) => k.layout === "ready");
-  const kept = settled ? Object.fromEntries(Object.entries(all).filter(([id]) => ids.has(id))) : { ...all };
+  // Forget closed projects' hues, once every machine's projects are in: a project that is
+  // only missing should come back in the hue it had.
+  const kept = settled() ? Object.fromEntries(Object.entries(all).filter(([id]) => ids.has(id))) : { ...all };
   let changed = Object.keys(kept).length !== Object.keys(all).length;
   for (const s of sp) {
     if (kept[s.id] || s.name === "~") continue;
@@ -229,7 +233,7 @@ export function model(machineInfo = []) {
   const flat = groups.flatMap((g) => g.spaces.flatMap((s) => s.tabs));
   const counts = { blocked: 0, done: 0, working: 0, idle: 0, total: 0 };
   for (const c of flat) if (c.status in counts) { counts[c.status] += 1; counts.total += 1; }
-  return { groups, spaces: list, flat, counts, active: list.find((s) => s.active) ?? null, remote: ordered.length > 1 };
+  return { groups, spaces: list, flat, counts, active: list.find((s) => s.active) ?? null, remote: ordered.length > 1, settled: settled() };
 }
 
 // The folder a project is in, on its machine: where its shown tab is, else another of its

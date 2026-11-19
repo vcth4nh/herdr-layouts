@@ -4,7 +4,7 @@ import { Rail } from "./rail.mjs";
 import { PaneHead } from "./pane.mjs";
 import { Menu } from "./menu.mjs";
 import { byId, walk } from "./kit-stub.mjs";
-import { CALLS, ASKS, SHARED, panes, terminals, layout } from "./herdr-fake.mjs";
+import { CALLS, ASKS, SHARED, panes, terminals, layout, spaces } from "./herdr-fake.mjs";
 import { reach, PING } from "./data.mjs";
 
 let failed = 0, passed = 0;
@@ -226,6 +226,111 @@ byId(root, "fold-alpha").handlers.on_click({}, cx);
 root = rail.render();
 ok(Boolean(byId(root, "row-alpha/sp4")) && store.folded === "{}", "a second click brings them back");
 eq(runs(), [], "folding runs no command");
+
+// Folding a project, by the chevron beside its tile or by the tile: its tabs' rows go,
+// sub-agents' too, and a strip of their states takes their place under its name. Its tile
+// and name stay, and it stays folded for the next rail.
+{
+  const tuck = (id) => byId(root, `tuck-${id}`);
+  const chevron = (id) => tuck(id).children[0].__node.arg.split("/").pop();
+  const rowsOf = (id) => under(byId(root, `row-${id}`)).filter((i) => /^(tab|sub)-/.test(i));
+  CALLS.length = 0;
+  eq([rowsOf("alpha/sp4").length, Boolean(byId(root, "tally-alpha/sp4"))], [9, false], "open: the project's tabs show, no strip");
+  eq([tuck("alpha/sp4").props.tooltip[0], chevron("alpha/sp4")], ["Hide 9 tabs", "chevron-down.svg"], "the chevron says what a click hides");
+  // The chevron is under its machine's, and a press counts out to the rail's edge.
+  const lineChevron = byId(root, "fold-alpha").children[0].__node.props;
+  eq([holder(root, "fold-alpha").props.pl[0] + lineChevron.ml[0], tuck("alpha/sp4").props.left[0] + tuck("alpha/sp4").props.pl[0], tuck("alpha/sp4").props.left[0]], [2, 2, 0], "a project's chevron is in line with its machine's");
+  eq(lineChevron.ml[0] + lineChevron.size[0] + lineChevron.mr[0] + holder(root, "fold-alpha").props.pl[0], 13, "and the machine's icon is still in line with the tiles");
+  tuck("alpha/sp4").handlers.on_click({}, cx);
+  root = rail.render();
+  eq([rowsOf("alpha/sp4"), rowsOf("alpha/sp5").length], [[], 3], "folded: its tabs are gone, the next project's stay");
+  eq([byId(root, "tally-alpha/sp4")?.props.tooltip[0], byId(root, "tally-alpha/sp4")?.children.length, byId(root, "tally-alpha/sp4")?.props.h[0]], ["1 finished, 2 working, 6 idle", 3, 16], "folded: its tabs by state, in the room the tile leaves under the name");
+  eq([tuck("alpha/sp4").props.tooltip[0], chevron("alpha/sp4")], ["Show 9 tabs", "chevron-right.svg"], "the chevron says what a click brings back");
+  ok(Boolean(byId(root, "space-alpha/sp4")) && Boolean(byId(root, "name-alpha/sp4")), "folded: its tile and name stay");
+  eq(store.tucked, JSON.stringify({ "alpha/sp4": true }), "kept");
+  // The tile folds too, and says so after the project's name. The name shows the project.
+  const square = (id) => byId(root, `space-${id}`);
+  eq([square("alpha/sp4").props.tooltip[0], square("alpha/sp5").props.tooltip[0]], ["acme-shop-backend, order-queue. Show 9 tabs", "acme.cpp-codex-rework. Hide 3 tabs"], "the tile says which project it is and what a click does");
+  square("alpha/sp4").handlers.on_click({}, cx);
+  root = rail.render();
+  eq([rowsOf("alpha/sp4").length, chevron("alpha/sp4"), store.tucked], [9, "chevron-down.svg", "{}"], "a click on the tile of a folded project brings its tabs back");
+  square("alpha/sp4").handlers.on_click({}, cx);
+  root = rail.render();
+  eq([rowsOf("alpha/sp4"), chevron("alpha/sp4"), store.tucked], [[], "chevron-right.svg", JSON.stringify({ "alpha/sp4": true })], "and a second one folds them away again");
+  eq(runs(), [], "a click on the tile runs no command");
+  // Folded, the whole block beside the tile shows the project: the name and the strip are
+  // in it, and neither has a click of its own, so one click is one command.
+  const body = (id) => byId(root, `body-${id}`);
+  eq([under(body("alpha/sp4")), Object.keys(byId(root, "name-alpha/sp4").handlers), Object.keys(byId(root, "tally-alpha/sp4").handlers)], [["body-alpha/sp4", "name-alpha/sp4", "tally-alpha/sp4"], [], []], "folded: the name and the strip are one block");
+  body("alpha/sp4").handlers.on_click({}, cx);
+  eq(runs(), [["space.select", { id: "alpha/sp4" }]], "a click anywhere on that block shows the project");
+  CALLS.length = 0;
+  body("alpha/sp4").handlers["on_mouse_down:right"]({}, cx);
+  eq(CALLS.map((c) => [c[0], c[1].mod, c[1].props]), [["openOverlay", "menu", { tab: "space", target: { id: "alpha/sp4" } }]], "and a right-click on it opens the project's menu");
+  // Open, the name shows the project as before, and the tabs' rows keep their own clicks.
+  CALLS.length = 0;
+  ok(!body("alpha/sp5"), "open: no such block");
+  byId(root, "name-alpha/sp5").handlers.on_click({}, cx);
+  eq(runs(), [["space.select", { id: "alpha/sp5" }]], "open: the name shows the project");
+  CALLS.length = 0;
+  square("alpha/sp4").handlers["on_mouse_down:right"]({}, cx);
+  eq(CALLS.map((c) => [c[0], c[1].mod, c[1].props]), [["openOverlay", "menu", { tab: "space", target: { id: "alpha/sp4" } }]], "a right-click on the tile still opens the project's menu");
+  CALLS.length = 0;
+  ok(!byId(new Rail(cx).render(), "tab-alpha/tb8"), "a new rail starts with it folded");
+  // Sub-agents' rows go with their tab's. The strip takes the tab's state, which is its
+  // sub-agents' most urgent one.
+  tuck("sp3").handlers.on_click({}, cx);
+  root = rail.render();
+  eq([rowsOf("sp3"), byId(root, "tally-sp3").props.tooltip[0]], [[], "1 needs you"], "a folded project hides its sub-agents' rows, and still says one needs you");
+  // The logos-only rail: the strip stands beside the tile, where the logos were.
+  layout().children[0].size.px = 160;
+  root = rail.render();
+  eq([rowsOf("alpha/sp4"), under(body("alpha/sp4")), body("alpha/sp4").props.h[0], rowsOf("alpha/sp5").length, Boolean(tuck("alpha/sp5"))], [[], ["body-alpha/sp4", "tally-alpha/sp4"], 36, 3, true], "logos only: a folded project shows the strip for its logos, and every project has its chevron");
+  CALLS.length = 0;
+  body("alpha/sp4").handlers.on_click({}, cx);
+  eq(runs(), [["space.select", { id: "alpha/sp4" }]], "logos only: a click on the strip of a folded project shows it");
+  CALLS.length = 0;
+  layout().children[0].size.px = 256;
+  // A folded machine hides its projects, folded or not, and leaves their folds alone.
+  byId(root, "fold-alpha").handlers.on_click({}, cx);
+  root = rail.render();
+  eq([Boolean(byId(root, "row-alpha/sp4")), byId(root, "tally-alpha")?.props.tooltip[0], store.tucked], [false, "1 finished, 2 working, 8 idle", JSON.stringify({ "alpha/sp4": true, sp3: true })], "a folded machine counts the tabs of a folded project too");
+  byId(root, "fold-alpha").handlers.on_click({}, cx);
+  root = rail.render();
+  ok(Boolean(byId(root, "tally-alpha/sp4")), "unfolded, the machine shows its project folded as it was");
+  // Tabs without a state (plain programs): a hairline, as on a folded machine's line.
+  const sp2 = spaces().find((x) => x.id === "sp2"), agentTab = sp2.tabs.shift();
+  tuck("sp2").handlers.on_click({}, cx);
+  root = rail.render();
+  eq([rowsOf("sp2"), Boolean(byId(root, "tally-sp2")), tuck("sp2").props.tooltip[0]], [[], false, "Show 2 tabs"], "folded with no state to show: no strip");
+  sp2.tabs.unshift(agentTab);
+  // A project with no tab left (its empty page) has nothing to fold: no chevron, no strip.
+  const kept = sp2.tabs.splice(0);
+  root = rail.render();
+  ok(!tuck("sp2") && !byId(root, "tally-sp2") && Boolean(byId(root, "space-sp2")), "a project without tabs has no chevron, folded or not");
+  CALLS.length = 0;
+  byId(root, "space-sp2").handlers.on_click({}, cx);
+  eq([runs(), byId(root, "space-sp2").props.tooltip[0]], [[["space.select", { id: "sp2" }]], "inventory-and-order-reports, main"], "its tile shows the project, and says only which one it is");
+  CALLS.length = 0;
+  sp2.tabs.push(...kept);
+  root = rail.render();
+  eq(byId(root, "tally-sp2")?.props.tooltip[0], "1 needs you", "and is folded as it was once it has tabs again");
+  // The fold of a project that has closed is forgotten at the next fold, but not while a
+  // machine is out of reach (echo, in the sample fleet): its projects are only missing.
+  rail.tucked["echo/sp0"] = true;
+  tuck("sp2").handlers.on_click({}, cx);
+  eq(store.tucked, JSON.stringify({ "alpha/sp4": true, sp3: true, "echo/sp0": true }), "a second click brings the tabs back; a missing project's fold is kept while a machine is out of reach");
+  globalThis.__ready = true;
+  root = rail.render();
+  tuck("sp3").handlers.on_click({}, cx);
+  eq(store.tucked, JSON.stringify({ "alpha/sp4": true }), "with every machine in reach, a fold forgets the projects that are gone");
+  delete globalThis.__ready;
+  root = rail.render();
+  tuck("alpha/sp4").handlers.on_click({}, cx);
+  root = rail.render();
+  eq([rowsOf("alpha/sp4").length, store.tucked], [9, "{}"], "all open again");
+  eq(runs(), [], "folding a project runs no command");
+}
 
 // The pane header. Each header is a copy of its own, with its pane in props.
 const head = (pane) => {
