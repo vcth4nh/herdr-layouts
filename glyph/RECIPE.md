@@ -51,7 +51,9 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 **Go-to list**
 
 - A popup 560px wide under the window's top edge: a search field, then every tab as a 30px row, a 20px orb and its label at 13px, in the rail's order and words.
-- Tabs sit under their project's line, a 20px tile and its name. Projects sit under their machine's line when there is more than one machine.
+- Each project is a block. On top is its line, a 20px tile and its name. Its tabs come under the name, 31px in, so a tab's logo starts where the name does.
+- A 2px line in the project's hue runs down beside its tabs, from under the middle of the tile to the last of them. It is at 40%, and at 80% for the project on show. Home's is in the grey of its tile.
+- A block stands 7px clear of the one before it. Projects sit under their machine's line when there is more than one machine, and that line stands 8px clear of the machine before it.
 - The picked row is raised (`#313244`). The list is at most 520px tall, then it scrolls.
 
 **Transfer window**
@@ -291,7 +293,8 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 **Go-to list**
 
 - Herdr's own picker lists an unnamed tab by its number, so the bar opens the mod's list instead. ⌘P reaches it only through the `layout:glyph` keys. Without them ⌘P still opens Herdr's picker.
-- The popup is only as tall as what it holds, and a scrolling area holds nothing by itself. The list's height is the sum of its rows, up to 520px.
+- The popup is only as tall as what it holds, and a scrolling area holds nothing by itself. The list's height is the sum of its rows and of the room between them, up to 520px.
+- The list keeps the picked row in sight by its place among the list's own children, so a project's block is not an element: every row is a child of the list. Each tab's row draws its own piece of its project's line. The pieces meet because a row's 31px include the 1px that parts it from the row above.
 - Copies of a mod share its modules. The list notes its overlay in a variable of `data.js` when it starts and clears it when Herdr calls its `close()`. That is how the bar knows to close the list when asked for it again.
 - It lists tabs only: no sub-agents, and none of the rows Herdr's picker has for a new tab or a new project.
 
@@ -379,6 +382,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Clicking a project's tile, or the chevron beside it, hides its tabs' rows and shows the strip of their states under its name. Clicking it again brings them back. Clicking the project's name, or the strip of a folded project, shows the project.
 - Within a few seconds of the layout showing, the line of a machine other than this computer has bars lit and a time after its name. The time is near what `hc exec --on <machine> true` takes when timed in a shell.
 - ⌘P opens the Go-to list on the shown tab. An agent's tab nobody named is listed by its agent's title, never by its number. Typing narrows the list, and Enter shows the picked tab.
+- In that list every project's tabs stand in under its name, beside a line in the color of its tile that ends at its last tab. The line of the project on show is the brightest.
 - The transfer button opens a window with a folder of one machine on each side. Picking a file and pressing the arrow copies it to the other side: a pill turns in the window's head, with scp's percent, speed and time left, and an arc around the bar's button, and a notice says "Copied" with its name once the file is in the other folder.
 - Picking a name that is already on the other side turns the arrow red at the first press, and copies at the second.
 - ⇧⌘T with the transfer window on show closes it.

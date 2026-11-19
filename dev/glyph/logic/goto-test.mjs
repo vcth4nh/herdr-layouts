@@ -17,6 +17,10 @@ const fire = (ms) => { for (const t of timers.splice(0)) if (t.ms === ms) t.fn(c
 const text = (node) => { const out = []; const go = (n) => { for (const c of n.children) { if (typeof c === "string") out.push(c); else if (c?.__node) go(c.__node); } }; go(node); return out.join(" "); };
 const ids = (root) => { const all = []; walk(root, (n) => { if (n.id?.startsWith("go-")) all.push(n.id); }); return all; };
 const rowsOf = (root) => ids(root).filter((i) => !i.startsWith("go-space-") && i !== "go-list");
+// What a tab's row stands in: the element that holds its project's line and the row itself.
+const around = (root, id) => { let found = null; walk(root, (n) => { if (n.children.some((c) => c?.__node?.id === id)) found = n; }); return found; };
+// A project's line beside one of its tabs' rows: where it runs, its color, and how far down the row it goes.
+const lineOf = (root, id) => { const line = around(root, id).children[0].__node; return [line.props.left[0], line.props.w[0], line.props.bg[0], line.props.h[0]]; };
 const SPEC = { mod: "glyph", kind: "popup", at: "top", offset: 40, width: 560, height: 0.8, props: { role: "goto" } };
 const ctrlD = { key: "d", modifiers: { control: true } };
 // A list as the popup would hold it. `key` presses a key and draws again. The list before
@@ -54,7 +58,30 @@ const fresh = () => {
   // A scrolling area has no height of its own: the list is given one, and no more than 520.
   eq(byId(a.root, "go-list").props.h[0], 520, "a long list is as tall as it may be, and scrolls");
   a.type("bravo");
-  eq([rowsOf(a.root).length, byId(a.root, "go-list").props.h[0]], [2, 26 + 30 * 4 + 4], "a short one is as tall as its rows: a machine, two projects, a tab each");
+  eq([rowsOf(a.root).length, byId(a.root, "go-list").props.h[0]], [2, 26 + (1 + 30) + 31 + (7 + 30) + 31], "a short one is as tall as its rows and what parts them: a machine, two projects, a tab each");
+}
+
+// Whose tab a row is: a project's tabs stand in under its name, beside a line in its hue.
+{
+  const a = fresh();
+  const list = byId(a.root, "go-list").children.map((c) => c.__node);
+  eq(list.slice(0, 5).map((n) => n.id ?? (n.children.some((c) => c?.__node?.id === "go-tb1" || c?.__node?.id === "go-tb2") ? "tab" : "machine")), ["machine", "go-space-sp1", "tab", "tab", "go-space-sp2"], "the rows are still the list's own children, in order: the picked one is kept in sight by its place");
+  eq(list.slice(0, 5).map((n) => (n.props.mt ?? [0])[0]), [0, 1, 0, 0, 7], "a project's line stands clear of the tabs of the one before it");
+  eq([(list[10].props.mt ?? [0])[0], text(list[10])], [8, "alpha"], "and a machine's line of the machine before it");
+  const tile = byId(a.root, "go-space-sp1").children[0].__node, name = byId(a.root, "go-space-sp1");
+  const row = around(a.root, "go-tb1");
+  // The project's line: 8 in, a 20px tile, 8 more. The tab's logo is 3 inside its orb.
+  eq([row.props.pl[0] + byId(a.root, "go-tb1").props.pl[0] + 3, name.props.px[0] + tile.props.size[0] + name.props.gap[0]], [36, 36], "a tab's logo stands under the first letter of its project's name");
+  eq(lineOf(a.root, "go-tb1").slice(0, 2), [name.props.px[0] + tile.props.size[0] / 2 - 1, 2], "the line runs under the middle of the project's tile");
+  eq([lineOf(a.root, "go-tb1")[2], lineOf(a.root, "go-tb2")[2], lineOf(a.root, "go-bravo/tb19")[2]], ["#f5c2e766", "#f5c2e766", "#f9e2af66"], "it is in the project's hue, the same beside each of its tabs");
+  eq([lineOf(a.root, "go-alpha/tb9")[2], lineOf(a.root, "go-alpha/tb8")[2]], ["#94e2d5cc", "#94e2d5cc"], "and brighter for the project on show");
+  eq(lineOf(a.root, "go-tb6")[2], byId(a.root, "go-space-sp3").children[0].__node.props.text_color[0] + "66", "home has no hue: its line is in its tile's quiet ink");
+  eq([lineOf(a.root, "go-tb1")[3], lineOf(a.root, "go-tb2")[3], lineOf(a.root, "go-tb6")[3]], [31, 23, 23], "the line passes a row from top to foot, and ends 8 short of the foot of the project's last one");
+  eq([around(a.root, "go-tb1").props.h[0], around(a.root, "go-tb1").props.pt[0], byId(a.root, "go-tb1").props.h[0]], [31, 1, 30], "it is not broken between two rows: a row's 31 is its 30 and the 1 over it");
+  // Narrowed, the line ends at the last row that is listed.
+  a.type("codex al");
+  eq([lineOf(a.root, "go-alpha/tb10")[3], lineOf(a.root, "go-alpha/tb15")[3], lineOf(a.root, "go-alpha/tb18")[3]], [31, 23, 23], "with a word typed it ends at the last row listed");
+  eq(byId(a.root, "go-alpha/tb9").handlers.on_click && Boolean(byId(a.root, "go-alpha/tb9").props.tooltip), true, "the row itself is still what is clicked and hovered");
 }
 
 // Moving and going.

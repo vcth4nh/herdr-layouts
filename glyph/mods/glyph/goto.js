@@ -1,7 +1,10 @@
 // Go to a tab by typing. Every tab there is, under its project and its machine, in the
 // rail's order and by the rail's words: Herdr's own picker lists a tab by its name, which
 // for a tab nobody named is its number, and here such a tab goes by what its agent says it
-// is doing. Type to narrow the list: each word typed has to be in the tab's words, its
+// is doing. A project's tabs stand in under its name, as in the rail, beside a line in the
+// project's hue that runs down from its tile: whose tab a row is shows at a glance, and
+// still does when the project's own line has scrolled away.
+// Type to narrow the list: each word typed has to be in the tab's words, its
 // project, its machine or its program. Up and down move, Enter goes, Esc leaves. Ctrl+D
 // closes the picked tab the way every close goes here: a plain shell at once, anything else
 // at a second press in time, its row red until then. Click a project's line for the project.
@@ -12,13 +15,19 @@ import { div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
 import { theme, props, run, closeOverlay } from "herdr";
 import { model, here, goTab, closeTab, tabTip, shownGoto, goneGoto, ARM } from "./data.js";
-import { ICON, DISPLAY, alpha, mix, danger, orb, tile } from "./ui.js";
+import { ICON, DISPLAY, alpha, mix, danger, orb, tile, hueOf } from "./ui.js";
 
 const MOST = 520; // the tallest the list gets before it scrolls
-const GAP = 1;    // between two rows
-// How tall each kind of row is. The list is given its height from these: a scrolling
-// area has none of its own, and the popup is only as tall as what it holds.
-const H = { machine: 26, space: 30, tab: 30, none: 36 };
+// How tall each kind of row is. A tab's 31 is its 30 and the 1 that parts it from the row
+// above, which its project's line runs through. The list is given its height from these
+// and from what parts the rows (apart): a scrolling area has none of its own, and the
+// popup is only as tall as what it holds.
+const H = { machine: 26, space: 30, tab: 31, none: 36 };
+const IN = 31;   // how far a tab's row stands in: its logo comes under its project's name
+const LINE = 17; // where a project's line runs: under the middle of its tile
+// The room over a row: a machine's line and a project's stand clear of the tabs before
+// them, so each project reads as one block.
+const apart = (kind, before) => (!before ? 0 : kind === "machine" ? 8 : kind === "space" ? (before === "tab" ? 7 : 1) : 0);
 
 export class Goto {
   constructor(cx) {
@@ -50,7 +59,8 @@ export class Goto {
   }
 
   // What is listed: a line for each machine (when there are several) and each project,
-  // over those of its tabs that match what was typed.
+  // over those of its tabs that match what was typed. Each row knows the room over it
+  // (`gap`), and a tab's whether it is the last one listed of its project (`last`).
   rows(m) {
     const words = this.filter.toLowerCase().split(/\s+/).filter(Boolean);
     const hit = (g, s, c) => {
@@ -66,6 +76,10 @@ export class Goto {
       }
       if (m.remote && out.length > first) out.splice(first, 0, { kind: "machine", g });
     }
+    out.forEach((r, i) => {
+      r.gap = apart(r.kind, out[i - 1]?.kind);
+      r.last = r.kind === "tab" && out[i + 1]?.kind !== "tab";
+    });
     return out;
   }
 
@@ -129,16 +143,16 @@ export class Goto {
     const { rows, tabs, sel } = this.list();
     const red = danger(t);
     const sure = this.sure && now - this.sure.at < ARM ? this.sure.id : null;
-    const tall = rows.length ? rows.reduce((sum, r) => sum + H[r.kind] + GAP, -GAP) : H.none;
+    const tall = rows.length ? rows.reduce((sum, r) => sum + r.gap + H[r.kind], 0) : H.none;
 
     // A machine's line, as in the rail.
-    const machine = (g) => h_flex().h(H.machine).flex_none().px(9).gap(7).items_center()
+    const machine = (g, gap) => h_flex().h(H.machine).flex_none().mt(gap).px(9).gap(7).items_center()
       .child(svg(ICON(g.name === null ? "laptop" : "server")).size(14).flex_none().text_color(t.muted))
       .child(div().flex_none().max_w(280).truncate().text_size(12.5).font_family(DISPLAY).font_semibold().text_color(t.muted).child(g.name ?? here()))
       .child(div().flex_1().h(1).bg(t.border));
 
     // A project's line: its tile and its name. Click it to show the project.
-    const space = (s) => h_flex().id(`go-space-${s.id}`).h(H.space).flex_none().px(8).gap(8).items_center().rounded(8).cursor_pointer()
+    const space = (s, gap) => h_flex().id(`go-space-${s.id}`).h(H.space).flex_none().mt(gap).px(8).gap(8).items_center().rounded(8).cursor_pointer()
       .hover((x) => x.bg(t.hover))
       .on_click(() => {
         if (this.done) return;
@@ -148,19 +162,25 @@ export class Goto {
       .child(tile(t, { name: s.name, hue: s.hue, active: s.active, size: 20 }))
       .child(div().flex_1().min_w(0).truncate().text_size(13).font_family(DISPLAY).font_semibold().text_color(s.active ? t.foreground : t.muted).child(s.label));
 
-    // A tab's row, as in the rail: its logo and its words, under its project's name.
-    const tab = (c) => {
+    // A tab's row, as in the rail: its logo and its words, standing in under its project's
+    // name. Its project's line passes beside it, brighter for the project on show, and
+    // ends at the project's last row.
+    const tab = (c, last) => {
       const on = c === sel, hot = sure === c.id;
       const quiet = !c.status || c.status === "idle";
       const ink = hot ? red : c.status === "blocked" ? t.blocked : on || c.shown || !quiet ? t.foreground : t.muted;
-      return h_flex().id(`go-${c.id}`).h(H.tab).flex_none().pl(5).pr(10).gap(5).items_center().rounded(15).cursor_pointer()
-        .when(hot, (el) => el.bg(alpha(red, "33")))
-        .when(on && !hot, (el) => el.bg(t.selected))
-        .when(!on && !hot, (el) => el.hover((x) => x.bg(t.hover)))
-        .tooltip(hot ? "Again to close" : tabTip(c, now))
-        .on_click(() => this.go(c))
-        .child(orb(t, { size: 20, program: c.program, status: c.status, current: c.shown, subs: c.subs, backdrop: hot ? mix(t.popover, red, 0.2) : on ? t.selected : t.popover }))
-        .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(ink).child(c.label));
+      const s = c.space;
+      return h_flex().relative().h(H.tab).flex_none().pl(IN).pt(1)
+        .child(div().absolute().left(LINE).top(0).w(2).h(last ? H.tab - 8 : H.tab).bg(alpha(hueOf(t, s), s.active ? "cc" : "66"))
+          .when(last, (el) => el.rounded_b(1)))
+        .child(h_flex().id(`go-${c.id}`).h(H.tab - 1).flex_1().min_w(0).pl(2).pr(10).gap(5).items_center().rounded(15).cursor_pointer()
+          .when(hot, (el) => el.bg(alpha(red, "33")))
+          .when(on && !hot, (el) => el.bg(t.selected))
+          .when(!on && !hot, (el) => el.hover((x) => x.bg(t.hover)))
+          .tooltip(hot ? "Again to close" : tabTip(c, now))
+          .on_click(() => this.go(c))
+          .child(orb(t, { size: 20, program: c.program, status: c.status, current: c.shown, subs: c.subs, backdrop: hot ? mix(t.popover, red, 0.2) : on ? t.selected : t.popover }))
+          .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(ink).child(c.label)));
     };
 
     return v_flex().id("goto").track_focus(this.handle).w_full().min_h(0).p(8).gap(6).bg(t.popover)
@@ -184,8 +204,8 @@ export class Goto {
       .child(h_flex().h(36).flex_none().px(11).gap(9).items_center().rounded(10).bg(t.background).border_1().border_color(t.accent)
         .child(svg(ICON("search")).size(15).flex_none().text_color(t.dim))
         .child(Input.new(this.input).flex_1().h_full().text_size(13).text_color(t.foreground)))
-      .child(v_flex().id("go-list").h(Math.min(MOST, tall)).flex_shrink(1).min_h(0).gap(GAP).overflow_y_scrollbar().track_scroll(this.scroll)
-        .children(rows.map((r) => (r.kind === "tab" ? tab(r.c) : r.kind === "space" ? space(r.s) : machine(r.g))))
+      .child(v_flex().id("go-list").h(Math.min(MOST, tall)).flex_shrink(1).min_h(0).overflow_y_scrollbar().track_scroll(this.scroll)
+        .children(rows.map((r) => (r.kind === "tab" ? tab(r.c, r.last) : r.kind === "space" ? space(r.s, r.gap) : machine(r.g, r.gap))))
         .when(!rows.length, (el) => el.child(h_flex().h(H.none).flex_none().px(9).text_size(12.5).text_color(t.dim).child(this.filter.trim() ? "No tab by that name" : "No tabs"))));
   }
 }

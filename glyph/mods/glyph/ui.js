@@ -138,12 +138,15 @@ export function mono(name) {
   return (first[0] + [...words[1]][0]).toUpperCase();
 }
 
+// The color a project is drawn in: its hue. Home ("~") has none of its own.
+export const hueOf = (t, o) => (o.name === "~" || !o.hue ? t.muted : o.hue);
+
 // o: { id, name, hue, active, size, sign, tip, onClick, onMenu }. "~" (home) gets a house;
 // `sign` is drawn in place of the two letters (a place that is no project).
 export function tile(t, o) {
   const size = o.size ?? 36;
   const home = o.name === "~";
-  const hue = home || !o.hue ? t.muted : o.hue;
+  const hue = hueOf(t, o);
   let el = div().flex_none().size(size).rounded(Math.round(size * 0.3)).flex().items_center().justify_center();
   if (o.onClick) el = control(el, o).hover((s) => s.bg(o.active ? hue : alpha(hue, "40")));
   return el.bg(o.active ? hue : alpha(hue, "26")).text_color(o.active ? INK : hue)
