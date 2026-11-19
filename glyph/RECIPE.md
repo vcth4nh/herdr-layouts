@@ -310,7 +310,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - The system draws every badge red, so only tabs that are blocked are counted. A number that mixed in the done ones would not say whether anything waits for you.
 - The bar sets the badge when the number changes, not at every look, and takes it off as it goes: when another layout is shown, and when Herdr loads the mod again.
 - When Herdr loads the mod again, the bar that goes may take the badge off after the new bar has put it on. So a bar says its number once more two seconds after it started.
-- Only macOS shows a badge, and `setBadge` came with herdr-app 0.1.16. Under `herdr-app check` the bar sets none.
+- Only macOS shows a badge. On Linux and Windows Herdr takes the call and does nothing, so the bar makes it on every system: nothing shows there, and nothing fails. `setBadge` came with herdr-app 0.1.16. Under `herdr-app check` the bar sets none.
 - The badge does not outlive Herdr, and a bar that starts says its number, or none, at its first look.
 
 **Go-to list**

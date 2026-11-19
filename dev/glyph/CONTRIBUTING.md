@@ -23,6 +23,7 @@ Tune glyph; don't rebuild it.
 - With a peek over a tab, a close key closes the peek. It never ends what the peek shows or the tab under it.
 - Copying a file over another takes a second press, and glyph never removes a file.
 - A password is typed for one copy and kept in memory only until that copy has it: never in a shared value, `localStorage` or a file. glyph gives no machine a lasting way into another.
+- glyph has to be usable on every system Herdr runs on: macOS, Linux and Windows. What only one system has, such as the Dock badge, may add to glyph there and must do no harm elsewhere.
 - Keys are bound in `keys.json`, not in mod code.
 - Each command has a key on macOS, with ⌘, and one on Linux and Windows, with Ctrl+Shift like Herdr's own keys there. On each system glyph takes Herdr's key for the same job (a new tab, closing, the picker), and otherwise a key Herdr leaves free. A hover shows the key for the system it runs on.
 
