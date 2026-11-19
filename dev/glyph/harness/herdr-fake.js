@@ -196,16 +196,22 @@ export const focused = () => {
 };
 // A test delivers a key command by calling globalThis.__deliver(name).
 export const nextCommand = () => new Promise((resolve) => { globalThis.__deliver = resolve; });
-export const keys = () => [
-  { section: "global", action: "tab.new", keys: "cmd-t" }, { section: "global", action: "tab.close", keys: "cmd-w" }, { section: "global", action: "tab.rename", keys: "f2" },
-  { section: "layout:glyph", action: "glyph.rename", keys: "f2" }, { section: "layout:glyph", action: "glyph.close", keys: "cmd-w" }, { section: "layout:glyph", action: "glyph.close-pane", keys: "cmd-shift-w" },
-  { section: "layout:glyph", action: "glyph.new", keys: "cmd-t" }, { section: "layout:glyph", action: "glyph.new-claude", keys: "cmd-shift-c" }, { section: "layout:glyph", action: "glyph.new-codex", keys: "cmd-shift-o" },
-  { section: "global", action: "space.new", keys: "cmd-shift-n" }, { section: "layout:glyph", action: "glyph.transfer", keys: "cmd-shift-t" },
-  { section: "layout:glyph", action: "glyph.goto", keys: "cmd-p" },
-];
+// The bindings in the order Herdr lists them, by section and then by key. The layout:glyph
+// ones are glyph/keys.json's, which keys-test.mjs checks. A test may give others in
+// globalThis.__keys.
+const KEYS = [
+  ["global", "cmd-shift-n", "space.new"], ["global", "cmd-t", "tab.new"], ["global", "cmd-w", "tab.close"], ["global", "f2", "tab.rename"],
+  ["layout:glyph", "cmd-p", "glyph.goto"], ["layout:glyph", "cmd-shift-c", "glyph.new-claude"], ["layout:glyph", "cmd-shift-o", "glyph.new-codex"],
+  ["layout:glyph", "cmd-shift-t", "glyph.transfer"], ["layout:glyph", "cmd-shift-w", "glyph.close-pane"], ["layout:glyph", "cmd-t", "glyph.new"],
+  ["layout:glyph", "cmd-w", "glyph.close"], ["layout:glyph", "ctrl-shift-a", "glyph.new-claude"], ["layout:glyph", "ctrl-shift-d", "glyph.new-codex"],
+  ["layout:glyph", "ctrl-shift-k", "glyph.goto"], ["layout:glyph", "ctrl-shift-r", "glyph.transfer"], ["layout:glyph", "ctrl-shift-t", "glyph.new"],
+  ["layout:glyph", "ctrl-shift-w", "glyph.close"], ["layout:glyph", "ctrl-shift-x", "glyph.close-pane"], ["layout:glyph", "f2", "glyph.rename"],
+].map(([section, keys, action]) => ({ section, keys, action }));
+export const keys = () => globalThis.__keys ?? KEYS;
 export const theme = () => THEME;
 export const layout = () => LAYOUT;
-export const window = () => ({ platform: "macos", titlebar: "none", buttons: false, maximized: false, fullscreen: true, active: true });
+// A test may pretend another system with globalThis.__platform ("linux", "windows").
+export const window = () => ({ platform: globalThis.__platform ?? "macos", titlebar: "none", buttons: false, maximized: false, fullscreen: true, active: true });
 export const settings = () => ({ zoom: 1 });
 export const updates = () => ({ app: { version: "0.1.15", ready: "0.1.16", updates: true } });
 export const home = () => "/Users/me";

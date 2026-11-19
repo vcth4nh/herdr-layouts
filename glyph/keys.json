@@ -2,11 +2,18 @@
   "layout:glyph": {
     "f2": "glyph.rename",
     "cmd-t": "glyph.new",
+    "ctrl-shift-t": "glyph.new",
     "cmd-shift-c": "glyph.new-claude",
+    "ctrl-shift-a": "glyph.new-claude",
     "cmd-shift-o": "glyph.new-codex",
+    "ctrl-shift-d": "glyph.new-codex",
     "cmd-w": "glyph.close",
+    "ctrl-shift-w": "glyph.close",
     "cmd-shift-w": "glyph.close-pane",
+    "ctrl-shift-x": "glyph.close-pane",
     "cmd-shift-t": "glyph.transfer",
-    "cmd-p": "glyph.goto"
+    "ctrl-shift-r": "glyph.transfer",
+    "cmd-p": "glyph.goto",
+    "ctrl-shift-k": "glyph.goto"
   }
 }

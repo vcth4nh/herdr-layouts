@@ -23,6 +23,7 @@ Tune glyph; don't rebuild it.
 - Copying a file over another takes a second press, and glyph never removes a file.
 - A password is typed for one copy and kept in memory only until that copy has it: never in a shared value, `localStorage` or a file. glyph gives no machine a lasting way into another.
 - Keys are bound in `keys.json`, not in mod code.
+- Each command has a key on macOS, with ⌘, and one on Linux and Windows, with Ctrl+Shift like Herdr's own keys there. On each system glyph takes Herdr's key for the same job (a new tab, closing, the picker), and otherwise a key Herdr leaves free. A hover shows the key for the system it runs on.
 
 ## Tools
 
@@ -50,6 +51,7 @@ Paths below are relative to `dev/glyph/`. Every script finds that folder and the
   - `rail-test.mjs`: the rail, the tab menu and the pane header. Its menu section needs the menu role and a tab: `ROLE=menu PANE=alpha/tb8 sh logic/run.sh rail-test.mjs`. The fake app leaves the rail's `true` on a machine unanswered, unless the test answers for it with `globalThis.__ping`.
   - `close-test.mjs`: closing and the start keys, with `ACTIVE=sp2 sh logic/run.sh close-test.mjs`. The fake app does nothing by itself, so the test changes the fleet after each command the way Herdr was seen to ("Tabs and projects" in the platform doc).
   - `goto-test.mjs`: the Go-to list. The stub's text field is typed in with `state.type(text, cx)`.
+  - `keys-test.mjs`: `glyph/keys.json` against Herdr's own default keys on each system, which it lists, and the keys the hover words show. The fake app pretends another system with `globalThis.__platform`, and other bindings with `globalThis.__keys`.
   - `transfer-test.mjs`: the transfer window, `copy.js` and the bar's part in a copy, with `ACTIVE=sp2 sh logic/run.sh transfer-test.mjs`.
     - Its `press`, `glide` and `lift` call the handlers with made-up pointer events: where the pointer is and which keys are held.
     - The fake fleet has three machines with ssh facts: `alpha` reaches `bravo` by address only, `bravo` reaches `foxtrot`, nothing reaches `alpha`, and `foxtrot`'s OpenSSH is too old to run the copy.

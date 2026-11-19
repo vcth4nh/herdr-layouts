@@ -75,6 +75,8 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 ## How it behaves
 
+Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for Linux and Windows.
+
 **Agent states**
 
 - Working: a blue (`#89b4fa`) arc turns around the orb, once every 1.3 s.
@@ -216,6 +218,19 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 
 `keys.json` holds a `layout:glyph` section. Each action is a command the bar waits for with `nextCommand()`: `rename`, `new`, `new-<key>` for any agent key in Herdr's program table, `close`, `close-pane`, `transfer`, `goto`.
 
+Each command has a key for macOS and one for Linux and Windows. Where glyph takes one of Herdr's own keys, it is for the command that does that job in glyph.
+
+| Command | macOS | Linux and Windows | In place of Herdr's |
+| --- | --- | --- | --- |
+| `rename` | F2 | F2 | `tab.rename` |
+| `new` (a shell) | ⌘T | Ctrl+Shift+T | `tab.new` |
+| `new-claude` | ⇧⌘C | Ctrl+Shift+A | |
+| `new-codex` | ⇧⌘O | Ctrl+Shift+D | |
+| `close` | ⌘W | Ctrl+Shift+W | `tab.close` |
+| `close-pane` | ⇧⌘W | Ctrl+Shift+X | `pane.close` |
+| `transfer` | ⇧⌘T | Ctrl+Shift+R | |
+| `goto` | ⌘P | Ctrl+Shift+K | `mod.open:picker` |
+
 One more command has no key: `transfer-show`, which a copy's notice sends when it is clicked. It opens the transfer window and leaves an open one alone.
 
 ## Watch out
@@ -265,7 +280,12 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 
 **Keys**
 
-- `keys.json` is written for macOS. Whoever installs the layout merges its section by hand into their own `~/.config/herdr-app/keys.json`, after the mod is in place: ⌘T and ⌘W go to the bar, and a bar that doesn't know a command ignores it.
+- Whoever installs the layout merges its section by hand into their own `~/.config/herdr-app/keys.json`, after the mod is in place: ⌘T and ⌘W go to the bar, and a bar that doesn't know a command ignores it.
+- A `keys.json` has no section for one system, so both sets are bound on every system.
+  - On a Mac, the Ctrl+Shift keys go to glyph too. While the layout shows, a terminal's program no longer gets them. It still gets the same keys pressed without Shift.
+  - On Linux and Windows, `cmd` is the Super or Windows key. Most of those keys are the system's (Win+T, Win+W and Win+P on Windows), and the ones that get through do the same as on a Mac.
+- On Linux and Windows, Ctrl+Shift+C is the terminal's copy, which wins while a terminal has the keyboard, Ctrl+Shift+O splits a pane, and Ctrl+Shift+T is the new shell's. So each of Claude Code, Codex and the transfer window takes the next free letter of its name: A, D and R.
+- Herdr's `secondary` modifier, ⌘ on a Mac and Ctrl elsewhere, would have kept one key for each command. It would also have made ⌘W Ctrl+W, a key shells rely on. A hover shows the key spelled for its system: `keyFor` in `data.js` picks the one with ⌘ on a Mac and the one without elsewhere.
 
 **Titles**
 
@@ -322,7 +342,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - The rail's default must stay labelled. A rail of logos alone did not say which agent was which.
 - Only the rail shows a machine's bars. The bar, the Go-to list and the transfer window name machines without them.
 - Not built: git ahead and behind counts, dragging to reorder projects, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting, typing a path, picking with the keyboard, carrying rows onto a folder's row or out of the window, and a direct copy by key or forwarded agent. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
-- Built and checked on macOS with herdr-app 0.1.15. The window buttons for Linux and Windows have never been drawn there.
+- Built and checked on macOS with herdr-app 0.1.15. The window buttons for Linux and Windows have never been drawn there, and their keys have never been pressed there.
 - The mod runs under any theme, but the hues, the ink on filled tiles and the focus border were picked for a dark one.
 
 ## Done when
@@ -348,3 +368,4 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Holding a picked row, moving to the other side and letting go there starts the same copy the arrow would. Let go on its own side, nothing is copied.
 - With two other machines on the sides, one of which can log in to the other by password, the head shows a bolt, the other machine's name and a password field. With a file picked and the field empty, the arrow wears a laptop and starts `scp -3` on this computer.
 - With the password typed, the arrow wears a bolt and starts scp on one of the two machines (`hc get` on the copy's address, `machine/t…`, shows it), its pill has a bolt, and the file lands on the other machine. A wrong password ends the copy with a notice that names the machine that refused it.
+- On Linux or Windows, Ctrl+Shift+T starts a shell and Ctrl+Shift+K opens the Go-to list. The search button's hover reads "Go to a tab  Ctrl+Shift+K".

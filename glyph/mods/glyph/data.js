@@ -278,19 +278,27 @@ export function closeTab(id) {
 }
 
 // The key bound to the first of these commands that has one, written as the system writes
-// it ("⇧⌘C"), or "".
+// it ("⇧⌘C", "Ctrl+Shift+A"), or "".
 export function keyFor(...names) {
   const all = keys() ?? [];
   const mac = win()?.platform === "macos";
   const sign = mac ? { ctrl: "⌃", alt: "⌥", shift: "⇧", cmd: "⌘" } : { ctrl: "Ctrl", alt: "Alt", shift: "Shift", cmd: "Super" };
+  // Herdr reads `secondary` as cmd on a Mac and ctrl elsewhere, and `super` and `win` as cmd.
+  const alias = { secondary: mac ? "cmd" : "ctrl", super: "cmd", win: "cmd" };
+  const strokes = (text) => text.trim().split(/\s+/).map((stroke) => {
+    const parts = stroke.split("-");
+    let key = parts.pop();
+    if (key === "") { key = "-"; parts.pop(); }
+    return { key, held: new Set(parts.map((x) => alias[x.toLowerCase()] ?? x.toLowerCase())) };
+  });
+  // keys.json binds most commands twice: with ⌘ for macOS, and without it for Linux and
+  // Windows, where cmd is the Super key. Each system shows its own.
+  const fits = (s) => s.some((x) => x.held.has("cmd")) === mac;
   for (const name of names) {
-    const k = all.find((b) => b.action === name && (b.section === "layout:glyph" || b.section === "global"));
-    if (!k?.keys?.trim()) continue;
-    return k.keys.trim().split(/\s+/).map((stroke) => {
-      const parts = stroke.split("-");
-      let key = parts.pop();
-      if (key === "") { key = "-"; parts.pop(); }
-      const held = new Set(parts.map((x) => x.toLowerCase()));
+    const found = all.filter((b) => b.action === name && (b.section === "layout:glyph" || b.section === "global") && b.keys?.trim()).map((b) => strokes(b.keys));
+    const s = found.find(fits) ?? found[0];
+    if (!s) continue;
+    return s.map(({ key, held }) => {
       const label = key.length === 1 ? key.toUpperCase() : key[0].toUpperCase() + key.slice(1);
       return [...Object.keys(sign).filter((x) => held.has(x)).map((x) => sign[x]), label].join(mac ? "" : "+");
     }).join(" ");

@@ -20,6 +20,10 @@ Learned while building looks on herdr-app 0.1.15 (2026-11-11 to 2026-11-15). Rec
 - A press, a release and a move carry the keys held (`event.modifiers`: `shift`, `control`, `alt`, `platform`), by `gpui-kit.d.ts`. A mod that does not hold the keyboard can still tell a Shift-click. ⇧ and ⌘ clicks worked by hand in glyph's transfer window (2026-11-15).
 - When one mod fills several roles, `<mod>.<command>` keys go to whichever copy awaits `nextCommand()`, as the shipped `win98` does.
 - A `layout:<name>` section in `keys.json` binds keys only while that layout shows, and wins over `global`. Settings has no key editor; `keys.json` is where keys are set.
+- `keys.json` has no section for one system: every key in it is bound on all of them. By herdr-app's source (the public `herdrdev/herdr-app`, tag `v0.1.15`):
+  - `cmd`, also spelled `super` or `win`, is the Super key on Linux and the Windows key on Windows. `secondary` is `cmd` on macOS and `ctrl` elsewhere (`Keystroke::parse` in `vendor/gpui-pre/src/platform/keystroke.rs`).
+  - Herdr's own keys are `defaults/keys.macos.json` on macOS and `defaults/keys.json` on Linux and Windows, which uses Ctrl+Shift where macOS uses ⌘. 0.1.16 adds ⌘M (minimize) and, in a terminal, ⌘A (select all) on macOS, and keeps the Linux and Windows file as it was.
+  - `keys()` lists the bindings by section, then by key, in byte order: `cmd-t` comes before `ctrl-shift-t` (`listing()` in `src/keys.rs`).
 - `herdr-app do <mod>.<command>` sends a mod the same command its key would. That tests what a key does without pressing it.
 - `openOverlay` takes `at: "top"` with `offset: n` for a popup under the window's top edge, as the shipped `terminals-bar` opens `picker`. `herdr.d.ts` lists only `"pointer"` and `{x, y}`.
 - Popups stack: a second `openOverlay` leaves the first one open under it. `overlay.close` with no id closed the top popup, and `herdr-app commands` says it closes "the top dialog or popup". It leaves a window overlay open ("Looking at the real window" below).
