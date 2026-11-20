@@ -1,7 +1,7 @@
 #!/bin/sh
 # preview-states.sh: like preview.sh, for the states a still fleet doesn't show: a folded
 # machine, folded projects, a project, a machine and a tab dragged in the rail, a machine that does not answer, a tab and a pane waiting for their second close press, the tab menu asking
-# again, a project's empty page, and the transfer window (read, with rows picked, its arrow
+# again, a project's empty page, the list of closed projects, and the transfer window (read, with rows picked, its arrow
 # pressed once, picked rows carried over the other side, and between two other machines of
 # which one can log in to the other: as it opens, with rows picked, and with a password
 # typed) with the bar while copies are under way. Pictures land in .local/preview/.
@@ -40,6 +40,9 @@ for n in states fold lost fold-compact tuck tuck-compact lift lift-machine lift-
 for n in menu menu-sure; do shot $n 200,116; done
 # The Go-to list: as it opens, with a word typed, and with a first close press on its picked tab.
 for n in goto goto-find goto-sure; do python3 tools/spec2html.py $P/$n.html --only body --body $O/$n.txt --w 560 --h 572; shot $n 560,572; done
+# The list of closed projects: as it opens, with a word typed, on Linux, and before any project was closed.
+for n in history history-find history-linux; do python3 tools/spec2html.py $P/$n.html --only body --body $O/$n.txt --w 440 --h 234; shot $n 440,234; done
+python3 tools/spec2html.py $P/history-empty.html --only body --body $O/history-empty.txt --w 440 --h 94; shot history-empty 440,94
 for n in transfer transfer-picked transfer-sure transfer-carry transfer-direct-idle transfer-direct transfer-direct-typed; do shot $n 880,560; done
 shot copies 1710,1073
 python3 ../../tools/crop.py $P/copies.png $P/copies-bar.png 2400 0 1020 100 1

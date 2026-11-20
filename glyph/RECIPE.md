@@ -1,6 +1,6 @@
 # Glyph
 
-An icon-first window for watching coding agents. A dark rail on the left lists every machine, project and tab. A strip on top holds the shown project's tabs. A floating window copies files from one machine to another. A program is its logo, a state is a color and a motion, and a button is an icon. Words are kept for names and for what tells two agents apart. The colors are Catppuccin Mocha.
+An icon-first window for watching coding agents. A dark rail on the left lists every machine, project and tab. A strip on top holds the shown project's tabs. A floating window copies files from one machine to another. A list has the projects you closed, to open one again. A program is its logo, a state is a color and a motion, and a button is an icon. Words are kept for names and for what tells two agents apart. The colors are Catppuccin Mocha.
 
 ![Glyph](preview.png)
 
@@ -27,7 +27,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Each tab is a 28px row: a 20px orb and a label at 12.5px. The shown tab's row is raised (`#313244`).
 - Each sub-agent is a 24px row under its tab's: a hook in `#45475a` hanging from the logo of whatever started it, a 16px orb and a name at 12px. A sub-agent is a terminal that one of the tab's agents started with Herdr's `hc run`, a helper agent or a plain program, and that has no pane.
 - Machines with nothing running share one row of dashed pills at the end. The pill of a machine other than this computer has the bars after its name.
-- A 42px foot has four icon buttons: settings, add a machine, new project, and one that switches the rail between 256px and 160px.
+- A 42px foot has five icon buttons: settings, add a machine, new project, closed projects (a clock whose rim turns back), and one that switches the rail between 256px and 160px.
 - A project, a machine or a tab being dragged is drawn at 40% opacity in its place, a machine with its projects and a tab with its sub-agents. A 2px line in the accent says where it would land: across the rail for a project or a machine, across the tabs' rows for a tab, and upright beside a logo in the rail narrower than 200px.
 - Narrower than 200px, the rows go, sub-agents' too, and each project's orbs wrap beside its tile. A machine keeps its bars and loses the time. The chevrons stay.
 
@@ -61,6 +61,14 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - A 2px line in the project's hue runs down beside its tabs, from under the middle of the tile to the last of them. It is at 40%, and at 80% for the project on show. Home's is in the grey of its tile.
 - A block stands 7px clear of the one before it. Projects sit under their machine's line when there is more than one machine, and that line stands 8px clear of the machine before it.
 - The picked row is raised (`#313244`). The list is at most 520px tall, then it scrolls.
+
+**Closed projects**
+
+- A popup 440px wide: a search field, then a 44px row for each project that was closed, the last closed first.
+- A row has the project's 28px tile in the hue it had and its name at 13px. Under the name, at 11.5px, is where it was: a server icon and its machine's name when that is another machine, then its folder, with home as `~`.
+- At the row's end are the logos of the agents its tabs ran, at 15px, or the terminal logo when it ran none. Then comes how long ago it closed ("9m", "3h", "6d"), then an ×.
+- The picked row is raised (`#313244`). A project whose machine is out of reach is drawn at 45%.
+- The list is at most 440px tall, then it scrolls. Before any project was closed it reads "No closed projects yet".
 
 **Transfer window**
 
@@ -142,6 +150,20 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - The empty project closes once another project is shown, or at ⌘W on the page.
 - When the project on show closes, the window stays on its machine. The project after it there shows its first tab. After the machine's last project, the one before it shows its last tab.
 - Only a machine's only project hands over to another machine. The next project in the rail shows its first tab, or after the rail's last project, the one before it shows its last tab.
+- A project that closed can be opened again from the list of closed projects.
+
+**Closed projects**
+
+- A project that closes goes on a list, however it closed: from its empty page, with its last tab, or from Herdr's own menu. The list has its name, its machine, the folder its first tab was in, its hue and the agents its tabs ran.
+- The clock in the rail's foot opens the list where the pointer is. ⌘Y opens it under the window's top edge, where the Go-to list opens, and closes it when it is on show.
+- Click a row, or pick it with ↑ and ↓ and press Enter, to open that project again: on its machine, in its folder, under the name it was given and in its hue.
+- It opens with one tab. The tab runs the agent most of the project's tabs ran, which is the first logo on its row. A project that ran no agent opens with a plain shell.
+- The agent starts afresh. What it was doing before the project closed does not come back.
+- Type to narrow the list: every word typed must be in the project's name, its folder, its machine or its agents' names.
+- A project that is open is not on the list. Its row goes once it is open again, whether it was opened from the list or by hand in the same folder.
+- The × at a row's end takes the row off the list. Esc closes the list.
+- The list keeps the last 30 projects, and each of them once. Two that were on the same machine, in the same folder and under the same name count as one, so a project closed twice is listed as it was the second time.
+- Hover a row for what a press on it starts.
 
 **Folding**
 
@@ -225,18 +247,18 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 **Mod**
 
 - `mods/glyph/`, whose `mod.json` is `{ "place": "none", "title": "Glyph" }`.
-- `main.js` picks a part from `props().role`: `rail.js`, `bar.js`, `pane.js`, `menu.js` (a popup the mod opens for a tab), `goto.js` (the Go-to list, a popup the bar opens) or `blank.js` (a project's empty page, as a tab's only pane).
+- `main.js` picks a part from `props().role`: `rail.js`, `bar.js`, `pane.js`, `menu.js` (a popup the mod opens for a tab), `goto.js` (the Go-to list, a popup the bar opens), `history.js` (the list of closed projects, a popup the rail and the bar open) or `blank.js` (a project's empty page, as a tab's only pane).
 - `data.js` shapes Herdr's lists into machines, projects and tabs. `ui.js` draws the tile, the orb, the bead and the icon button.
 - `transfer.js` is the transfer window, opened as a Herdr window overlay with props `{ "role": "transfer" }`. `copy.js` reads folders, starts, lists and ends copies, and finds out whether one machine can log in to another.
 - `fonts/`: Nunito Sans SemiBold and Bold, for Linux and Windows, as they come from `github.com/googlefonts/NunitoSans`, with their license beside them (`OFL.txt`, the SIL Open Font License).
-- `icons/`: 32 SVGs on a 24px grid with round strokes, drawn in `currentColor`. Program logos are Herdr's own, from `icons/` in Herdr's home (`~/.config/herdr-app`).
+- `icons/`: 33 SVGs on a 24px grid with round strokes, drawn in `currentColor`. Program logos are Herdr's own, from `icons/` in Herdr's home (`~/.config/herdr-app`).
 
 **From Herdr**
 
 - Reads: `spaces`, `panes`, `terminals`, `agents`, `machines`, `focused`, `layout`, `window`, `settings`, `keys`, `updates`, `theme`, `props`, `knownAgents`, `checking`.
 - Calls: `run`, `hc`, `exec`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`, `setBadge`.
-- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `glyph.machines` (the order of the machines, as the rail's drag left them), `new-menu.agents` (read: the agents each machine can start, as Herdr's `new-menu` mod keeps them, for the launchers and the start keys before `knownAgents` has answered), `glyph.blank` (the name and folder an empty project's page shows, noted while its last tab is still there), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
-- Kept in the rail's `localStorage`: `seen` (since when each tab has rested), `folded` (the folded machines) and `tucked` (the folded projects). Each place the layout puts the mod is a copy with a `localStorage` of its own.
+- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `glyph.machines` (the order of the machines, as the rail's drag left them), `new-menu.agents` (read: the agents each machine can start, as Herdr's `new-menu` mod keeps them, for the launchers and the start keys before `knownAgents` has answered), `glyph.blank` (the name and folder an empty project's page shows, noted while its last tab is still there), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines), `glyph.history` (the projects that were closed, the last one first).
+- Kept in the rail's `localStorage`: `seen` (since when each tab has rested), `folded` (the folded machines) and `tucked` (the folded projects). Kept in the bar's: `notes` (what each open project would be listed as if it closed now). Each place the layout puts the mod is a copy with a `localStorage` of its own.
 - Commands: `tab.select`, `tab.new`, `tab.close`, `tab.settle`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `space.move`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `overlay.close`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
 - Herdr's own mods, opened as they are: `menu` (the project menu), `prompt` (rename), `new-menu`, `machine-add`, `files`, `changes`.
 - `setAgentOrder` follows the rail, so `agent.next` and `agent.prev` walk it top to bottom.
@@ -257,7 +279,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 
 **Keys**
 
-`keys.json` holds a `layout:glyph` section. Each action is a command the bar waits for with `nextCommand()`: `rename`, `new`, `new-<key>` for any agent key in Herdr's program table, `close`, `close-pane`, `transfer`, `goto`.
+`keys.json` holds a `layout:glyph` section. Each action is a command the bar waits for with `nextCommand()`: `rename`, `new`, `new-<key>` for any agent key in Herdr's program table, `close`, `close-pane`, `transfer`, `goto`, `history`.
 
 Each command has a key for macOS and one for Linux and Windows. Where glyph takes one of Herdr's own keys, it is for the command that does that job in glyph.
 
@@ -271,6 +293,7 @@ Each command has a key for macOS and one for Linux and Windows. Where glyph take
 | `close-pane` | ⇧⌘W | Ctrl+Shift+X | `pane.close` |
 | `transfer` | ⇧⌘T | Ctrl+Shift+R | |
 | `goto` | ⌘P | Ctrl+Shift+K | `mod.open:picker` |
+| `history` | ⌘Y | Ctrl+Shift+H | |
 
 One more command has no key: `transfer-show`, which a copy's notice sends when it is clicked. It opens the transfer window and leaves an open one alone.
 
@@ -372,6 +395,22 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Copies of a mod share its modules. The list notes its overlay in a variable of `data.js` when it starts and clears it when Herdr calls its `close()`. That is how the bar knows to close the list when asked for it again.
 - It lists tabs only: no sub-agents, and none of the rows Herdr's picker has for a new tab or a new project.
 
+**Closed projects**
+
+- Herdr does not tell a mod that a project closes. The bar looks at Herdr's list of projects once a second and notes, for each project that has tabs, what its row would say. A project that is gone from Herdr's list has closed, and its note becomes its row.
+- Only the bar looks, so only while this layout is on show. A project closed under another layout is found closed when glyph shows again, and the time on its row counts from then.
+- A project whose machine goes out of reach is only missing, and gets no row. It gets one if it is gone when the machine is back.
+- A project on a machine that Herdr was told to forget (`hc machine rm`) gets no row.
+- Herdr keeps a list of its own, the name and folder of each closed project, which it shows nowhere and a mod can't read. glyph's list is its own, in the shared value `glyph.history` on this computer. Herdr on another computer has another list.
+- The list holds the names and folders of your projects. It is in Herdr's `shared.json` on this computer and goes nowhere else.
+- The agents on a row are those the project's tabs ran while the bar looked, as far as Herdr calls a tab's program an agent. A shell or any other program is not noted. An agent whose tabs were closed before the project was stays on the row.
+- The list asks Herdr for a project with one tab. A project that had five comes back with one. The others are started as any tab is: by a logo in the bar's dashed pill, or by its key.
+- The agent is started the way its machine starts it now. One that was taken off the machine since is passed over for the next agent the project ran, else for a plain shell. On a machine that has not said yet what it can start, the project opens once it has.
+- A project nobody named is called after its folder again, as Herdr names any project. Its hue comes back because glyph gives a project made in a closed one's folder, on its machine, the hue that one had.
+- A row goes once the bar finds a project by that name, in that folder, on that machine, which takes a second or so.
+- Where a folder is gone, Herdr can't start a terminal in it and says so in a notice of its own, and the row stays. This is from Herdr's source, and was not tried.
+- A popup opened at the pointer stands where the pointer was, moved to fit the window. Opened from the rail's foot, the list is over the foot and the rows above it.
+
 **Keys**
 
 - Whoever installs the layout merges its section by hand into their own `~/.config/herdr-app/keys.json`, after the mod is in place: ⌘T and ⌘W go to the bar, and a bar that doesn't know a command ignores it.
@@ -379,6 +418,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
   - On a Mac, the Ctrl+Shift keys go to glyph too. While the layout shows, a terminal's program no longer gets them. It still gets the same keys pressed without Shift.
   - On Linux and Windows, `cmd` is the Super or Windows key. Most of those keys are the system's (Win+T, Win+W and Win+P on Windows), and the ones that get through do the same as on a Mac.
 - On Linux and Windows, Ctrl+Shift+C is the terminal's copy, which wins while a terminal has the keyboard, Ctrl+Shift+O splits a pane, and Ctrl+Shift+T is the new shell's. So each of Claude Code, Codex and the transfer window takes the next free letter of its name: A, D and R.
+- The list of closed projects takes ⌘Y, the key browsers show their history with on a Mac, and Ctrl+Shift+H, since theirs elsewhere is Ctrl+H. Herdr binds neither.
 - Herdr's `secondary` modifier, ⌘ on a Mac and Ctrl elsewhere, would have kept one key for each command. It would also have made ⌘W Ctrl+W, a key shells rely on. A hover shows the key spelled for its system: `keyFor` in `data.js` picks the one with ⌘ on a Mac and the one without elsewhere.
 
 **Titles**
@@ -437,7 +477,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - The transfer window needs `sh`, `ls`, `scp` and `ssh` on this computer. A Mac and a Linux computer have them. On a Windows computer the window opens and can't list this computer's folders.
 - The rail's default must stay labelled. A rail of logos alone did not say which agent was which.
 - Only the rail shows a machine's bars. The bar, the Go-to list and the transfer window name machines without them.
-- Not built: git ahead and behind counts, moving a project to another machine or a tab to another project, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting, typing a path, picking with the keyboard, carrying rows onto a folder's row or out of the window, and a direct copy by key or forwarded agent. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
+- Not built: git ahead and behind counts, opening a closed project with every tab it had or with what its agents were doing, moving a project to another machine or a tab to another project, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting, typing a path, picking with the keyboard, carrying rows onto a folder's row or out of the window, and a direct copy by key or forwarded agent. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
 - Built and checked on macOS, first with herdr-app 0.1.15 and since with 0.1.16. It needs 0.1.16 or later: the rail reads `checking`, which came with that version. The window buttons for Linux and Windows have never been drawn there, and their keys have never been pressed there.
 - The mod runs under any theme, but the hues, the ink on filled tiles and the focus border were picked for a dark one.
 
@@ -466,6 +506,9 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Dragging a tab's row over the first tab of its project and letting go makes it the first, in the rail, in the bar when its project is on show, and in `herdr-app ls`.
 - Clicking a project's tile, or the chevron beside it, hides its tabs' rows and shows a status line of them under its name. Clicking it again brings them back. Clicking the project's name shows the project, and clicking a bead of a folded project shows that tab.
 - Within a few seconds of the layout showing, the line of a machine other than this computer has bars lit and a time after its name. The time is near what `hc exec --on <machine> whoami` takes when timed in a shell.
+- Closing a project puts a row for it on top of the list the clock in the rail's foot opens: its tile, its name, its folder and the logo of the agent it ran.
+- Clicking that row opens the project again. `herdr-app ls` lists it on its machine, in that folder, with one tab, its tile has the hue it had, and its row is gone from the list.
+- ⌘Y opens the same list under the window's top edge, and ⌘Y again closes it.
 - ⌘P opens the Go-to list on the shown tab. An agent's tab nobody named is listed by its agent's title, never by its number. Typing narrows the list, and Enter shows the picked tab.
 - In that list every project's tabs stand in under its name, beside a line in the color of its tile that ends at its last tab. The line of the project on show is the brightest.
 - The transfer button opens a window with a folder of one machine on each side. Picking a file and pressing the arrow copies it to the other side: a pill turns in the window's head, with scp's percent, speed and time left, and an arc around the bar's button, and a notice says "Copied" with its name once the file is in the other folder.

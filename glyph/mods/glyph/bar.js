@@ -23,16 +23,17 @@
 // A last tab that ends by itself (its shell exits) leaves the same page: while the project
 // on show has a single tab, one stands by behind it, out of sight. See stand().
 // Keys bound to this layout in keys.json ("layout:glyph") arrive as commands:
-//   rename, close, close-pane, new, new-<program key> (new-claude, new-codex, ...), transfer, goto.
-// transfer and goto close what they opened when asked again. transfer-show, which a copy's
+//   rename, close, close-pane, new, new-<program key> (new-claude, new-codex, ...), transfer, goto, history.
+// transfer, goto and history close what they opened when asked again. transfer-show, which a copy's
 // notice sends when clicked, only opens.
 // The bar also says how each copy the transfer window started has ended: see mind().
 // And it keeps the number of tabs that need you on Herdr's Dock icon (macOS): see flag().
+// And it keeps the list of the projects that were closed (history.js): see keep().
 
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { theme, run, layout, settings, spaces, panes, terminals, focused, machines, shared, setShared, notify, window as win, openOverlay, knownAgents, nextCommand, setBadge, checking } from "herdr";
-import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM } from "./data.js";
+import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM, PAST, past, sketch, shelve, openHistory } from "./data.js";
 import { copies, settle, openTransfer, showTransfer, STARTING } from "./copy.js";
 import { ICON, INK, DISPLAY, alpha, mix, logo, inkOf, danger, orb, tile, iconButton, textWidth } from "./ui.js";
 
@@ -47,6 +48,8 @@ const LAND = 2000;      // ms a dropped tab's preview waits for the move to real
 const PAGE = 4000;      // ms an empty page that was asked for is given to come: a last tab waits that long for it
 const GONE = 5000;      // ms a tab asked to close counts as closed before it really is
 const SHY = 60000;      // ms no page is asked to stand by for a project after something else closed one: see tend()
+const NOTE = 1000;      // ms between looks at which projects there are: see keep()
+const FRESH = 60000;    // ms after the bar starts that Herdr may not list a machine yet: see keep()
 const LOOK = 120;       // ms between looks at what changed: see look()
 const REST = 8;         // with nothing drawn, only every so many looks really look
 const ASK = 2000;       // ms before hc is asked again how a copy ended
@@ -116,9 +119,12 @@ export class Bar {
     this.badge = undefined; // what the Dock icon was last told to wear (null: nothing): see flag()
     this.born = Date.now(); // when this bar started
     this.told = false;      // the Dock icon was told once more, a moment after the start
+    this.notes = null;      // project -> what it would be listed as if it closed now: see keep()
+    this.slipped = "";      // what the last keep() that went wrong said
     this.learn(cx);
     cx.timer.every(3000, (cx) => this.learn(cx));
     cx.timer.every(LOOK, (cx) => this.look(cx));
+    cx.timer.every(NOTE, () => this.keep(Date.now()));
     // Keys bound to this layout (keys.json, "layout:glyph") arrive here, and so does what
     // the other parts ask of the bar.
     cx.spawn(async (cx) => {
@@ -152,6 +158,7 @@ export class Bar {
     } else if (name === "transfer") openTransfer();
     else if (name === "transfer-show") showTransfer();
     else if (name === "goto") openGoto();
+    else if (name === "history") openHistory(true);
     else if (name === "new") newTab(s);
     else if (name.startsWith("new-")) this.start(s, name.slice(4), cx);
   }
@@ -330,6 +337,52 @@ export class Bar {
   // would keep the badge true, so it comes off.
   gone() {
     if (!checking()) setBadge(null);
+  }
+
+  // The list of closed projects (history.js) is kept here, in shared PAST. Herdr does not
+  // tell a mod that a project closes, and by then nothing is left to ask what it was. So
+  // while a project has tabs, the bar notes what it would be listed as (sketch() in
+  // data.js), and keeps the notes across restarts. A project left with only its empty page
+  // keeps the note it had.
+  // A project that is gone from Herdr's list has closed, whoever closed it, and its note
+  // joins the list. One whose machine is out of reach is only missing, and its note waits.
+  // A machine Herdr does not list was taken off Herdr: its projects' notes are dropped, but
+  // not in the bar's first minute, when Herdr may not have listed it yet.
+  // A project closed while another layout was on show is found closed when this one shows
+  // again. Under `herdr-app check` nothing is noted.
+  keep(now) {
+    if (checking()) return;
+    try {
+      this.notes ??= JSON.parse(localStorage.getItem("notes") ?? "{}");
+      const m = model();
+      const layouts = new Map(machines().map((k) => [k.name ?? null, k.layout]));
+      const open = new Set(m.spaces.map((s) => s.id));
+      let dirty = false;
+      for (const s of m.spaces) {
+        if (!s.tabs.length) continue;
+        const next = sketch(s, this.notes[s.id]);
+        if (JSON.stringify(next) === JSON.stringify(this.notes[s.id])) continue;
+        this.notes[s.id] = next;
+        dirty = true;
+      }
+      const closed = [];
+      for (const [id, note] of Object.entries(this.notes)) {
+        if (open.has(id)) continue;
+        const layout = layouts.get(note.machine ?? null);
+        if (layout ? layout !== "ready" : now - this.born < FRESH) continue;
+        delete this.notes[id];
+        dirty = true;
+        if (layout) closed.push({ ...note, at: now });
+      }
+      const list = past(), next = shelve(list, closed, Object.values(this.notes));
+      if (JSON.stringify(next) !== JSON.stringify(list)) setShared(PAST, next);
+      if (dirty) localStorage.setItem("notes", JSON.stringify(this.notes));
+      this.slipped = "";
+    } catch (e) {
+      const said = String(e?.message ?? e);
+      if (said !== this.slipped) notify({ title: "Glyph could not keep its list of closed projects", body: said, level: "error" });
+      this.slipped = said;
+    }
   }
 
   // Asks an empty page to close, once: again only if it is still there much later.

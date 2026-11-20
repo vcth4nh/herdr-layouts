@@ -171,8 +171,19 @@ export const terminals = () => TERMS;
 export const agents = () => PANES.filter((p) => p.status).map((p) => ({ address: p.terminal, pane: p.pane, tab: p.tab, status: p.status, program: p.program }));
 // echo is out of reach, unless a test brings it back with globalThis.__ready.
 export const machines = () => [null, "alpha", "bravo", "charlie", "delta-2", "echo", "foxtrot"].map((name) => ({ name, layout: name === "echo" && !globalThis.__ready ? "unavailable" : "ready" }));
+// An agent as the list of closed projects keeps it: what draws its logo, and how many tabs ran it.
+const ran = (p, n) => ({ key: p.key, name: p.name, icon: p.icon, tint: p.tint, tile: p.tile, color: p.color, n });
 // Shared values: what a test or the mod set, over what the app would hold.
 export const SHARED = {
+  // The projects that were closed, the last one first: one here that ran two agents, one on
+  // another machine that someone named, a home that ran only shells, and one on the machine
+  // that is out of reach. Unless a check starts with none (check.sh's PAST=none).
+  ...(globalThis.__nopast ? {} : { "glyph.history": [
+    { name: "paper-kites", named: false, machine: null, folder: "/Users/me/code/paper-kites", hue: "ansi3", ran: [ran(P.claude, 3), ran(P.codex, 1)], at: now - 9 * 60000 },
+    { name: "tide tables", named: true, machine: "alpha", folder: "/home/me/surveys/tide-tables", hue: "ansi5", ran: [ran(P.codex, 2)], at: now - 3 * 3600000 },
+    { name: "~", named: false, machine: "bravo", folder: "/home/me", hue: null, ran: [], at: now - 26 * 3600000 },
+    { name: "old-lab", named: false, machine: "echo", folder: "/srv/old-lab", hue: "ansi2", ran: [ran(P.claude, 1)], at: now - 6 * 86400000 },
+  ] }),
   "glyph.blank": { sp9: { name: "garden-planner", folder: "/Users/me/code/garden-planner" } },
   // Where the transfer window's right side was left.
   "glyph.side": COPYING === "direct" ? { on: "bravo", path: "/home/me" } : { on: "alpha", path: "/home/me/acme-shop-backend" },
@@ -215,8 +226,8 @@ const KEYS = [
   ["global", "cmd-shift-n", "space.new"], ["global", "cmd-t", "tab.new"], ["global", "cmd-w", "tab.close"], ["global", "f2", "tab.rename"],
   ["layout:glyph", "cmd-p", "glyph.goto"], ["layout:glyph", "cmd-shift-c", "glyph.new-claude"], ["layout:glyph", "cmd-shift-o", "glyph.new-codex"],
   ["layout:glyph", "cmd-shift-t", "glyph.transfer"], ["layout:glyph", "cmd-shift-w", "glyph.close-pane"], ["layout:glyph", "cmd-t", "glyph.new"],
-  ["layout:glyph", "cmd-w", "glyph.close"], ["layout:glyph", "ctrl-shift-a", "glyph.new-claude"], ["layout:glyph", "ctrl-shift-d", "glyph.new-codex"],
-  ["layout:glyph", "ctrl-shift-k", "glyph.goto"], ["layout:glyph", "ctrl-shift-r", "glyph.transfer"], ["layout:glyph", "ctrl-shift-t", "glyph.new"],
+  ["layout:glyph", "cmd-w", "glyph.close"], ["layout:glyph", "cmd-y", "glyph.history"], ["layout:glyph", "ctrl-shift-a", "glyph.new-claude"], ["layout:glyph", "ctrl-shift-d", "glyph.new-codex"],
+  ["layout:glyph", "ctrl-shift-h", "glyph.history"], ["layout:glyph", "ctrl-shift-k", "glyph.goto"], ["layout:glyph", "ctrl-shift-r", "glyph.transfer"], ["layout:glyph", "ctrl-shift-t", "glyph.new"],
   ["layout:glyph", "ctrl-shift-w", "glyph.close"], ["layout:glyph", "ctrl-shift-x", "glyph.close-pane"], ["layout:glyph", "f2", "glyph.rename"],
 ].map(([section, keys, action]) => ({ section, keys, action }));
 export const keys = () => globalThis.__keys ?? KEYS;
@@ -265,4 +276,5 @@ export const exec = async (command, args = [], options = {}) => {
   const out = listed(options?.on ?? null, args[3]);
   return out === null ? { code: 2, stdout: "", stderr: `sh: line 0: cd: ${args[3]}: No such file or directory\n` } : { code: 0, stdout: out, stderr: "" };
 };
-export const knownAgents = async () => [{ ...P.claude, run: ["claude"], installed: true }, { ...P.codex, run: ["codex", "--no-daemon"], installed: true }, { ...P.opencode, run: ["opencode"], installed: true }];
+// What a machine can start. A test may answer for it: globalThis.__agents = (machine) => a list.
+export const knownAgents = async (o) => globalThis.__agents?.(o?.on ?? null) ?? [{ ...P.claude, run: ["claude"], installed: true }, { ...P.codex, run: ["codex", "--no-daemon"], installed: true }, { ...P.opencode, run: ["opencode"], installed: true }];

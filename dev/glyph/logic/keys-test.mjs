@@ -36,7 +36,7 @@ const own = Object.entries(file["layout:glyph"]);
 const mods = (k) => k.split("-").slice(0, -1);
 const withCmd = (k) => mods(k).some((m) => ["cmd", "super", "win"].includes(m));
 for (const [k, a] of own) {
-  ok(/^glyph\.(rename|new(-[a-z0-9_-]+)?|close|close-pane|transfer|goto)$/.test(a), `${k}: ${a} is a command the bar waits for`);
+  ok(/^glyph\.(rename|new(-[a-z0-9_-]+)?|close|close-pane|transfer|goto|history)$/.test(a), `${k}: ${a} is a command the bar waits for`);
   ok(!(mods(k).length === 1 && mods(k)[0] === "ctrl" && /^[a-z[]$/.test(k.split("-").pop())), `${k} is not a plain ctrl+letter, which programs rely on`);
   ok(!(mods(k).includes("ctrl") && mods(k).includes("alt")), `${k} is not ctrl+alt, which is AltGr on Windows`);
   ok(!mods(k).includes("secondary"), `${k} names its system's key: secondary would be ctrl outside macOS`);
@@ -62,10 +62,10 @@ const sorted = [...own].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k
 eq(keys().filter((b) => b.section === "layout:glyph").map((b) => [b.keys, b.action]), sorted, "the fake app's layout:glyph keys are keys.json's");
 
 // What the hover words show.
-const shown = () => ["glyph.new", "glyph.new-claude", "glyph.new-codex", "glyph.close", "glyph.close-pane", "glyph.transfer", "glyph.goto", "glyph.rename"].map((n) => keyFor(n));
+const shown = () => ["glyph.new", "glyph.new-claude", "glyph.new-codex", "glyph.close", "glyph.close-pane", "glyph.transfer", "glyph.goto", "glyph.history", "glyph.rename"].map((n) => keyFor(n));
 globalThis.__platform = "macos";
-eq(shown(), ["⌘T", "⇧⌘C", "⇧⌘O", "⌘W", "⇧⌘W", "⇧⌘T", "⌘P", "F2"], "macOS shows the ⌘ keys");
-const linux = ["Ctrl+Shift+T", "Ctrl+Shift+A", "Ctrl+Shift+D", "Ctrl+Shift+W", "Ctrl+Shift+X", "Ctrl+Shift+R", "Ctrl+Shift+K", "F2"];
+eq(shown(), ["⌘T", "⇧⌘C", "⇧⌘O", "⌘W", "⇧⌘W", "⇧⌘T", "⌘P", "⌘Y", "F2"], "macOS shows the ⌘ keys");
+const linux = ["Ctrl+Shift+T", "Ctrl+Shift+A", "Ctrl+Shift+D", "Ctrl+Shift+W", "Ctrl+Shift+X", "Ctrl+Shift+R", "Ctrl+Shift+K", "Ctrl+Shift+H", "F2"];
 for (const p of ["linux", "windows"]) {
   globalThis.__platform = p;
   eq(shown(), linux, `${p} shows the keys without ⌘`);

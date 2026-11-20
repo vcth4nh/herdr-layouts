@@ -14,6 +14,8 @@
     "cmd-shift-t": "glyph.transfer",
     "ctrl-shift-r": "glyph.transfer",
     "cmd-p": "glyph.goto",
-    "ctrl-shift-k": "glyph.goto"
+    "ctrl-shift-k": "glyph.goto",
+    "cmd-y": "glyph.history",
+    "ctrl-shift-h": "glyph.history"
   }
 }

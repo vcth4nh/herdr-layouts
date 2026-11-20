@@ -20,12 +20,13 @@
 // a machine by its name to move it and its projects, and a tab by its row among its
 // project's tabs: a line shows where it will land. See hold().
 // Narrower than 200px the words go and the logos line up beside their tile: the button
-// at the foot switches between the two.
+// at the foot switches between the two. The clock beside it opens the list of the projects
+// that were closed (history.js).
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { theme, run, layout, settings, window as win, openOverlay, agents, setAgentOrder, updates, checking, spaces, setShared } from "herdr";
-import { model, fleet, ping, reach, PING, ORDER, here as hereName, goTab, goSub, lineUp, tabTip, subTip, since, find, tabMenu, says } from "./data.js";
+import { model, fleet, ping, reach, PING, ORDER, here as hereName, goTab, goSub, lineUp, tabTip, subTip, since, find, tabMenu, says, openHistory, keyFor, withKey } from "./data.js";
 import { ICON, DISPLAY, alpha, orb, bead, tile, iconButton, bars, textWidth } from "./ui.js";
 
 const COMPACT = 160, WIDE = 256;
@@ -640,12 +641,14 @@ export class Rail {
 
   foot(t, wide) {
     const ready = Boolean(updates()?.app?.ready);
-    return h_flex().h(42).flex_none().px(10).gap(2).items_center().justify_center()
+    // Five buttons, which the rail at its narrower width just holds.
+    return h_flex().h(42).flex_none().px(6).gap(2).items_center().justify_center()
       .child(div().relative().flex_none()
         .child(iconButton(t, { id: "settings", icon: "gear", tip: ready ? "Settings: an update is ready" : "Settings", onClick: () => run("app.settings") }))
         .when(ready, (el) => el.child(div().absolute().top(4).right(4).size(6).rounded_full().bg(t.accent))))
       .child(iconButton(t, { id: "add-machine", icon: "server-plus", tip: "Add a machine", onClick: () => run("mod.open", { name: "machine-add" }) }))
       .child(iconButton(t, { id: "space-new", icon: "plus", tip: "New project", onClick: () => run("space.new") }))
+      .child(iconButton(t, { id: "history", icon: "history", tip: withKey("Closed projects", keyFor("glyph.history")), onClick: () => openHistory() }))
       .child(iconButton(t, {
         id: "names", icon: wide ? "collapse" : "expand", tip: wide ? "Logos only" : "Show names",
         onClick: () => run("layout.resize", { id: "sidebar", px: wide ? COMPACT : WIDE }),

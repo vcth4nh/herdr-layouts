@@ -14,7 +14,7 @@ for f in "$L"/mods/glyph/icons/*.svg; do put "$f" "$H/mods/glyph/icons/$(basenam
 mkdir -p "$H/mods/glyph/fonts"
 for f in "$L"/mods/glyph/fonts/*; do put "$f" "$H/mods/glyph/fonts/$(basename "$f")"; done
 # Leaves first, so the app never reloads a file whose imports are not there yet.
-for n in mod.json ui.js data.js copy.js menu.js pane.js rail.js transfer.js goto.js bar.js blank.js main.js; do put "$L/mods/glyph/$n" "$H/mods/glyph/$n"; done
+for n in mod.json ui.js data.js copy.js menu.js pane.js rail.js transfer.js goto.js history.js bar.js blank.js main.js; do put "$L/mods/glyph/$n" "$H/mods/glyph/$n"; done
 for f in "$L"/mods/glyph/*.js; do put "$f" "$H/mods/glyph/$(basename "$f")"; done
 put "$L/themes/glyph.json" "$H/themes/glyph.json"
 put "$L/layouts/glyph.svg" "$H/layouts/glyph.svg"

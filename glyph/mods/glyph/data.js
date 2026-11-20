@@ -33,6 +33,22 @@ export function arrange(names, said) {
   return [...names.filter((n) => at.has(n)).sort((a, b) => at.get(a) - at.get(b)), ...names.filter((n) => !at.has(n))];
 }
 
+// The projects that were closed, the last one first, for the list that opens them again
+// (history.js): shared PAST. Each is what its project went by and where it was:
+// { name, named, machine, folder, hue, ran, at }. `ran` is the agents its tabs ran, the one
+// most of them ran first, and `at` when it was found closed. The bar keeps the list (keep()
+// in bar.js); Herdr's own, which a mod can't read, has a name and a folder only.
+export const PAST = "glyph.history";
+const PAST_MOST = 30; // how many closed projects are kept
+export const past = () => {
+  const all = shared(PAST);
+  return Array.isArray(all) ? all : [];
+};
+// A folder as it is compared: without the slash a path may end in.
+const bare = (p) => (p ?? "").replace(/(.)[\\/]+$/, "$1");
+// Whether two of them are one place: a closed project and another, or one that is open.
+const same = (a, b) => (a.machine ?? null) === (b.machine ?? null) && a.name === b.name && bare(a.folder) === bare(b.folder);
+
 // Whether every machine's projects are in Herdr's list. While a machine is out of reach its
 // projects are only missing, so what is kept for a project (its hue, its fold in the rail)
 // is not forgotten yet.
@@ -50,16 +66,19 @@ function hues(sp) {
   let changed = Object.keys(kept).length !== Object.keys(all).length;
   for (const s of sp) {
     if (kept[s.id] || s.name === "~") continue;
+    // A project made where a closed one was, on its machine, gets the hue that one had:
+    // one opened again from the list of closed projects comes back as it looked.
+    const had = past().find((e) => e.hue && (e.machine ?? null) === (s.machine ?? null) && bare(e.folder) === bare(s.folder))?.hue;
     const uses = (c) => Object.values(kept).filter((v) => v === c).length;
-    kept[s.id] = NAMES.reduce((best, c) => (uses(c) < uses(best) ? c : best));
+    kept[s.id] = had ?? NAMES.reduce((best, c) => (uses(c) < uses(best) ? c : best));
     changed = true;
   }
   if (changed) setShared("space.colors", kept);
-  return (id) => {
-    const c = kept[id] ?? "ansi6";
-    return c.startsWith("#") ? c : HUE[c] ?? HUE.ansi6;
-  };
+  // `of`: a project's color. `name`: that color as it is kept, or null for a project without one.
+  return { of: (id) => shadeOf(kept[id]) ?? HUE.ansi6, name: (id) => kept[id] ?? null };
 }
+// A hue as it is kept ("ansi5", or a color written out) as a color, or null.
+export const shadeOf = (c) => (!c ? null : c.startsWith("#") ? c : HUE[c] ?? null);
 
 // What this computer is called where the others go by their names.
 export const here = () => (win()?.platform === "macos" ? "This Mac" : "This computer");
@@ -223,7 +242,7 @@ export function model(machineInfo = []) {
 
   const list = sp.map((s) => {
     // `label` is the name as written out: a lone "~" reads as Home, like its tile's house.
-    const m = { id: s.id, index: s.index, name: s.name, label: s.name === "~" ? "Home" : s.name, machine: s.machine ?? null, branch: s.branch ?? null, folder: s.folder ?? "", active: s.active, hue: hue(s.id), tabs: [] };
+    const m = { id: s.id, index: s.index, name: s.name, label: s.name === "~" ? "Home" : s.name, machine: s.machine ?? null, branch: s.branch ?? null, folder: s.folder ?? "", active: s.active, hue: hue.of(s.id), shade: hue.name(s.id), named: Boolean(s.named), tabs: [] };
     const all = (s.tabs ?? []).map((c) => ({ ...tab(s, c), space: m }));
     // `tabs` is what the lists show; an empty page is not one of them.
     m.tabs = all.filter((c) => !c.blank);
@@ -361,6 +380,73 @@ export function shownGoto(id) {
 }
 export function goneGoto(id) {
   if (going === id) going = null;
+}
+
+// What a project with tabs would be listed as if it closed now (PAST). `was` is what was
+// noted of it before: an agent stays in `ran` after its last tab has gone, with `n`, the
+// most tabs that ran it at one time. Its folder is its first tab's, which is also where
+// Herdr takes the name of a project nobody named from.
+export function sketch(s, was) {
+  const now = new Map();
+  for (const c of s.tabs) {
+    const p = c.program;
+    if (!p?.agent || !p.key) continue;
+    const a = now.get(p.key) ?? { key: p.key, name: p.name ?? p.key, icon: p.icon ?? null, tint: Boolean(p.tint), tile: p.tile ?? null, color: p.color ?? null, n: 0 };
+    a.n += 1;
+    now.set(p.key, a);
+  }
+  const ran = (was?.ran ?? []).map((a) => {
+    const here = now.get(a.key);
+    now.delete(a.key);
+    return here ? { ...here, n: Math.max(here.n, a.n) } : a;
+  });
+  ran.push(...now.values());
+  return {
+    name: s.name, named: s.named, machine: s.machine,
+    folder: bare(s.tabs.find((c) => c.cwd)?.cwd ?? was?.folder ?? s.folder),
+    hue: s.shade ?? was?.hue ?? null,
+    ran: ran.sort((a, b) => b.n - a.n).slice(0, 4),
+  };
+}
+
+// The list of closed projects once `closed` have joined it: the last closed first, one
+// entry for each place, and none for a project that is `open`, since one opened again is
+// no longer closed.
+export function shelve(list, closed, open) {
+  const all = [...closed, ...list];
+  return all.filter((e, i) => all.findIndex((x) => same(x, e)) === i && !open.some((o) => same(o, e))).slice(0, PAST_MOST);
+}
+
+// Opens a closed project again: on its machine, in its folder, under the name it was given
+// (one nobody named is called after its folder again). Its first tab runs `agent`, one of
+// knownAgents(), or a plain terminal. Its entry goes once the project is there (shelve).
+export function reopen(e, agent) {
+  const args = { machine: e.machine ?? "" };
+  if (e.folder) args.folder = e.folder;
+  if (e.named) args.name = e.name;
+  if (agent) args.argv = agent.run;
+  run("space.new", args);
+}
+
+// Takes a closed project off the list.
+export function forget(e) {
+  setShared(PAST, past().filter((x) => !same(x, e)));
+}
+
+// The list of closed projects (history.js). The rail's button opens it where the pointer
+// is, as a menu opens, and its key (`top`) where the Go-to list opens. Asked for again
+// while it shows, it closes. `recalling` is the overlay of the list on show, which the list
+// itself tells of as it comes and goes, as the Go-to list does.
+let recalling = null;
+export function openHistory(top) {
+  if (recalling) closeOverlay(recalling);
+  else openOverlay({ mod: "glyph", kind: "popup", ...(top ? { at: "top", offset: 40 } : {}), width: 440, height: 0.8, props: { role: "history" } });
+}
+export function shownHistory(id) {
+  recalling = id ?? null;
+}
+export function goneHistory(id) {
+  if (recalling === id) recalling = null;
 }
 
 // Asks for a tab's name in Herdr's own dialog, with what an empty name means here: an

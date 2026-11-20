@@ -1,11 +1,11 @@
 #!/bin/sh
 # check.sh ROLE [PANE] [WIDTH] [TAG] [ACTIVE]: copies the look's mod, swaps Herdr's live data
 # for the fixed sample, and runs `herdr-app check --print-spec` on that copy.
-# Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu, blank, transfer or goto; for menu, PANE
+# Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu, blank, transfer, goto or history; for menu, PANE
 # is the tab's id. ACTIVE is the project on show (sp9: one showing its empty page; bravo/sp7:
 # one with a single tab, and the empty page that stands by behind it).
 # Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, TUCK, PING, HOVER,
-# SURE, COPIES, LISTED, PICK, CARRY, FIND, DIRECT, PLATFORM, LIFT.
+# SURE, COPIES, LISTED, PICK, CARRY, FIND, DIRECT, PLATFORM, LIFT, PAST.
 export S=$(cd "$(dirname "$0")/.." && pwd)
 export L=$(cd "$S/../../glyph" && pwd)
 ROLE=$1; PANE=${2:-p3}; WIDTH=${3:-160}; TAG=${4:-$ROLE}; ACTIVE=${5:-sp2}
@@ -30,6 +30,8 @@ fake = fake.replace("__THEME__", json.dumps(theme)).replace("__LAYOUT__", json.d
 # PLATFORM=linux or windows: the mod as on that system, in a window whose buttons the system
 # does not draw.
 if os.environ.get("PLATFORM"): fake = "globalThis.__platform = %s;\nglobalThis.__buttons = true;\n" % json.dumps(os.environ["PLATFORM"]) + fake
+# PAST=none: no project was closed yet (the sample has four that were).
+if os.environ.get("PAST") == "none": fake = "globalThis.__nopast = true;\n" + fake
 open(d + "/herdr-fake.js", "w").write(fake)
 for f in glob.glob(d + "/*.js"):
     if f.endswith("herdr-fake.js"): continue
@@ -68,8 +70,9 @@ for f in glob.glob(d + "/*.js"):
     if os.environ.get("SURE") and f.endswith("/menu.js"):
         assert s.count("this.sure = false; //") == 1 and s.count("this.at = 0;") == 1
         s = s.replace("this.sure = false; //", "this.sure = true; //").replace("this.at = 0;", "this.at = 2;")
-    # FIND=words: the Go-to list with those words typed. SURE=1: a first close press on the picked tab (goto.js).
-    if os.environ.get("FIND") and f.endswith("/goto.js"):
+    # FIND=words: the Go-to list, or the list of closed projects, with those words typed.
+    # SURE=1: a first close press on the picked tab (goto.js).
+    if os.environ.get("FIND") and (f.endswith("/goto.js") or f.endswith("/history.js")):
         assert s.count('this.filter = "";') == 1
         s = s.replace('this.filter = "";', "this.filter = %s;" % json.dumps(os.environ["FIND"]))
     if os.environ.get("SURE") and f.endswith("/goto.js"):

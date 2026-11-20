@@ -37,6 +37,8 @@ ICONS = {
     "expand": stroke('<path d="m6 17 5-5-5-5M13 17l5-5-5-5"/>', 2),
     "collapse": stroke('<path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/>', 2),
     "pen": stroke('<path d="M4 20l1.2-4.4L16.6 4.2a1.7 1.7 0 0 1 2.4 0l.8.8a1.7 1.7 0 0 1 0 2.4L8.4 18.8 4 20z"/><path d="M14.5 6.3l3.2 3.2"/>', 2),
+    # What was closed: a clock whose rim turns back.
+    "history": stroke('<path d="M3.6 12a8.4 8.4 0 1 0 2.5-6L3.6 8.4"/><path d="M3.6 4v4.4H8"/><path d="M12 7.6V12l3.2 1.9"/>', 2),
     "more": stroke('<path d="M5.5 12h.01M12 12h.01M18.5 12h.01"/>', 2.8),
     "chevron-down": stroke('<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>', 2.4),
     "chevron-right": stroke('<path d="m9.5 6.5 5.5 5.5-5.5 5.5"/>', 2.4),
