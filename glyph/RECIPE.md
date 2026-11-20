@@ -268,7 +268,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 **Drawing**
 
 - Herdr's UI font has one weight, so bold does nothing. Letters that must be bold use Avenir Next on a Mac, which every Mac has. Linux and Windows have no such face in common, so there the mod names Nunito Sans, which it brings in `fonts/`.
-- Herdr loads a mod's fonts when it starts and at the next change of look. Until then a glyph that was just put in place draws those letters in Herdr's own font, in one weight.
+- Herdr loads a mod's fonts when it starts and at the next change of look. By its manual, switching layouts switches the look. Until then a glyph that was just put in place draws those letters in Herdr's own font, in one weight.
 - Herdr can't say which system it is on while a mod loads, so the mod asks before every draw and names the Mac's face until it knows.
 - A mod can't measure text. The bar shares its room among titles with a table of Geist's letter widths (`ADVANCE` in `ui.js`), which runs a few pixels wide, never narrow.
 - There is no z-order. The dragged tab is a copy drawn last, and the original keeps its place at zero opacity.
