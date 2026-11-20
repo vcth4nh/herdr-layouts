@@ -14,10 +14,12 @@
 //
 // The bar is also where a tab is closed, whoever asks (its x, the close key, a menu, a
 // pane's header): see ask() and shut(). Closing what isn't a plain shell takes two presses.
-// Closing the shown tab shows the one after it; closing a project's last tab leaves the
-// project on show as an empty page (blank.js), which goes once you look elsewhere. When
-// the project on show closes, its neighbour on its machine shows. With Herdr's peek on show
-// (a sub-agent's terminal, over the tab), a close key closes the peek only: see unpeek().
+// Closing the shown tab shows the tab of its project you used last before it (else the
+// one after it), and so does a shown tab that ends by itself: see use(). Closing a
+// project's last tab leaves the project on show as an empty page (blank.js), which goes
+// once you look elsewhere. When the project on show closes, its neighbour on its machine
+// shows. With Herdr's peek on show (a sub-agent's terminal, over the tab), a close key
+// closes the peek only: see unpeek().
 // A last tab that ends by itself (its shell exits) leaves the same page: while the project
 // on show has a single tab, one stands by behind it, out of sight. See stand().
 // Keys bound to this layout in keys.json ("layout:glyph") arrive as commands:
@@ -49,6 +51,8 @@ const LOOK = 120;       // ms between looks at what changed: see look()
 const REST = 8;         // with nothing drawn, only every so many looks really look
 const ASK = 2000;       // ms before hc is asked again how a copy ended
 const AGAIN = 2000;     // ms after the bar starts that the Dock icon is told its number once more: see flag()
+const USED = 1000;      // ms a tab stays on show before it counts as used: see use()
+const KEPT = 100;       // how many used tabs the bar remembers
 
 // The room each title gets when `room` is shared out: those that need less keep their
 // own width, the rest get this much each. Infinity: all of them fit as they are.
@@ -64,8 +68,8 @@ function fit(wants, room) {
 }
 
 // The tab that shows in place of a project that closed while on show: the row after it in
-// the rail, else the row before it, as after a closed tab. On its own machine that is the
-// first tab of the project after it, else the last tab of the one before it. Only a
+// the rail, else the row before it. On its own machine that is the first tab of the
+// project after it, else the last tab of the one before it. Only a
 // machine's only project hands over to another machine: to the next project in the list,
 // else to the one before it.
 // `order` is the projects as the rail listed them ({ id, machine }), the closed one, `id`,
@@ -100,8 +104,12 @@ export class Bar {
     this.shy = new Map();   // project -> when a page standing by for it was closed by something else
     this.tripped = "";      // what the last look that went wrong said: see look()
     this.going = new Map(); // tab id -> when it was asked to close
+    this.handed = null;     // the shown tab shut() last closed, once it had shown another: see follow()
     this.swept = new Map(); // empty page -> when it was asked to close
     this.last = null;       // the project and tab on show at the last look: see follow()
+    this.used = [];         // tab ids, the one used last first: see use()
+    this.since = null;      // the tab on show, and since when
+    this.listed = null;     // the ids of the tabs there were at the last look
     this.dirty = true;      // something was drawn since the last look: see look()
     this.rests = 0;         // looks since then that found nothing drawn
     this.settling = new Map(); // copy id -> when hc was last asked how it ended: see mind()
@@ -209,8 +217,9 @@ export class Bar {
   }
 
   // Closes a tab, no more questions. One that isn't on show just goes. The shown one first
-  // hands over to the tab after it (the last one, to the tab before it), which is also the
-  // order Herdr keeps when a tab ends by itself. A project's last tab first gets the
+  // hands over to the tab of its project used last before it (recent()). With none known it
+  // hands over to the tab after it (the last one, to the tab before it), which is the order
+  // Herdr keeps when a tab ends by itself. A project's last tab first gets the
   // project's empty page beside it, and goes once that is there (tend() sees to it): Herdr
   // closes a project with its last tab and shows another one, which is the jump this avoids.
   // A page that already stands by (stand()) is shown at once, and the tab goes with no wait.
@@ -219,7 +228,7 @@ export class Bar {
     if (!c) return;
     const s = c.space;
     const at = s.tabs.indexOf(c);
-    const next = s.tabs[at + 1] ?? s.tabs[at - 1];
+    const next = this.recent(s, c) ?? s.tabs[at + 1] ?? s.tabs[at - 1];
     const end = () => {
       this.going.set(id, Date.now());
       run("tab.close", { id, confirmed: true });
@@ -227,6 +236,7 @@ export class Bar {
     if (!c.shown) end();
     else if (next) {
       run("tab.select", { id: next.id });
+      this.handed = id;
       end();
     } else {
       this.note(m, s, c);
@@ -264,7 +274,7 @@ export class Bar {
       const m = model();
       this.tend(m, Date.now());
       this.mind(cx);
-      if (this.follow(m)) cx.notify();
+      if (this.follow(m, Date.now())) cx.notify();
       this.flag(m, Date.now());
       this.tripped = "";
     } catch (e) {
@@ -434,22 +444,66 @@ export class Bar {
   // (with its last tab, from Herdr's own menu, or by the close key on its empty page), Herdr
   // shows the next project in its list, on the tab it was last left on: the bar shows the tab
   // heir() gives, from the order the rail had the projects in at the last look.
+  // When the tab on show has gone and its project is still on show, it ended by itself or
+  // something other than the bar closed it. Herdr then shows the tab after it, and the bar
+  // shows the one recent() gives, as after its own close.
   // True when a close press was taken back, which shows.
-  follow(m) {
+  follow(m, time) {
     const s = m.active;
     const tabs = s?.tabs ?? [];
     const now = s ? { space: s.id, machine: s.machine, tab: tabs.find((c) => c.active)?.id ?? null, order: m.groups.flatMap((g) => g.spaces.map((x) => ({ id: x.id, machine: x.machine }))) } : null;
     const was = this.last;
     this.last = now;
+    this.use(m, s, now?.tab ?? null, Boolean(s) && was?.space === s.id, time);
     // A close press is for the tab that was on show when it was made.
     const back = Boolean(this.armed && was && was.tab !== now?.tab);
     if (back) this.armed = null;
-    if (!was || !now || was.space === now.space || m.spaces.some((x) => x.id === was.space)) return back;
+    if (!was || !now) return back;
+    if (was.space === now.space) {
+      const ended = was.tab && was.tab !== now.tab && was.tab !== this.handed && !m.flat.some((c) => c.id === was.tab);
+      const to = ended ? this.recent(s) : null;
+      if (to && to.id !== now.tab) run("tab.select", { id: to.id });
+      return back;
+    }
+    if (m.spaces.some((x) => x.id === was.space)) return back;
     // A project whose machine went out of reach is only missing, not closed.
     if (machines().some((k) => (k.name ?? null) === was.machine && k.layout !== "ready")) return back;
     const to = heir(was.order, was.space, m.spaces);
     if (to && to.id !== now.tab) run("tab.select", { id: to.id });
     return back;
+  }
+
+  // Which tabs were used, the last first. A tab you open counts as soon as it is on show.
+  // Any other counts once it has stayed on show for USED, so one passed on the way to another
+  // (stepping through them with a key) does not. Tabs opened faster than the looks come are
+  // first seen together, and count from left to right: Herdr opens each right after the shown
+  // one. `s` is the project on show and `tab` its tab on show (null for an empty page), `same`
+  // whether the last look had that project on show too, `time` this look's.
+  use(m, s, tab, same, time) {
+    const was = this.since, before = this.listed;
+    this.listed = new Set(m.flat.map((c) => c.id));
+    if (was && time - was.at >= USED && m.flat.some((c) => c.id === was.tab)) this.remember(was.tab);
+    if (was?.tab === tab) return;
+    this.since = tab ? { tab, at: time } : null;
+    // New is new within the project on show: a project that comes on show (made, or its machine
+    // back in reach) brings tabs nobody opened just now.
+    if (!tab || !before || before.has(tab) || !same) return;
+    const fresh = s.tabs.filter((c) => !before.has(c.id));
+    for (const c of fresh.slice(0, fresh.findIndex((c) => c.id === tab) + 1)) this.remember(c.id);
+  }
+
+  remember(id) {
+    if (this.used[0] !== id) this.used = [id, ...this.used.filter((x) => x !== id)].slice(0, KEPT);
+  }
+
+  // The tab of project `s` used last, leaving out `but` and the tabs asked to close. Null
+  // when none of its tabs was used since the bar started.
+  recent(s, but) {
+    for (const id of this.used) {
+      const c = s.tabs.find((x) => x.id === id);
+      if (c && c !== but && !this.going.has(id)) return c;
+    }
+    return null;
   }
 
   // A key that starts an agent: `key` is its key in Herdr's program table (claude, codex, ...).

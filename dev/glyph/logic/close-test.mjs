@@ -1,5 +1,5 @@
-// Closing, as the bar does it: two presses for what isn't a plain shell, the tab after the
-// closed one shown next, a project's empty page in place of its last tab, the page that
+// Closing, as the bar does it: two presses for what isn't a plain shell, the tab of its
+// project used last shown next, a project's empty page in place of its last tab, the page that
 // stands by for a last tab that ends by itself, the project beside it on its machine when
 // one closes, and the keys that start things. Also the number the bar puts on the Dock icon.
 // Run: ACTIVE=sp2 sh logic/run.sh close-test.mjs
@@ -115,7 +115,8 @@ function obey() {
 // A tab ends by itself (its shell exits): it goes the way a closed one does.
 const exits = (id) => { CALLS.push(["run", "tab.close", { id }]); obey(); };
 
-// 1. A plain shell closes at the first press, and the tab after it is shown.
+// 1. A plain shell closes at the first press, and the tab after it is shown: no other tab
+// has been used yet (5a).
 {
   world("sp2", 1); // tb3 claude, tb4 shell (shown), tb5 python
   const a = await bar();
@@ -165,6 +166,98 @@ const exits = (id) => { CALLS.push(["run", "tab.close", { id }]); obey(); };
   a.render();
   await a.key("close");
   eq(runs(), [], "armed, away, back: the next press is a first one");
+}
+// 5a. After the shown tab closes, the tab of its project used last before it is shown. A tab
+// counts as used once it stayed on show for a second: one passed on the way does not. The
+// same goes for a shown tab that ends by itself. The clock is the test's own.
+{
+  const real = Date.now;
+  let clock = real();
+  Date.now = () => clock;
+  try {
+    world("alpha/sp4", 0); // nine agents' tabs
+    const [A, B, C, D, E, F] = sp("alpha/sp4").tabs.map((c) => c.id);
+    const a = await bar();
+    // Tab `id` comes on show and stays `ms`.
+    const show = (id, ms) => { CALLS.push(["run", "tab.select", { id }]); obey(); a.render(); clock += ms; a.render(); };
+    const shut = async (id) => { SHARED["glyph.shut"] = { id, at: clock }; await a.key("shut"); };
+    clock += 1500; a.render(); // on A for a while
+    show(B, 1500);             // a new tab, beside A
+    show(C, 200);              // passed on the way to D
+    show(D, 1500);
+    show(A, 1500);
+    CALLS.length = 0;
+    await shut(A);
+    eq(runs(), [["tab.select", { id: D }], ["tab.close", { id: A, confirmed: true }]], "closing A shows D, the tab used before it, not B beside it");
+    obey();
+    leftOn("alpha/sp4", sp("alpha/sp4").tabs.findIndex((c) => c.id === C)); // a click on C before the bar looks
+    a.render();
+    eq(runs(), [], "the bar's own close is not corrected after it, even with another tab picked since");
+    show(D, 300);              // back on D for a moment
+    await shut(D);
+    eq(runs(), [["tab.select", { id: B }], ["tab.close", { id: D, confirmed: true }]], "closing D shows B, not C, which was only passed");
+    obey(); a.render();
+    show(B, 1500);
+    show(E, 1500);
+    show(B, 1500);
+    CALLS.length = 0;
+    exits(B); // Herdr shows C, the tab after it
+    eq(model().active.tabs.find((c) => c.active)?.id, C, "(the fake shows the tab after it)");
+    a.render();
+    eq(runs(), [["tab.select", { id: E }]], "B ends by itself: E, the tab used before it, is shown");
+    obey(); a.render();
+    eq(runs(), [], "once");
+    // A tab of another project, used in between, is not what a close shows. With no other
+    // tab of the project used, the tab after it is.
+    show(E, 1500);
+    show("alpha/tb16", 1500); // alpha/sp5's first tab
+    show(E, 1500);
+    CALLS.length = 0;
+    await shut(E);
+    eq(runs(), [["tab.select", { id: F }], ["tab.close", { id: E, confirmed: true }]], "closing E: no other tab of its project was used, so the one after it");
+  } finally {
+    Date.now = real;
+  }
+}
+// 5b. A tab you open counts as used at once, however soon you open the next one. Tabs opened
+// faster than the bar looks are first seen together and count from left to right. The fake
+// puts a new tab last, which is right after the shown one when the last tab is on show, as
+// Herdr does. The clock is the test's own.
+{
+  const real = Date.now;
+  let clock = real();
+  Date.now = () => clock;
+  try {
+    let a;
+    const shownId = () => sp("alpha/sp4").tabs.find((c) => c.active).id;
+    const shut = async (id) => { SHARED["glyph.shut"] = { id, at: clock }; await a.key("shut"); };
+    const closes = async (id, to, what) => { CALLS.length = 0; await shut(id); eq(runs(), [["tab.select", { id: to }], ["tab.close", { id, confirmed: true }]], what); obey(); a.render(); };
+    world("alpha/sp4", 8);
+    const I = shownId();
+    a = await bar();
+    clock += 1500; a.render(); // on I for a while
+    // Three new tabs, a fifth of a second apart: the bar looks at each.
+    const opened = [];
+    for (let k = 0; k < 3; k++) { await a.key("new"); obey(); a.render(); opened.push(shownId()); clock += 200; a.render(); }
+    await closes(opened[2], opened[1], "the third of three tabs opened quickly closes: the second shows, not the tab they were opened from");
+    await closes(opened[1], opened[0], "then the first");
+    await closes(opened[0], I, "then the tab they were opened from");
+    // Three more, all before the bar looks again.
+    const burst = [];
+    for (let k = 0; k < 3; k++) { a.b.command("new", cx); obey(); burst.push(shownId()); }
+    a.render();
+    await closes(burst[2], burst[1], "three opened between two looks: the third closes, the second shows");
+    await closes(burst[1], burst[0], "then the first");
+    // A tab that comes on show by itself, made last in the project with focus false and then
+    // picked, is not new by then: it counts only after a second.
+    CALLS.push(["run", "tab.new", { space: "alpha/sp4", focus: false }]); obey(); a.render();
+    const quiet = sp("alpha/sp4").tabs.at(-1).id;
+    CALLS.push(["run", "tab.select", { id: quiet }]); obey(); a.render(); clock += 200; a.render();
+    CALLS.push(["run", "tab.select", { id: burst[0] }]); obey(); a.render(); clock += 200; a.render();
+    await closes(burst[0], I, "a tab made out of sight and passed on the way does not count");
+  } finally {
+    Date.now = real;
+  }
 }
 // 6. A project's last tab, closed while the page asked to stand by is still on its way: the
 // page is waited for, not asked for twice. Once it is there it is shown, the tab goes, and
@@ -432,7 +525,8 @@ const onPage = async (id, set = () => {}) => {
   fire(4000);
   eq(runs(), [["tab.close", { id: "bravo/tb19", confirmed: true }]], "no page in time: the tab closes anyway");
 }
-// 10. A tab that ends by itself: Herdr shows the one after it, as the bar would.
+// 10. A tab that ends by itself: Herdr shows the one after it, and with no other tab used
+// yet (5a) the bar leaves it there.
 {
   world("sp2", 1);
   const a = await bar();

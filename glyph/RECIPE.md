@@ -136,7 +136,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - A plain shell closes at one press. Anything else takes two within 3 s: the first turns the tab red. This goes for ⌘W, a tab's ×, a pane header's ×, ⇧⌘W, Close in the tab menu, whose row turns red in place, and Ctrl+D on the picked row of the Go-to list, which turns red too.
 - A pane alone in its tab closes the tab.
 - While Herdr's peek is on show, ⌘W and ⇧⌘W close the peek and nothing else. The sub-agent or the copy it showed keeps running, and the tab under it is not asked to close.
-- After a close, the tab after it is shown, or the one before it for the last. Closing a tab that isn't shown moves nothing.
+- After the shown tab closes, or ends by itself, the tab of its project you used last before it is shown. A tab you open counts as used at once, however soon you open the next. Any other tab counts once it has been on show for a second, so one passed on the way to another does not. When no other tab of the project was used since the layout came on show, the tab after it is shown, or the one before it for the last. Closing a tab that isn't shown moves nothing.
 - Closing a project's last tab leaves the project on show as its empty page. A tab started there starts in the folder the last tab was in.
 - A last tab that ends by itself leaves the same page, as when you leave its shell with Ctrl+D or `exit`.
 - The empty project closes once another project is shown, or at ⌘W on the page.
@@ -302,6 +302,9 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - For a close that is not the bar's own, the window is on Herdr's choice for a moment before the bar moves it. After a machine's last project, that moment can show another machine's project.
 - The rule passes over a project left with only its empty page, since that one closes once another project is on show.
 - Every close ends in the bar's `shut()`, because a last tab hands over to its page first, and waits for one that is not there yet. The menu and the pane header ask through `glyph.shut`, since copies of a mod share code but not state.
+- The bar keeps the order the last 100 tabs were used in, one list for all projects, in memory only, so it starts empty with the layout. A stay on a tab runs from the look that first finds it on show to the look that finds another. A change of tab on screen has Herdr draw the bar, and a look follows the draw at once. While the window is not on screen Herdr draws nothing, and the bar looks only about once a second (its timer, below), so a stay is known only to about a second then.
+- A tab is new to the bar when the last look did not list it, with the same project on show. Tabs opened between two looks are first seen together, and count from left to right, since Herdr opens each right after the shown one. A tab made out of sight (`focus: false`) is listed before it is shown, so it waits its second like any other.
+- When the shown tab ends by itself, Herdr shows the tab after it, and the bar's next look shows the one used last before it. For that moment the window is on Herdr's choice. A close of the bar's own is not followed up: the bar notes the shown tab it last closed after showing another.
 - Herdr does not tell a mod which overlays are open. The bar knows a peek by what has the keyboard: a terminal, and no pane (`focused()`). It closes the peek with `overlay.close`, which closes the top dialog or popup. With a menu open over the peek that would be the menu, which was not tried.
 - The bar runs its follow-up commands from a 120 ms timer, not from `render`. With nothing drawn it still looks about once a second.
 - An error inside the loop around `nextCommand()` would end every key. The loop catches it and posts a notice.
@@ -452,7 +455,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - With that peek on show, ⌘W closes it. The helper is still running, and its tab has not turned red.
 - Dragging a pill moves the tab to where it stood when released.
 - ⌘W on a shell closes it. ⌘W on an agent turns its tab red, and a second ⌘W within 3 s closes it.
-- After a close the tab after it is shown.
+- With three shells A, B and C in a project and A on show, ⌘T starts a shell beside A. Leave it on show for a few seconds, then C, then A. ⌘W on A shows C, and ⌘W on C shows the new shell, not B.
 - With one tab in the project on show, `herdr-app ls` lists a second tab in that project, with no terminal and `settled`. The window shows no sign of it.
 - `exit` in the only shell of the project on show leaves the project on show as its empty page, by its name. A tab started there opens in the folder the shell was in.
 - Closing a project's last tab leaves its empty page. A tab started there opens in the folder the last tab was in, and takes the page's place on show.

@@ -21,7 +21,7 @@ Tune glyph; don't rebuild it.
 - Words on show, in glyph or in a Herdr dialog it opens, must match what glyph does. A row that holds nothing should not take a row's room.
 - Keep the labelled rail as the default. The first version had a logos-only 160px rail with small machine names, and it wasn't clear at a glance which agent was which.
 - Closing a tab never moves you to another project. Neither does a tab that ends by itself, such as a shell left with Ctrl+D.
-- Closing a project never moves you to another machine while its machine has another project. What shows next is the row after the closed one in the rail, else the row before it, as after a closed tab.
+- Closing a project never moves you to another machine while its machine has another project. What shows next is the row after the closed one in the rail, else the row before it.
 - Ending anything that isn't a plain shell takes a second press.
 - With a peek over a tab, a close key closes the peek. It never ends what the peek shows or the tab under it.
 - Copying a file over another takes a second press, and glyph never removes a file.

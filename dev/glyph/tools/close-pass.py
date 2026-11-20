@@ -17,8 +17,9 @@ the next machine for a moment before the bar moved the window back. The project 
 told to exit has a throwaway project after it too: should the page that stands by for its one
 tab fail, the project closes, and that is where Herdr and the bar land.
 
-Run it with the Bash sandbox off, after tools/sync.sh: a bar older than the pass shows
-another machine's project in step 9, and in step 10 lets the project go with its shell.
+Run it with the Bash sandbox off, after tools/sync.sh: a bar older than the pass shows the
+tab after the closed one in step 3, another machine's project in step 9, and in step 10
+lets the project go with its shell.
 Frames land in .local/shots/ (close-armed.png, close-page.png, close-exit.png); they are only
 new while the window is on screen.
 """
@@ -31,6 +32,10 @@ os.makedirs(SHOTS, exist_ok=True)
 # Outside any repo, so Herdr names the project after this folder, not after a repo.
 CWD = os.path.realpath(tempfile.mkdtemp(prefix="glyph-close-pass-"))
 made, results = [], []
+# How long a tab is left on show when it should count as used: the bar's USED is a second, and
+# while the window is not drawn the bar looks only about once a second, so a stay is measured
+# in steps of that.
+STAY = 2.2
 
 
 def app(*args):
@@ -154,17 +159,38 @@ try:
     do("space.close", id=R, confirmed=True, wait=1.0)
     check("the shown project closes: the next project shows its first tab", (space(R), status()["space"], shown()), (None, A, "a1"))
 
-    # 3. A tab in the middle hands over to the one after it; so does the first.
+    # 3. The shown tab hands over to the tab of its project used last before it, whether it is
+    # closed or its shell exits. A tab counts as used once it has stayed on show for a second
+    # (USED in bar.js): each stay that should count is STAY. The tab after it is what Herdr
+    # would show, and what the bar showed before it kept the order of use.
+    do("tab.select", id=n["a2"]["tab"], wait=STAY)
+    do("tab.select", id=n["a1"]["tab"], wait=STAY)
     shell_tab(A, "a4")
     check("(a new tab opens right after the shown one)", (tabs(A), shown()), (["a1", "a4", "a2"], "a4"))
+    time.sleep(STAY)
     press(A, "glyph.close")
-    check("shell, middle of 3: the tab AFTER it is shown", (tabs(A), shown()), (["a1", "a2"], "a2"))
-    do("tab.select", id=n["a1"]["tab"])
+    check("shell, middle of 3: the tab used before it is shown, not the one after it", (tabs(A), shown()), (["a1", "a2"], "a1"))
+    time.sleep(STAY)
+    shell_tab(A, "a6")
+    check("(another new tab, right after the shown one)", (tabs(A), shown()), (["a1", "a6", "a2"], "a6"))
+    time.sleep(STAY)
+    hc("send", n["a6"]["terminal"], "exit")
+    check("its shell exits: the tab used before it is shown, not the one after it", once(lambda: (tabs(A), shown()), (["a1", "a2"], "a1")), (["a1", "a2"], "a1"))
     press(A, "glyph.close")
-    check("shell, first of 2: the tab after it is shown", (tabs(A), shown()), (["a2"], "a2"))
+    check("shell, first of 2: the other one is shown", (tabs(A), shown()), (["a2"], "a2"))
+    # A tab you open counts at once: two opened in quick succession (each on show for less than
+    # a second), and the second closed, hand over to the first, not to a2.
+    shell_tab(A, "f1"); shell_tab(A, "f2")
+    check("(two shells opened quickly, each right after the shown one)", (tabs(A), shown()), (["a2", "f1", "f2"], "f2"))
+    press(A, "glyph.close")
+    check("the second of two tabs opened quickly closes: the first is shown", (tabs(A), shown()), (["a2", "f1"], "f1"))
+    press(A, "glyph.close")
+    check("(then the first: a2 is shown)", (tabs(A), shown()), (["a2"], "a2"))
 
-    # 4. A running program takes two presses, in time.
+    # 4. A running program takes two presses, in time. a5 was used last before c1, and a2
+    # was on show only a moment, so a5 is the one that shows.
     shell_tab(A, "a5")
+    time.sleep(STAY)
     do("tab.select", id=n["a2"]["tab"])
     n["c1"] = do("tab.new", space=A, argv=["cat"], wait=3.0)
     check("(a running program between two shells)", (tabs(A), shown()), (["a2", "c1", "a5"], "c1"))
@@ -172,7 +198,7 @@ try:
     app("shot", os.path.join(SHOTS, "close-armed.png"))
     check("running program: the first press closes nothing", tabs(A), ["a2", "c1", "a5"])
     press(A, "glyph.close")
-    check("running program: the second press closes it, the tab AFTER it is shown", (tabs(A), shown()), (["a2", "a5"], "a5"))
+    check("running program: the second press closes it, the tab used before it is shown", (tabs(A), shown()), (["a2", "a5"], "a5"))
     n["c2"] = do("tab.new", space=A, argv=["cat"], wait=3.0)
     press(A, "glyph.close")
     time.sleep(3.4)
