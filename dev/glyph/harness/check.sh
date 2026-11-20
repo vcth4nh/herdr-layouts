@@ -5,7 +5,7 @@
 # is the tab's id. ACTIVE is the project on show (sp9: one showing its empty page; bravo/sp7:
 # one with a single tab, and the empty page that stands by behind it).
 # Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, TUCK, PING, HOVER,
-# SURE, COPIES, LISTED, PICK, CARRY, FIND, DIRECT, PLATFORM.
+# SURE, COPIES, LISTED, PICK, CARRY, FIND, DIRECT, PLATFORM, LIFT.
 export S=$(cd "$(dirname "$0")/.." && pwd)
 export L=$(cd "$S/../../glyph" && pwd)
 ROLE=$1; PANE=${2:-p3}; WIDTH=${3:-160}; TAG=${4:-$ROLE}; ACTIVE=${5:-sp2}
@@ -101,6 +101,15 @@ for f in glob.glob(d + "/*.js"):
         if os.environ.get("COPIES"):
             assert s.count("this.meters = {};   //") == 1
             s = s.replace("this.meters = {};   //", 'this.meters = { t90: { line: "stock-2026-11.parquet 42% 59MB 11.2MB/s 00:07 ETA", pct: 42, speed: "11.2MB/s", eta: "00:07" }, t91: { line: "trace-retry.log 17% 1MB 9.8MB/s 00:01 ETA", pct: 17, speed: "9.8MB/s", eta: "00:01" }, "alpha/t93": { line: "trace-retry.log 17% 1MB 9.8MB/s 00:01 ETA", pct: 17, speed: "9.8MB/s", eta: "00:01" } }; //')
+    # LIFT=kind:id:over: pretend a project (kind space, by id), a machine (kind machine, by
+    # name, local for this computer) or a tab (kind tab, by id) is dragged in the rail, over
+    # that project, machine or tab (rail.js).
+    if os.environ.get("LIFT") and f.endswith("/rail.js"):
+        kind, i, over = os.environ["LIFT"].split(":")
+        local = lambda x: "" if kind == "machine" and x == "local" else x
+        head = "    const h = this.held;\n    if (h && (JSON"
+        assert s.count(head) == 1
+        s = s.replace(head, "    if (!this.held) { this.hold(%s, %s, { position: { y: 0 } }); Object.assign(this.held, { moved: true, over: %s }); }\n%s" % (json.dumps(kind), json.dumps(local(i)), json.dumps(local(over)), head))
     # DRAG=from:to[:nowidths]: pretend a tab is held and has been moved (bar.js only).
     if os.environ.get("DRAG") and f.endswith("/bar.js"):
         parts = os.environ["DRAG"].split(":"); F, T = int(parts[0]), int(parts[1])

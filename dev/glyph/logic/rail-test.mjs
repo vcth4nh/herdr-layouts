@@ -4,8 +4,8 @@ import { Rail, share } from "./rail.mjs";
 import { PaneHead } from "./pane.mjs";
 import { Menu } from "./menu.mjs";
 import { byId, walk } from "./kit-stub.mjs";
-import { CALLS, ASKS, SHARED, panes, terminals, layout, spaces } from "./herdr-fake.mjs";
-import { reach, lineUp, model, jump, PING, tilde, way } from "./data.mjs";
+import { CALLS, ASKS, SHARED, AGENT_ORDER, panes, terminals, layout, spaces, agents } from "./herdr-fake.mjs";
+import { reach, lineUp, model, jump, PING, ORDER, arrange, tilde, way } from "./data.mjs";
 
 let failed = 0, passed = 0;
 const ok = (cond, what) => { if (cond) passed++; else { failed++; console.log("FAIL:", what); } };
@@ -490,7 +490,7 @@ eq(runs(), [], "folding runs no command");
   // shows the project too, and keeps the click from the block, so one click is one command.
   const body = (id) => byId(root, `body-${id}`);
   eq([under(body("alpha/sp4")).filter((i) => !/^(bead|pill)-/.test(i)), Object.keys(byId(root, "name-alpha/sp4").handlers), Object.keys(byId(root, "line-in-alpha/sp4").handlers)],
-    [["body-alpha/sp4", "name-alpha/sp4", "line-in-alpha/sp4", "here-in-alpha/sp4"], [], ["on_size_change"]], "folded: the name and the line are one block");
+    [["body-alpha/sp4", "name-alpha/sp4", "line-in-alpha/sp4", "here-in-alpha/sp4"], ["on_mouse_move"], ["on_size_change"]], "folded: the name and the line are one block, and the name hears only moves, for a drag of a tab");
   body("alpha/sp4").handlers.on_click({}, cx);
   eq(runs(), [["space.select", { id: "alpha/sp4" }]], "a click on that block shows the project");
   CALLS.length = 0;
@@ -571,6 +571,283 @@ eq(runs(), [], "folding runs no command");
   root = rail.render();
   eq([rowsOf("alpha/sp4").length, store.tucked], [9, "{}"], "all open again");
   eq(runs(), [], "folding a project runs no command");
+}
+
+// Moving projects and machines up and down the rail. The sample fleet: this computer has
+// sp1, sp2 and sp3, alpha has alpha/sp4 and alpha/sp5, bravo bravo/sp6 and bravo/sp7, and
+// foxtrot only foxtrot/sp8. charlie, delta-2 and echo are on the shelf.
+{
+  const later = [];
+  const cxd = { ...cx, timer: { every() {}, after(ms, fn) { later.push({ ms, fn }); } } };
+  const mover = new Rail(cxd);
+  await new Promise((r) => setTimeout(r, 10));
+  let r = mover.render();
+  CALLS.length = 0;
+  const node = (id) => byId(r, id);
+  const at = (y) => ({ position: { x: 40, y } });
+  const press = (id, y) => node(id).handlers["on_mouse_down:left"](at(y), cxd);
+  const move = (over, y) => {
+    if (over) node(over).handlers.on_mouse_move(at(y), cxd);
+    node("rail").handlers.on_mouse_move(at(y), cxd);
+    r = mover.render();
+  };
+  const release = (over) => {
+    node(over ?? "")?.handlers["on_mouse_up:left"]?.({}, cxd);
+    node("rail").handlers["on_mouse_up:left"]({}, cxd);
+    r = mover.render();
+  };
+  // Where the line is drawn: the id of the row that holds it, and whether it is on top.
+  const line = () => {
+    const found = [];
+    walk(r, (n) => { for (const c of n.children) { const k = c?.__node; if (k && !k.id && k.props.h?.[0] === 2 && k.props.bg?.[0] === "#cba6f7" && k.props.absolute) found.push([n.id, Boolean(k.props.top)]); } });
+    return found;
+  };
+  const faint = () => { const all = []; walk(r, (n) => { if (n.id && n.props.opacity?.[0] === 0.4 && (n.id.startsWith("row-") || n.id.startsWith("machine-"))) all.push(n.id); }); return all; };
+  const order = () => { const shelved = under(byId(r, "shelf")); return ids(r).filter((i) => /^machine-/.test(i) && i !== "machine-add" && !shelved.includes(i)); };
+
+  // A project, by its tile: nothing moves until the pointer is 5px up or down.
+  press("space-alpha/sp5", 300);
+  move("row-alpha/sp5", 303);
+  eq([line(), faint()], [[], []], "a press is no drag yet");
+  move("row-alpha/sp4", 280);
+  eq([line(), faint()], [[["row-alpha/sp4", true]], ["row-alpha/sp5"]], "dragged up over the project before it: the line is over that one, and the one moved is faint");
+  ok(!node("space-alpha/sp4").props.tooltip && !node("tab-alpha/tb8").props.tooltip && !node("fold-alpha").props.tooltip, "no words on hover while dragging");
+  move("row-bravo/sp6", 400);
+  eq(line(), [], "over another machine's project there is nowhere to land");
+  move("machine-alpha", 260);
+  eq(line(), [["row-alpha/sp4", true]], "over its own machine's line it would go first");
+  release("machine-alpha");
+  eq(runs(), [["space.move", { id: "alpha/sp5", index: spaces().findIndex((x) => x.id === "alpha/sp4") + 1 }]], "let go: Herdr moves it to the place of the one it was over, counted in Herdr's whole list");
+  eq(runs()[0][1].index, 4, "which is 4: after this computer's three");
+  eq(line(), [["row-alpha/sp4", true]], "the line stays until the move is there");
+  node("space-alpha/sp5").handlers.on_click({}, cxd);
+  ok(!mover.tucked["alpha/sp5"], "the tile's click after the drag does not fold it");
+  eq(later.map((x) => x.ms), [2000], "and the line goes after 2 s if the move never comes");
+  later.pop().fn(cxd);
+  r = mover.render();
+  eq([line(), faint()], [[], []], "gone");
+  // The move as Herdr makes it: the drag ends with it.
+  CALLS.length = 0;
+  press("name-sp1", 200);
+  move("row-sp3", 260);
+  eq(line(), [["row-sp3", false]], "dragged down by its name: the line is under the one it would follow");
+  release(null);
+  eq(runs(), [["space.move", { id: "sp1", index: 3 }]], "let go: the third place");
+  const sp = spaces(), was = [...sp];
+  sp.splice(2, 0, sp.splice(0, 1)[0]);
+  r = mover.render();
+  eq([mover.held, line(), ids(r).filter((i) => /^row-sp/.test(i))], [null, [], ["row-sp2", "row-sp3", "row-sp1"]], "once Herdr has it there, the rail shows it there and the drag is over");
+  sp.splice(0, sp.length, ...was);
+  r = mover.render();
+  // A press that stays a click is the click it was.
+  CALLS.length = 0;
+  press("name-sp2", 220);
+  move("row-sp2", 222);
+  release("row-sp2");
+  mover.ended = 0;
+  node("name-sp2").handlers.on_click({}, cxd);
+  eq(runs(), [["space.select", { id: "sp2" }]], "a press without a drag still shows the project");
+  // Let go where it started: nothing moves, and no click follows.
+  CALLS.length = 0;
+  press("space-sp3", 260);
+  move("row-sp2", 220);
+  move("row-sp3", 262);
+  eq(line(), [], "back over itself: no line");
+  release("row-sp3");
+  node("space-sp3").handlers.on_click({}, cxd);
+  eq([runs(), mover.tucked.sp3], [[], undefined], "let go there: nothing moves, and the tile does not fold");
+  mover.ended = 0;
+  // A project alone on its machine has nothing to move among.
+  press("space-foxtrot/sp8", 500);
+  move("row-bravo/sp7", 450);
+  eq([mover.held, faint()], [null, []], "foxtrot's only project does not lift");
+  // A drag whose button came up out of the rail lands a moment after the pointer left.
+  CALLS.length = 0;
+  later.length = 0;
+  press("space-bravo/sp7", 450);
+  move("row-bravo/sp6", 420);
+  node("rail").handlers.on_hover(false, cxd);
+  eq([later.length, later[0]?.ms], [1, 400], "the pointer left the rail");
+  later.pop().fn(cxd);
+  eq(runs(), [["space.move", { id: "bravo/sp7", index: spaces().findIndex((x) => x.id === "bravo/sp6") + 1 }]], "it lands where the line was");
+  later.length = 0;
+  mover.held = null;
+  mover.ended = 0;
+  press("space-bravo/sp7", 450);
+  move("row-bravo/sp6", 420);
+  node("rail").handlers.on_hover(false, cxd);
+  node("rail").handlers.on_hover(true, cxd);
+  later.pop().fn(cxd);
+  ok(Boolean(mover.held?.moved) && !mover.held.dropped, "back in time: still held");
+  mover.held.at = Date.now() - 16000;
+  r = mover.render();
+  eq([mover.held, line()], [null, []], "a hold that heard nothing for 15 s is over");
+  mover.ended = 0;
+  CALLS.length = 0;
+
+  // A machine, by its name. It moves among the machines that have a line, and lands among
+  // all of them, the shelf's too, in glyph's own order.
+  eq(order(), ["machine-local", "machine-alpha", "machine-bravo", "machine-foxtrot"], "at first: this computer, then by name");
+  press("fold-bravo", 400);
+  move("row-alpha/sp5", 380);
+  eq([line(), faint()], [[["machine-alpha", true]], ["machine-bravo", "row-bravo/sp6", "row-bravo/sp7"]], "dragged up over alpha's projects: the line is over alpha's line, and bravo and its projects are faint");
+  move("shelf", 600);
+  eq(line(), [], "over the shelf there is nowhere to land");
+  move("machine-alpha", 300);
+  release("machine-alpha");
+  node("fold-bravo").handlers.on_click({}, cxd);
+  eq([SHARED[ORDER], mover.folded.bravo, runs()], [["", "bravo", "alpha", "charlie", "delta-2", "echo", "foxtrot"], undefined, []], "let go: the order is glyph's own, the shelf's machines kept where they were among all of them, and the name's click does not fold it");
+  eq([order(), model().groups.map((g) => g.name)], [["machine-local", "machine-bravo", "machine-alpha", "machine-foxtrot"], [null, "bravo", "alpha", "charlie", "delta-2", "echo", "foxtrot"]], "the rail and every list after it go by it");
+  eq(AGENT_ORDER, [...agents()].sort((a, b) => model().flat.findIndex((c) => c.id === a.tab) - model().flat.findIndex((c) => c.id === b.tab)).map((a) => a.address), "agent.next and agent.prev walk the rail as it is now");
+  ok(AGENT_ORDER.findIndex((a) => agents().find((x) => x.address === a).tab.startsWith("bravo/")) < AGENT_ORDER.findIndex((a) => agents().find((x) => x.address === a).tab.startsWith("alpha/")), "bravo's agents now come before alpha's");
+  mover.ended = 0;
+  // Down, onto a folded machine: the line is under its line, the last of its block.
+  mover.folded.foxtrot = true;
+  r = mover.render();
+  press("fold-local", 100);
+  move("machine-foxtrot", 500);
+  eq(line(), [["machine-foxtrot", false]], "the line is under a folded machine's line");
+  mover.folded = {};
+  r = mover.render();
+  eq(line(), [["row-foxtrot/sp8", false]], "and under its last project when it is open");
+  release(null);
+  eq(SHARED[ORDER], ["bravo", "alpha", "charlie", "delta-2", "echo", "foxtrot", ""], "this computer can move too");
+  eq(order(), ["machine-bravo", "machine-alpha", "machine-foxtrot", "machine-local"], "and the rail shows it there");
+  mover.ended = 0;
+  // In the rail narrower than 200px the tile drags, and so does a folded project's block,
+  // whose bead's click after a drag goes nowhere.
+  layout().children[0].size.px = 160;
+  mover.tucked["bravo/sp7"] = true;
+  r = mover.render();
+  CALLS.length = 0;
+  press("space-sp2", 200);
+  move("row-sp1", 150);
+  eq(line(), [["row-sp1", true]], "logos only: the tile drags");
+  release(null);
+  eq(runs(), [["space.move", { id: "sp2", index: 1 }]], "logos only: let go, it is first");
+  mover.held = null;
+  mover.ended = 0;
+  CALLS.length = 0;
+  press("body-bravo/sp7", 450);
+  move("row-bravo/sp6", 400);
+  eq(line(), [["row-bravo/sp6", true]], "a folded project's block drags");
+  release(null);
+  const bead7 = ids(r).find((i) => i.startsWith("bead-in-bravo/sp7-"));
+  node(bead7).handlers.on_click({}, cxd);
+  eq(runs(), [["space.move", { id: "bravo/sp7", index: spaces().findIndex((x) => x.id === "bravo/sp6") + 1 }]], "let go: it moves, and the click of the bead it was let go on shows no tab");
+  mover.held = null;
+  mover.ended = 0;
+  delete mover.tucked["bravo/sp7"];
+  layout().children[0].size.px = 256;
+  r = mover.render();
+  CALLS.length = 0;
+  // A tab, by its row, among its project's tabs. inventory-and-order-reports (sp2) has three.
+  const tabsOf = (id) => model().spaces.find((x) => x.id === id).tabs.map((c) => c.id);
+  const T = tabsOf("sp2");
+  const marks = () => { const all = []; walk(r, (n) => { if (n.props.opacity?.[0] === 0.4 && n.id?.startsWith("tab-")) all.push(n.id); }); return all; };
+  // Where a tab's line is: the row (or the sub-agent's row, by its id) that holds it.
+  const rule = () => {
+    const found = [];
+    walk(r, (n) => { for (const c of n.children) { const k = c?.__node; if (k && !k.id && k.props.bg?.[0] === "#cba6f7" && k.props.absolute && (k.props.h?.[0] === 2 || k.props.w?.[0] === 2)) found.push([n.id ?? under(n)[0], k.props.h?.[0] === 2 ? (k.props.top ? "top" : "bottom") : (k.props.left ? "left" : "right"), k.props.left?.[0] ?? null]); } });
+    return found;
+  };
+  CALLS.length = 0;
+  press(`tab-${T[2]}`, 300);
+  move(`tab-${T[2]}`, 297);
+  eq([rule(), marks()], [[], []], "a press on a tab's row is no drag yet");
+  move(`tab-${T[0]}`, 250);
+  eq([rule(), marks()], [[[`tab-${T[0]}`, "top", 4]], [`tab-${T[2]}`]], "dragged up over the first tab: the line is over its row, inside the tabs' column, and the tab moved is faint");
+  move("row-sp2", 245);
+  eq(rule(), [[`tab-${T[0]}`, "top", 4]], "over its own project's tile or a gap, it stays where it was");
+  move(`tab-${model().spaces.find((x) => x.id === "sp1").tabs[0].id}`, 150);
+  eq(rule(), [], "over another project's tab there is nowhere to land");
+  move("row-sp1", 140);
+  eq(rule(), [], "nor over another project");
+  move("name-sp2", 230);
+  eq(rule(), [[`tab-${T[0]}`, "top", 4]], "over its project's name it would go first");
+  release("row-sp2");
+  node(`tab-${T[2]}`).handlers.on_click({}, cxd);
+  eq(runs(), [["tab.move", { id: T[2], index: 1 }]], "let go: Herdr moves it to the first place in its project, and the row's click after the drag shows nothing");
+  mover.held = null;
+  mover.ended = 0;
+  r = mover.render();
+  CALLS.length = 0;
+  press(`tab-${T[0]}`, 250);
+  move(`tab-${T[1]}`, 280);
+  eq(rule(), [[`tab-${T[1]}`, "bottom", 4]], "dragged down: the line is under the row it would follow");
+  release(null);
+  eq(runs(), [["tab.move", { id: T[0], index: 2 }]], "let go: the second place");
+  mover.held = null;
+  mover.ended = 0;
+  r = mover.render();
+  CALLS.length = 0;
+  press(`tab-${T[1]}`, 280);
+  release(`tab-${T[1]}`);
+  node(`tab-${T[1]}`).handlers.on_click({}, cxd);
+  ok(runs().length > 0 && !runs().some(([n]) => n === "tab.move"), "a press without a drag still goes to the tab");
+  // A tab with sub-agents: they come with it, and the line under it is under the last of them.
+  // Home (sp3) gets a second tab, a shell, before the one whose agent started helpers.
+  const home = spaces().find((x) => x.id === "sp3"), shellP = panes().find((x) => x.program?.shell).program;
+  home.tabs.unshift({ id: "tb-extra", index: 1, name: "extra", named: true, active: false, status: null, panes: 1, zoomed: false, settled: false, settled_at: null, changed_at: null, working_since: null });
+  panes().push({ pane: "p-extra", terminal: "t-extra", tab: "tb-extra", title: "", cwd: "/Users/me", branch: null, status: null, app: null, program: shellP, focused: false, zoomed: false });
+  r = mover.render();
+  const H = tabsOf("sp3"), subs = ids(r).filter((i) => i.startsWith("sub-"));
+  CALLS.length = 0;
+  press("tab-tb-extra", 400);
+  move(`tab-${H[1]}`, 430);
+  eq(rule(), [[subs[subs.length - 1], "bottom", 4]], "over a tab with sub-agents, the line is under its last sub-agent's row");
+  move(null, 460);
+  holder(r, subs[0]).handlers.on_mouse_move(at(460), cxd);
+  r = mover.render();
+  eq(rule(), [[subs[subs.length - 1], "bottom", 4]], "and over a sub-agent's row it counts as its tab");
+  release(null);
+  eq(runs(), [["tab.move", { id: "tb-extra", index: 2 }]], "let go: after it");
+  mover.held = null;
+  mover.ended = 0;
+  CALLS.length = 0;
+  press(`tab-${H[1]}`, 430);
+  move("tab-tb-extra", 400);
+  r = mover.render();
+  ok(subs.every((k) => holder(r, k).props.opacity?.[0] === 0.4) && marks().includes(`tab-${H[1]}`), "a dragged tab's sub-agents are faint with it");
+  mover.held = null;
+  mover.ended = 0;
+  home.tabs.shift();
+  panes().pop();
+  // In the rail narrower than 200px a logo drags, and the line stands beside the logo it
+  // would go before or after.
+  layout().children[0].size.px = 160;
+  r = mover.render();
+  CALLS.length = 0;
+  press(`tab-${T[0]}`, 200);
+  move(`tab-${T[2]}`, 200);
+  eq([rule(), marks()], [[], []], "logos only: a logo moved less than 5px is no drag");
+  node("rail").handlers.on_mouse_move({ position: { x: 120, y: 200 } }, cxd);
+  r = mover.render();
+  eq([rule(), marks()], [[[`tab-${T[2]}`, "right", null]], [`tab-${T[0]}`]], "moved sideways: the line is right of the logo it would follow");
+  move(`tab-${T[1]}`, 200);
+  release(null);
+  node(`tab-${T[0]}`).handlers.on_click({}, cxd);
+  eq(runs(), [["tab.move", { id: T[0], index: 2 }]], "let go: it moves there, and the logo's click after the drag shows nothing");
+  mover.held = null;
+  mover.ended = 0;
+  press(`tab-${T[2]}`, 200);
+  node("rail").handlers.on_mouse_move({ position: { x: 20, y: 200 } }, cxd);
+  move(`tab-${T[0]}`, 200);
+  eq(rule(), [[`tab-${T[0]}`, "left", -1]], "and left of the one it would go before");
+  mover.held = null;
+  mover.ended = 0;
+  layout().children[0].size.px = 256;
+  r = mover.render();
+  press("tab-foxtrot/tb21", 500);
+  eq(mover.held, null, "a project's only tab does not lift");
+  CALLS.length = 0;
+
+  // A machine that the order does not name comes after those it names.
+  eq([arrange([null, "alpha", "bravo", "zulu"], ["bravo", "", "alpha"]), arrange([null, "alpha"], undefined)], [["bravo", null, "alpha", "zulu"], [null, "alpha"]], "a machine added later goes last; with no order, Herdr's");
+  delete SHARED[ORDER];
+  r = mover.render();
+  eq(order(), ["machine-local", "machine-alpha", "machine-bravo", "machine-foxtrot"], "without an order, Herdr's again");
+  eq(runs(), [], "moving machines runs no command");
 }
 
 // The pane header. Each header is a copy of its own, with its pane in props.

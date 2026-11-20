@@ -190,7 +190,9 @@ export const shared = (k) => (k in SHARED ? SHARED[k] : k === "new-menu.agents" 
 export const CALLS = [];
 export const run = (name, args) => { CALLS.push(["run", name, args]); return null; };
 export const openOverlay = (spec) => { CALLS.push(["openOverlay", spec]); return "ov1"; };
-export const setAgentOrder = noop;
+// The order agent.next and agent.prev were last given (rail-test).
+export const AGENT_ORDER = [];
+export const setAgentOrder = (list) => { AGENT_ORDER.splice(0, AGENT_ORDER.length, ...list); return null; };
 export const closeOverlay = (id) => { CALLS.push(["closeOverlay", id]); return null; };
 export const notify = (n) => { CALLS.push(["notify", n]); return "n1"; };
 // What the mod told the Dock icon to wear, in order (null: nothing).

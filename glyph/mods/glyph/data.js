@@ -22,6 +22,17 @@ export const SHUT = "glyph.shut";
 // ms a first close press waits for the second.
 export const ARM = 3000;
 
+// The order the machines come in, in the rail and wherever glyph lists them. Herdr keeps
+// this computer's projects first and the other machines' by name, and has no command that
+// changes that, so this order is glyph's own: shared ORDER names the machines as the rail's
+// drag left them, "" for this computer. A machine it doesn't name comes after those it does.
+export const ORDER = "glyph.machines";
+export function arrange(names, said) {
+  if (!Array.isArray(said)) return names;
+  const at = new Map(said.map((k, i) => [k || null, i]));
+  return [...names.filter((n) => at.has(n)).sort((a, b) => at.get(a) - at.get(b)), ...names.filter((n) => !at.has(n))];
+}
+
 // Whether every machine's projects are in Herdr's list. While a machine is out of reach its
 // projects are only missing, so what is kept for a project (its hue, its fold in the rail)
 // is not forgotten yet.
@@ -227,12 +238,14 @@ export function model(machineInfo = []) {
     return m;
   });
 
-  // This computer first, then the others by name: the order Herdr keeps spaces in.
+  // This computer first, then the others by name, the order Herdr keeps spaces in, unless
+  // the rail's drag has put the machines in another (ORDER). A machine's projects stay in
+  // Herdr's order, which the drag changes with space.move.
   const names = new Set([null]);
   for (const s of list) names.add(s.machine);
   for (const k of machines()) names.add(k.name ?? null);
   for (const k of machineInfo) names.add(k.name);
-  const ordered = [...names].sort((a, b) => (a === null ? -1 : b === null ? 1 : a.localeCompare(b)));
+  const ordered = arrange([...names].sort((a, b) => (a === null ? -1 : b === null ? 1 : a.localeCompare(b))), shared(ORDER));
   const layouts = new Map(machines().map((k) => [k.name ?? null, k.layout]));
   const groups = ordered.map((name) => {
     const info = machineInfo.find((k) => k.name === name);

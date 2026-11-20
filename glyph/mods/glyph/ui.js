@@ -91,8 +91,12 @@ export function logo(p, size, color) {
 function control(el, o) {
   return el.id(o.id).cursor_pointer()
     .when(Boolean(o.tip), (x) => x.tooltip(o.tip))
-    // In a window_drag bar a press on a control is its own, not the window's.
-    .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+    // In a window_drag bar a press on a control is its own, not the window's. `onPress`
+    // hears it too: a press on a project's tile in the rail may become a drag.
+    .on_mouse_down("left", (e, cx) => {
+      cx.stop_propagation();
+      o.onPress?.(e, cx);
+    })
     .on_click(o.onClick)
     .when(Boolean(o.onMenu), (x) => x.on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); o.onMenu(); }));
 }
@@ -181,7 +185,7 @@ export function mono(name) {
 // The color a project is drawn in: its hue. Home ("~") has none of its own.
 export const hueOf = (t, o) => (o.name === "~" || !o.hue ? t.muted : o.hue);
 
-// o: { id, name, hue, active, size, sign, tip, onClick, onMenu }. "~" (home) gets a house;
+// o: { id, name, hue, active, size, sign, tip, onClick, onMenu, onPress }. "~" (home) gets a house;
 // `sign` is drawn in place of the two letters (a place that is no project).
 export function tile(t, o) {
   const size = o.size ?? 36;

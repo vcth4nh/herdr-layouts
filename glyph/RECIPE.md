@@ -28,6 +28,7 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - Each sub-agent is a 24px row under its tab's: a hook in `#45475a` hanging from the logo of whatever started it, a 16px orb and a name at 12px. A sub-agent is a terminal that one of the tab's agents started with Herdr's `hc run`, a helper agent or a plain program, and that has no pane.
 - Machines with nothing running share one row of dashed pills at the end. The pill of a machine other than this computer has the bars after its name.
 - A 42px foot has four icon buttons: settings, add a machine, new project, and one that switches the rail between 256px and 160px.
+- A project, a machine or a tab being dragged is drawn at 40% opacity in its place, a machine with its projects and a tab with its sub-agents. A 2px line in the accent says where it would land: across the rail for a project or a machine, across the tabs' rows for a tab, and upright beside a logo in the rail narrower than 200px.
 - Narrower than 200px, the rows go, sub-agents' too, and each project's orbs wrap beside its tile. A machine keeps its bars and loses the time. The chevrons stay.
 
 **Bar**
@@ -150,6 +151,16 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - A project's name shows the project, folded or not. Folded, the name and the status line are one block, 36px tall like the tile. A click on the name shows the project as it was left. A click on a bead shows that tab, which shows the project too.
 - A fold is kept across restarts. A folded machine keeps the folds of its projects.
 
+**Moving projects, machines and tabs**
+
+- Drag a project by its tile or its name, up or down among the projects of its machine. Drag a machine by its name, and its projects come with it.
+- Drag a tab by its row, up or down among the tabs of its project, and its sub-agents come with it. In the rail narrower than 200px, drag its logo.
+- A press becomes a drag once the pointer is 5px from where it went down. Until then it is the click it was: a fold, showing the project, or going to the tab.
+- Over a project, a machine or a tab, the line says where what is dragged would land: over that one when it would go before it, under it when it would go after. Beside a logo, left of it is before and right of it after. A project over its own machine's line would go first, and a tab over its own project's name.
+- Let go and it moves there. With no line on show, nothing moves: over its own place, over another machine's projects or another project's tabs, or over the machines with nothing running.
+- The place of a project or a tab is kept by its machine, so every Herdr that shows that machine has it, Herdr's own Spaces list and the bar too. The machines' order is glyph's own and kept on this computer. The Go-to list, the transfer window's chips, what shows after the project on show closes, and `agent.next` and `agent.prev` follow it.
+- A machine added later comes after the others.
+
 **Machines**
 
 - "+" on a machine's line starts a project there. A dashed pill does the same for a machine with nothing running.
@@ -224,9 +235,9 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 
 - Reads: `spaces`, `panes`, `terminals`, `agents`, `machines`, `focused`, `layout`, `window`, `settings`, `keys`, `updates`, `theme`, `props`, `knownAgents`, `checking`.
 - Calls: `run`, `hc`, `exec`, `openOverlay`, `closeOverlay`, `nextCommand`, `notify`, `shared`, `setShared`, `setAgentOrder`, `setBadge`.
-- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `new-menu.agents` (read: the agents each machine can start, as Herdr's `new-menu` mod keeps them, for the launchers and the start keys before `knownAgents` has answered), `glyph.blank` (the name and folder an empty project's page shows, noted while its last tab is still there), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
+- Shared values: `space.colors` (the hues, shared with Herdr's Spaces list), `glyph.machines` (the order of the machines, as the rail's drag left them), `new-menu.agents` (read: the agents each machine can start, as Herdr's `new-menu` mod keeps them, for the launchers and the start keys before `knownAgents` has answered), `glyph.blank` (the name and folder an empty project's page shows, noted while its last tab is still there), `glyph.shut` (a close asked of the bar), `glyph.copies` (the copies under way and the ones that failed), `glyph.side` (where the transfer window's right side was left), `glyph.routes` (what was last learned of the direct way between two machines).
 - Kept in the rail's `localStorage`: `seen` (since when each tab has rested), `folded` (the folded machines) and `tucked` (the folded projects). Each place the layout puts the mod is a copy with a `localStorage` of its own.
-- Commands: `tab.select`, `tab.new`, `tab.close`, `tab.settle`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `overlay.close`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
+- Commands: `tab.select`, `tab.new`, `tab.close`, `tab.settle`, `tab.move`, `tab.next`, `tab.prev`, `space.select`, `space.new`, `space.move`, `pane.focus`, `pane.split`, `pane.zoom`, `pane.close`, `terminal.peek`, `overlay.close`, `mod.open`, `layout.resize`, `layout.select`, `layout.show`, `layout.hide`, `app.settings`, `window.minimize`, `window.maximize`, `window.close`.
 - Herdr's own mods, opened as they are: `menu` (the project menu), `prompt` (rename), `new-menu`, `machine-add`, `files`, `changes`.
 - `setAgentOrder` follows the rail, so `agent.next` and `agent.prev` walk it top to bottom.
 
@@ -323,6 +334,16 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - A project showing its empty page has no tab to fold, and no chevron. Its tile shows the project, as its name does.
 - A project's fold is kept by its id. It is forgotten at the next fold after the project has closed, but not while a machine is out of reach: that machine's projects are only missing.
 
+**Moving projects, machines and tabs**
+
+- Herdr moves a tab only among its project's tabs (`tab.move`), and has no command that moves one to another project.
+- Herdr keeps a machine's projects together and moves one only among them (`space.move`). It lists this computer first and the other machines by name, and has no command that changes that. So glyph keeps an order of machines of its own, in the shared value `glyph.machines`. Herdr's own Spaces list and `space.next` and `space.prev` keep Herdr's order.
+- A moved machine takes its place among all the machines, those with nothing running included, so a machine in the row of dashed pills comes back to the same place when it gets a project.
+- An element hears a release only over itself, so the whole rail listens for it. A drag whose pointer left the rail lands where the line was 400 ms later, unless the pointer comes back. A press or a drag that hears no move for 15 s is let go, and so is one whose list changes under it, as when a project closes: what was dragged stays where it was.
+- Herdr may tell the element that was pressed of its click before or after the rail hears the release. So for 300 ms after a drag ends, no click in the rail counts.
+- A project or a tab on another machine takes a moment to move. The line stays until it is there, at most 2 s.
+- The rail does not scroll by itself during a drag. While something is dragged, the rail shows no hover words.
+
 **A machine's bars**
 
 - The time is longer than a network ping to the same machine. It is how long a program that does nothing takes to come back through Herdr's connection to that machine: the trip there and back, and some tens of milliseconds for Herdr to start the program there.
@@ -413,7 +434,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - The transfer window needs `sh`, `ls`, `scp` and `ssh` on this computer. A Mac and a Linux computer have them. On a Windows computer the window opens and can't list this computer's folders.
 - The rail's default must stay labelled. A rail of logos alone did not say which agent was which.
 - Only the rail shows a machine's bars. The bar, the Go-to list and the transfer window name machines without them.
-- Not built: git ahead and behind counts, dragging to reorder projects, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting, typing a path, picking with the keyboard, carrying rows onto a folder's row or out of the window, and a direct copy by key or forwarded agent. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
+- Not built: git ahead and behind counts, moving a project to another machine or a tab to another project, a custom toast, a menu on a sub-agent's row (the peek has keep and close), and in the transfer window moving (a copy that removes the original), renaming, deleting, typing a path, picking with the keyboard, carrying rows onto a folder's row or out of the window, and a direct copy by key or forwarded agent. Zoom still shows in Herdr's terminal right-click menu for a lone pane, since a layout can only replace that menu whole.
 - Built and checked on macOS, first with herdr-app 0.1.15 and since with 0.1.16. It needs 0.1.16 or later: the rail reads `checking`, which came with that version. The window buttons for Linux and Windows have never been drawn there, and their keys have never been pressed there.
 - The mod runs under any theme, but the hues, the ink on filled tiles and the focus border were picked for a dark one.
 
@@ -438,6 +459,8 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - ⌘W on the page closes the project, and the project after it on the same machine shows its first tab.
 - ⌘W on the page of a machine's last project shows the last tab of the project before it on that machine. No project of another machine comes on show.
 - Folding a machine hides its projects and shows a status line of their tabs on its line.
+- Dragging a project's tile under the next project of its machine and letting go moves it there, in the rail and in `herdr-app ls`. Dragging a machine's name over the machine above it moves the machine and its projects there, and the Go-to list has them in that order too.
+- Dragging a tab's row over the first tab of its project and letting go makes it the first, in the rail, in the bar when its project is on show, and in `herdr-app ls`.
 - Clicking a project's tile, or the chevron beside it, hides its tabs' rows and shows a status line of them under its name. Clicking it again brings them back. Clicking the project's name shows the project, and clicking a bead of a folded project shows that tab.
 - Within a few seconds of the layout showing, the line of a machine other than this computer has bars lit and a time after its name. The time is near what `hc exec --on <machine> whoami` takes when timed in a shell.
 - ⌘P opens the Go-to list on the shown tab. An agent's tab nobody named is listed by its agent's title, never by its number. Typing narrows the list, and Enter shows the picked tab.

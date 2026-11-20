@@ -17,6 +17,11 @@ one "PING=alpha:x,bravo:95,charlie:x" rail p3 256 rail-lost sp2
 one "FOLD=alpha,local PING=1" rail p3 256 rail-fold sp2
 one "FOLD=alpha PING=1" rail p3 160 rail-fold-compact alpha/sp4
 one "TUCK=sp1,alpha/sp4,bravo/sp7 PING=1" rail p3 256 rail-tuck sp2
+one "LIFT=space:alpha/sp5:alpha/sp4 PING=1" rail p3 256 rail-lift sp2
+one "LIFT=machine:bravo:alpha PING=1" rail p3 256 rail-lift-machine sp2
+one "LIFT=space:sp1:sp3" rail p3 160 rail-lift-compact sp2
+one "LIFT=tab:tb5:tb3" rail p3 256 rail-lift-tab sp2
+one "LIFT=tab:alpha/tb8:alpha/tb11" rail p3 160 rail-lift-tab-compact sp2
 one "TUCK=sp2,alpha/sp4,bravo/sp7 PING=1" rail p3 160 rail-tuck-compact sp2
 one - bar p3 256 bar sp2
 one "PLATFORM=linux PING=1" rail p3 256 rail-linux sp2
