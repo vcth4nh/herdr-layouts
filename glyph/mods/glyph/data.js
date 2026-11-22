@@ -409,6 +409,15 @@ export function sketch(s, was) {
   };
 }
 
+// The row of a closed project that a project with tabs, `s`, stands in the place of: on its
+// machine, in its folder and under its name. Its first note starts from that row, so the
+// agents it ran stay on it: a project opened again with a plain shell and closed again
+// still opens with its agent the next time.
+export function former(s) {
+  const now = sketch(s);
+  return past().find((e) => same(e, now));
+}
+
 // The list of closed projects once `closed` have joined it: the last closed first, one
 // entry for each place, and none for a project that is `open`, since one opened again is
 // no longer closed.

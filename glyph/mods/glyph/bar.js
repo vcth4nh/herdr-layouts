@@ -33,7 +33,7 @@
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { theme, run, layout, settings, spaces, panes, terminals, focused, machines, shared, setShared, notify, window as win, openOverlay, knownAgents, nextCommand, setBadge, checking } from "herdr";
-import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM, PAST, past, sketch, shelve, openHistory } from "./data.js";
+import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM, PAST, past, sketch, former, shelve, openHistory } from "./data.js";
 import { copies, settle, openTransfer, showTransfer, STARTING } from "./copy.js";
 import { ICON, INK, DISPLAY, alpha, mix, logo, inkOf, danger, orb, tile, iconButton, textWidth } from "./ui.js";
 
@@ -343,7 +343,8 @@ export class Bar {
   // tell a mod that a project closes, and by then nothing is left to ask what it was. So
   // while a project has tabs, the bar notes what it would be listed as (sketch() in
   // data.js), and keeps the notes across restarts. A project left with only its empty page
-  // keeps the note it had.
+  // keeps the note it had, and a new one starts from the row of a closed project in its
+  // place (former() in data.js).
   // A project that is gone from Herdr's list has closed, whoever closed it, and its note
   // joins the list. One whose machine is out of reach is only missing, and its note waits.
   // A machine Herdr does not list was taken off Herdr: its projects' notes are dropped, but
@@ -360,7 +361,7 @@ export class Bar {
       let dirty = false;
       for (const s of m.spaces) {
         if (!s.tabs.length) continue;
-        const next = sketch(s, this.notes[s.id]);
+        const next = sketch(s, this.notes[s.id] ?? former(s));
         if (JSON.stringify(next) === JSON.stringify(this.notes[s.id])) continue;
         this.notes[s.id] = next;
         dirty = true;

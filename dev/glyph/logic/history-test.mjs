@@ -155,6 +155,19 @@ const names = () => past().map((e) => e.name);
   close("sp30");
   bar.keep(bar.born + 4000);
   eq([names(), past()[0].hue, past()[0].at], [["paper-kites", "tide tables", "~", "old-lab"], "ansi3", bar.born + 4000], "closed again, it is back on top with its hue");
+
+  // Opened again with a plain shell (its agent was not known there then) and closed again,
+  // it still lists the agents it ran before, so it opens with its agent the next time.
+  const was = past()[0].ran.map((a) => [a.key, a.n]);
+  open("sp32", "paper-kites", null, "/Users/me/code/paper-kites", "shell");
+  bar.keep(bar.born + 5000);
+  eq([bar.notes.sp32.ran.map((a) => [a.key, a.n]), names()[0]], [was, "tide tables"], "a project made where a closed one was starts from that one's row");
+  close("sp32");
+  bar.keep(bar.born + 6000);
+  eq([names()[0], past()[0].ran.map((a) => [a.key, a.n])], ["paper-kites", was], "closed again, it keeps the agents it ran before");
+  open("sp33", "paper-kites", "alpha", "/Users/me/code/paper-kites", "shell");
+  bar.keep(bar.born + 7000);
+  eq(bar.notes.sp33.ran, [], "a project in another place starts from nothing");
 }
 
 // A list as the popup would hold it.
