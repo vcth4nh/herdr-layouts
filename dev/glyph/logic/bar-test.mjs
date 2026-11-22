@@ -1,6 +1,7 @@
 import { Bar } from "./bar.mjs";
 import { byId, walk } from "./kit-stub.mjs";
-import { spaces, CALLS } from "./herdr-fake.mjs";
+import { spaces, terminals, CALLS } from "./herdr-fake.mjs";
+import { ripe } from "./data.mjs";
 
 let failed = 0, passed = 0;
 const ok = (cond, what) => { if (cond) passed++; else { failed++; console.log("FAIL:", what); } };
@@ -197,6 +198,45 @@ const reorder = (from, to) => { const t = tabsNow(); t.splice(to, 0, ...t.splice
   await new Promise((r) => setTimeout(r, 5));
   const o = CALLS.filter((c) => c[0] === "openOverlay").map((c) => c[1]);
   eq([o.length, o[0]?.props.command.args.id, o[0]?.props.value], [1, ORIGINAL[2], "relay"], "F2 renames the shown tab");
+}
+// 15. A tab's own title shows once it has stayed 0.5 s: a shell's quick command (ls, clear)
+// never shows its name. A name someone gave a tab shows at once.
+{
+  const real = Date.now;
+  let clock = real();
+  Date.now = () => clock;
+  try {
+    const a = fresh();
+    const said = (i) => { const out = []; walk({ __node: a.chip(i) }, (n) => { for (const c of n.children) if (typeof c === "string") out.push(c); }); return out.join(" "); };
+    const term = terminals().find((x) => x.address === "alpha/t7");
+    eq(said(0), "Design overview", "a tab seen for the first time shows its title at once");
+    term.report.title = "ls";
+    a.render();
+    eq(said(0), "Design overview", "the name of a command that just started does not show");
+    clock += 200;
+    term.report.title = "Design overview";
+    a.render();
+    clock += 2000;
+    a.render();
+    eq([said(0), ripe(a.bar.ripe)], ["Design overview", false], "a title that came and went within the hold never shows, and nothing has to be drawn for it");
+    term.report.title = "Rename the order queue";
+    a.render();
+    clock += 300;
+    eq([said(0), ripe(a.bar.ripe)], ["Design overview", false], "a new title waits");
+    clock += 250;
+    ok(ripe(a.bar.ripe), "once it has stayed 0.5 s, the bar is told to draw again");
+    a.render();
+    eq([said(0), ripe(a.bar.ripe)], ["Rename the order queue", false], "and then shows it");
+    spaces().find((s) => s.active).tabs[0].named = true;
+    spaces().find((s) => s.active).tabs[0].name = "queue";
+    a.render();
+    eq(said(0), "queue", "a name someone gave shows at once");
+    spaces().find((s) => s.active).tabs[0].named = false;
+    spaces().find((s) => s.active).tabs[0].name = "1";
+    term.report.title = "Design overview";
+  } finally {
+    Date.now = real;
+  }
 }
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

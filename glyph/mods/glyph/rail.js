@@ -26,7 +26,7 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { theme, run, layout, settings, window as win, openOverlay, agents, setAgentOrder, updates, checking, spaces, setShared } from "herdr";
-import { model, fleet, ping, reach, PING, ORDER, here as hereName, goTab, goSub, lineUp, tabTip, subTip, since, find, tabMenu, says, openHistory, keyFor, withKey } from "./data.js";
+import { model, fleet, ping, reach, PING, ORDER, here as hereName, goTab, goSub, lineUp, tabTip, subTip, since, find, tabMenu, says, openHistory, keyFor, withKey, ripe, ripeness } from "./data.js";
 import { ICON, DISPLAY, alpha, orb, bead, tile, iconButton, bars, textWidth } from "./ui.js";
 
 const COMPACT = 160, WIDE = 256;
@@ -89,6 +89,7 @@ export class Rail {
     cx.timer.every(20000, (cx) => this.refreshMachines(cx));
     cx.timer.every(PING.every, (cx) => this.probe(cx));
     cx.timer.every(60000, (cx) => cx.notify()); // resting logos fade by the minute
+    cx.timer.every(120, (cx) => { if (ripe(this.ripe)) cx.notify(); }); // a tab's title waited long enough to show
   }
 
   refreshMachines(cx) {
@@ -659,6 +660,7 @@ export class Rail {
     const t = theme();
     const now = Date.now();
     const m = model(this.machineInfo);
+    this.ripe = ripeness();
     this.track(m, now);
     this.live = m.settled ? new Set(m.spaces.map((s) => s.id)) : null;
     // A tab that went while the pointer was on it is never heard to be left.

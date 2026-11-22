@@ -33,7 +33,7 @@
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { theme, run, layout, settings, spaces, panes, terminals, focused, machines, shared, setShared, notify, window as win, openOverlay, knownAgents, nextCommand, setBadge, checking } from "herdr";
-import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM, PAST, past, sketch, former, shelve, openHistory } from "./data.js";
+import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM, PAST, past, sketch, former, shelve, openHistory, ripe, ripeness } from "./data.js";
 import { copies, settle, openTransfer, showTransfer, STARTING } from "./copy.js";
 import { ICON, INK, DISPLAY, alpha, mix, logo, inkOf, danger, orb, tile, iconButton, textWidth } from "./ui.js";
 
@@ -273,7 +273,9 @@ export class Bar {
   // looks about once a second, in case the window is not being drawn at all.
   // A command that fails (its machine just went out of reach) must not end the looking: the
   // next look tries again, and a notice says what went wrong, once for each thing said.
+  // A tab's title that has waited long enough to show (ripe() in data.js) draws the bar again.
   look(cx) {
+    if (ripe(this.ripe)) cx.notify();
     this.rests = this.dirty ? 0 : this.rests + 1;
     if (!this.dirty && this.rests % REST) return;
     this.dirty = false;
@@ -713,6 +715,7 @@ export class Bar {
     const t = theme();
     const now = Date.now();
     const m = model();
+    this.ripe = ripeness();
     const s = m.active;
     const w = win();
     const root = layout();

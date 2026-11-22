@@ -158,6 +158,40 @@ function telling(whole, address, program, names) {
   return said && !unset && !echoes(program, said) && !/^[~/]|^[A-Za-z]:\\/.test(said) && !said.includes("@") ? said : "";
 }
 
+// A tab's own title shows once it has stayed STEADY ms. A shell titles itself after the
+// command it runs, so `ls`, `cd` or `clear` would put their name on the tab for a moment and
+// make the bar's tabs jump. So nothing shows for less than that. A tab seen for the first
+// time shows its title at once, and a name someone gave a tab is not held.
+const STEADY = 500;
+const steady = new Map(); // tab id -> { shown, next, since }: `next` waits to show, undefined when none does
+let ripened = 0;          // how many held titles have come to show
+function ripen(h, now) {
+  if (h.next === undefined || now - h.since < STEADY) return;
+  h.shown = h.next;
+  h.next = undefined;
+  ripened += 1;
+}
+function hold(id, said, now) {
+  const h = steady.get(id);
+  if (!h) {
+    steady.set(id, { shown: said, next: undefined, since: 0 });
+    return said;
+  }
+  if (said === h.shown) h.next = undefined;
+  else if (said !== h.next) Object.assign(h, { next: said, since: now });
+  ripen(h, now);
+  return h.shown;
+}
+// Whether a held title came to show after a part drew with `seen` (what ripeness() said
+// then), so that the part has to draw again. Nothing else may change when one comes to
+// show, so the parts that show titles ask this on a timer.
+export function ripe(seen) {
+  const now = Date.now();
+  for (const h of steady.values()) ripen(h, now);
+  return ripened !== seen;
+}
+export const ripeness = () => ripened;
+
 export function duration(ms) {
   const m = Math.floor(ms / 60000);
   if (m < 1) return "now";
@@ -170,6 +204,7 @@ export function duration(ms) {
 // projects and for whether each can be reached. Others pass nothing.
 export function model(machineInfo = []) {
   const sp = spaces(), ps = panes(), terms = terminals();
+  const now = Date.now(), alive = new Set(); // the tabs there are, for the titles held (hold)
   const hue = hues(sp);
   const kept = shared(BLANK) ?? {};
   const termBy = new Map(), kids = new Map(), byTab = new Map(), paned = new Set();
@@ -221,7 +256,8 @@ export function model(machineInfo = []) {
     const term = lead ? termBy.get(lead.terminal) : null;
     const path = way(lead?.cwd).parts;
     const folder = path[path.length - 1] ?? "";
-    const own = telling(clean(term?.report?.title) || clean(lead?.title), lead?.terminal ?? "", lead?.program, [s.name, ...path]);
+    const own = hold(c.id, telling(clean(term?.report?.title) || clean(lead?.title), lead?.terminal ?? "", lead?.program, [s.name, ...path]), now);
+    alive.add(c.id);
     const named = c.named && !echoes(lead?.program, c.name);
     const title = named ? c.name : own;
     return {
@@ -256,6 +292,7 @@ export function model(machineInfo = []) {
     }
     return m;
   });
+  for (const id of steady.keys()) if (!alive.has(id)) steady.delete(id);
 
   // This computer first, then the others by name, the order Herdr keeps spaces in, unless
   // the rail's drag has put the machines in another (ORDER). A machine's projects stay in

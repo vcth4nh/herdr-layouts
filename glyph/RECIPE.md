@@ -128,6 +128,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 **Tabs**
 
 - A tab's title is the name it was given, else its agent's own title, else nothing. The rail falls back to its folder or program.
+- A title the terminal sets shows once it has stayed 0.5 s, so a shell's quick command (`ls`, `cd`, `clear`) never puts its name on the tab. A name you give a tab shows at once.
 - A sub-agent goes by the name it was started with (`hc run --name`), else its agent's own title, else its program.
 - Titles in the bar share the room: short ones stay whole, long ones are cut to a common width, at most 240px. With under 32px each, every tab but the shown one shows its logo only.
 - Double-click a tab, press F2, or right-click and choose Rename to name it. The dialog is Herdr's own, with the agent's title as its hint.
@@ -427,6 +428,7 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - A folder on a Windows machine is written with `\`, and home there is `C:\Users\<name>`. A path that starts as a Windows path does is cut at either slash, so a tab that goes by its folder shows the folder's name there too. Any other path is cut at `/` only, where a `\` can be part of a name.
 - A terminal nobody titled reports its address as its title, which counts as none. So does a title that only repeats the program's name.
 - Leading status glyphs and Codex's trailing " | project" are cut.
+- Shells title themselves after the command they run, which is why a tab's own title is held (`hold()` in data.js). One that changed back within the hold never shows, and a tab seen for the first time shows its title at once. Herdr draws a mod again when its lists change, and a held title coming to show changes nothing in them. So the bar and the rail check every 120 ms, on timers of their own, and draw again then.
 - An unnamed tab goes by its agent's title, not its number. That is why tabs have the mod's own right-click menu and rename hint. The project menu and ⇧F2, which renames the project, are Herdr's.
 
 **Moving files**
