@@ -1,8 +1,8 @@
 #!/bin/sh
 # check.sh ROLE [PANE] [WIDTH] [TAG] [ACTIVE]: copies the look's mod, swaps Herdr's live data
 # for the fixed sample, and runs `herdr-app check --print-spec` on that copy.
-# Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu, blank, transfer, goto or history; for menu, PANE
-# is the tab's id. ACTIVE is the project on show (sp9: one showing its empty page; bravo/sp7:
+# Output: .local/harness/out/TAG.txt. ROLE is rail, bar, pane, menu, blank, transfer, goto, wants or history; for menu, PANE
+# is the tab's id, and for wants the state listed (blocked or done). ACTIVE is the project on show (sp9: one showing its empty page; bravo/sp7:
 # one with a single tab, and the empty page that stands by behind it).
 # Env hooks pretend a state the check can't reach by itself: ROOM, DRAG, ARMED, FOLD, TUCK, PING, HOVER,
 # SURE, COPIES, LISTED, PICK, CARRY, FIND, DIRECT, PLATFORM, LIFT, PAST.

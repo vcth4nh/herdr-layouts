@@ -3,7 +3,7 @@
 // program's logo and the most urgent state of its agents and their sub-agents.
 // Below that, what the parts do alike: go to a tab, start one, close one, rename one.
 
-import { spaces, panes, terminals, machines, shared, setShared, run, hc, exec, openOverlay, closeOverlay, keys, window as win } from "herdr";
+import { spaces, panes, terminals, machines, shared, setShared, run, hc, exec, openOverlay, closeOverlay, keys, settings, window as win } from "herdr";
 import { SHELL } from "./ui.js";
 
 export const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
@@ -262,7 +262,8 @@ export function model(machineInfo = []) {
     const title = named ? c.name : own;
     return {
       id: c.id, index: c.index, name: c.name, named, active: c.active, shown: s.active && c.active,
-      status, subs, lead, program: lead?.program ?? null, panes: mine.length, zoomed: c.zoomed,
+      // `status` takes in its sub-agents' states; `ownStatus` is its agents' alone.
+      status, ownStatus: c.status ?? null, subs, lead, program: lead?.program ?? null, panes: mine.length, zoomed: c.zoomed,
       blank, careful, cwd: lead?.cwd ?? null,
       // Put away on this screen (tab.settle): Herdr's own steps through the tabs skip it.
       settled: Boolean(c.settled),
@@ -509,12 +510,69 @@ export function renameTab(c) {
   });
 }
 
-// The next tab in that state after the shown one, around the whole list.
-export function jump(m, status) {
-  const all = m.flat.filter((c) => c.status === status);
-  if (!all.length) return;
-  const at = m.flat.findIndex((c) => c.shown);
-  goTab(all.find((c) => m.flat.indexOf(c) > at) ?? all[0]);
+// The list of the tabs in one state (wants.js) that the bar's bell (blocked) and tick (done)
+// open. It hangs under the bar, centered on `x`, where the pill was pressed (the window's
+// pixels), and Herdr moves it to fit the window. `wanting` is the list on show,
+// { id, status }, which the list itself tells of as it comes and goes, as the Go-to list
+// does. `wanted` is the one that went last, and when: see wantsShown().
+const WANTS_W = 380;
+let wanting = null, wanted = null;
+export function openWants(status, x) {
+  if (wanting) closeOverlay(wanting.id);
+  const zoom = settings()?.zoom || 1;
+  openOverlay({ mod: "glyph", kind: "popup", at: { x: Math.max(0, x - (WANTS_W / 2) * zoom), y: 40 * zoom }, width: WANTS_W, height: 0.8, props: { role: "wants", status } });
+}
+export function closeWants() {
+  if (wanting) closeOverlay(wanting.id);
+}
+// Whether the list of that state is on show, or was until a moment ago. Herdr closes a
+// popup at a press beside it, the press on its own pill too, and that may reach the list
+// (its close()) before or after it reaches the pill: either way the press found it on show.
+export function wantsShown(status) {
+  return wanting?.status === status || (wanted?.status === status && Date.now() - wanted.at < 400);
+}
+export function shownWants(id, status) {
+  wanting = id ? { id, status } : null;
+}
+// `self`: the list closed itself (a row was picked, Esc), which no press on a pill did.
+export function goneWants(id, self) {
+  if (wanting?.id !== id) return;
+  if (!self) wanted = { status: wanting.status, at: Date.now() };
+  wanting = null;
+}
+
+// Marks finished tabs as read, on every Herdr that shows them, the way Herdr does for an
+// agent a person looks at: herdr-core keeps a label on each terminal, `herdr.seen`, the last
+// of its turns someone saw, and Herdr calls a terminal that has stopped working "done" while
+// its turn is past that (herdr-app's docs/labels.md). Each agent of those tabs, their
+// sub-agents too, that is resting with a turn past its label gets the label raised to its
+// turn. Nothing else is written, and a label is never lowered. A terminal whose turn the
+// listing lacks is asked for it. Resolves with the tabs that could not all be marked.
+const BUSY = new Set(["working", "blocked", "error"]);
+export async function markRead(tabs) {
+  const owner = new Map(); // terminal address -> its tab
+  for (const p of panes()) {
+    const c = p.terminal && tabs.find((x) => x.id === p.tab);
+    if (c) owner.set(p.terminal, c);
+  }
+  for (const c of tabs) for (const k of c.subs.list) owner.set(k.id, c);
+  const known = new Map(terminals().map((x) => [x.address, x]));
+  const failed = new Set();
+  await Promise.all([...owner].map(async ([address, c]) => {
+    try {
+      let rec = known.get(address);
+      if (typeof rec?.turn !== "number") rec = JSON.parse((await hc(["get", address, "--json"])).stdout);
+      const word = typeof rec?.status === "string" ? rec.status : rec?.status?.state;
+      const turn = rec?.turn, said = rec?.labels?.["herdr.seen"];
+      if (typeof turn !== "number") throw new Error("no turn");
+      if (!word || BUSY.has(word) || turn < 1 || (said != null && Number(said) >= turn)) return;
+      const r = await hc(["label", address, `herdr.seen=${turn}`]);
+      if (r.code !== 0) throw new Error(r.stderr);
+    } catch {
+      failed.add(c);
+    }
+  }));
+  return [...failed];
 }
 
 // Since when a tab has been in its state. `seen` is the rail's own record, for after

@@ -1,7 +1,7 @@
 #!/bin/sh
 # preview-states.sh: like preview.sh, for the states a still fleet doesn't show: a folded
 # machine, folded projects, a project, a machine and a tab dragged in the rail, a machine that does not answer, a tab and a pane waiting for their second close press, the tab menu asking
-# again, a project's empty page, the list of closed projects, and the transfer window (read, with rows picked, its arrow
+# again, a project's empty page, the list of closed projects, the lists the bell and the tick open, and the transfer window (read, with rows picked, its arrow
 # pressed once, picked rows carried over the other side, and between two other machines of
 # which one can log in to the other: as it opens, with rows picked, and with a password
 # typed) with the bar while copies are under way. Pictures land in .local/preview/.
@@ -43,6 +43,9 @@ for n in goto goto-find goto-sure; do python3 tools/spec2html.py $P/$n.html --on
 # The list of closed projects: as it opens, with a word typed, on Linux, and before any project was closed.
 for n in history history-find history-linux; do python3 tools/spec2html.py $P/$n.html --only body --body $O/$n.txt --w 440 --h 234; shot $n 440,234; done
 python3 tools/spec2html.py $P/history-empty.html --only body --body $O/history-empty.txt --w 440 --h 94; shot history-empty 440,94
+# The lists the bell and the tick in the bar open: the tabs that need you, and those that finished.
+python3 tools/spec2html.py $P/wants.html --only body --body $O/wants.txt --w 380 --h 100; shot wants 380,100
+python3 tools/spec2html.py $P/wants-done.html --only body --body $O/wants-done.txt --w 380 --h 86; shot wants-done 380,86
 for n in transfer transfer-picked transfer-sure transfer-carry transfer-direct-idle transfer-direct transfer-direct-typed; do shot $n 880,560; done
 shot copies 1710,1073
 python3 ../../tools/crop.py $P/copies.png $P/copies-bar.png 2400 0 1020 100 1

@@ -9,8 +9,8 @@
 // to move it: it lifts, the others step aside as it goes, and where it stands when you
 // let go is where it lands. The dashed pill starts things: a logo is "a new tab running that",
 // the prompt is a plain terminal, the dots are the full + menu. Right: what wants you
-// (click to go to the next one), the Files and Changes panels, the window that copies
-// files between machines (transfer.js), search.
+// (click for a list of those tabs, wants.js), the Files and Changes panels, the window that
+// copies files between machines (transfer.js), search.
 //
 // The bar is also where a tab is closed, whoever asks (its x, the close key, a menu, a
 // pane's header): see ask() and shut(). Closing what isn't a plain shell takes two presses.
@@ -33,7 +33,7 @@
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { theme, run, layout, settings, spaces, panes, terminals, focused, machines, shared, setShared, notify, window as win, openOverlay, knownAgents, nextCommand, setBadge, checking } from "herdr";
-import { model, jump, tabTip, find, tabMenu, openGoto, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM, PAST, past, sketch, former, shelve, openHistory, ripe, ripeness } from "./data.js";
+import { model, tabTip, find, tabMenu, openGoto, openWants, closeWants, wantsShown, renameTab, newTab, shell, keyFor, withKey, BLANK, SHUT, ARM, PAST, past, sketch, former, shelve, openHistory, ripe, ripeness } from "./data.js";
 import { copies, settle, openTransfer, showTransfer, STARTING } from "./copy.js";
 import { ICON, INK, DISPLAY, alpha, mix, logo, inkOf, danger, orb, tile, iconButton, textWidth } from "./ui.js";
 
@@ -121,6 +121,7 @@ export class Bar {
     this.told = false;      // the Dock icon was told once more, a moment after the start
     this.notes = null;      // project -> what it would be listed as if it closed now: see keep()
     this.slipped = "";      // what the last keep() that went wrong said
+    this.pressed = null;    // the bell or the tick under a held button: see want()
     this.learn(cx);
     cx.timer.every(3000, (cx) => this.learn(cx));
     cx.timer.every(LOOK, (cx) => this.look(cx));
@@ -562,6 +563,18 @@ export class Bar {
     return null;
   }
 
+  // A click on the bell or the tick lists the tabs in its state under it, and a click on it
+  // while its list shows closes the list. Herdr closes a popup at any press beside it, so
+  // whether the list was on show is noted at the press (wantsShown() in data.js), and the
+  // click only opens a list that was not.
+  want(k) {
+    const p = this.pressed;
+    this.pressed = null;
+    if (p?.k !== k) return;
+    if (p.was) closeWants();
+    else openWants(k, p.x);
+  }
+
   // A key that starts an agent: `key` is its key in Herdr's program table (claude, codex, ...).
   start(s, key, cx) {
     const machine = s?.machine ?? null, where = machine ?? "";
@@ -874,11 +887,17 @@ export class Bar {
       .child(round("start-shell", withKey("New terminal tab", keyFor("glyph.new", "tab.new")), () => newTab(s), logo(plain, 15, inkOf(t, plain))))
       .child(round("start-more", "More: other agents, a project, a worktree", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 }), svg(ICON("more")).size(14)));
 
-    // What wants you, anywhere: a count behind a bell (needs you) or a tick (finished).
+    // What wants you, anywhere: a count behind a bell (needs you) or a tick (finished). A
+    // click lists those tabs (wants.js): see want().
     const wants = (k, icon, tip) => h_flex().id(`wants-${k}`).h(26).flex_none().pl(8).pr(10).gap(5).items_center().rounded_full().cursor_pointer()
       .bg(alpha(t[k], "24")).text_color(t[k]).text_size(12.5).font_family(DISPLAY).font_bold()
       .hover((x) => x.bg(alpha(t[k], "40")))
-      .tooltip(tip).on_mouse_down("left", stop).on_click(() => jump(m, k))
+      .tooltip(tip)
+      .on_mouse_down("left", (e, cx) => {
+        cx.stop_propagation();
+        this.pressed = { k, x: e.position.x, was: wantsShown(k) };
+      })
+      .on_click(() => this.want(k))
       .child(div().flex().flex_none().when(k === "blocked", (el) => el.loop("opacity", { from: 0.5, to: 1, period: 900 }))
         .child(svg(ICON(icon)).size(13)))
       .child(String(m.counts[k]));
@@ -935,8 +954,8 @@ export class Bar {
         .children(tabs.map(chip))
         .child(starters)
         .when(Boolean(d?.moved) && Boolean(d.widths), (el) => el.child(lifted())))
-      .when(n.blocked > 0, (el) => el.child(wants("blocked", "bell", `${n.blocked} need${n.blocked === 1 ? "s" : ""} you: go to the next`)))
-      .when(n.done > 0, (el) => el.child(wants("done", "check", `${n.done} finished: go to the next`)))
+      .when(n.blocked > 0, (el) => el.child(wants("blocked", "bell", `${n.blocked} need${n.blocked === 1 ? "s" : ""} you: list them`)))
+      .when(n.done > 0, (el) => el.child(wants("done", "check", `${n.done} finished: list them`)))
       .child(side("files", "files", "Files"))
       .child(side("changes", "diff", "Changes"))
       .child(transfer)

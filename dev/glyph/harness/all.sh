@@ -46,6 +46,8 @@ one - goto p3 256 goto sp2
 one "FIND=codex" goto p3 256 goto-find sp2
 one "SURE=1" goto p3 256 goto-sure alpha/sp4
 one "FIND=zzz" goto p3 256 goto-none sp2
+one - wants blocked 256 wants sp2
+one - wants done 256 wants-done sp2
 one - history p3 256 history sp2
 one "FIND=alpha" history p3 256 history-find sp2
 one "FIND=zzz" history p3 256 history-none sp2

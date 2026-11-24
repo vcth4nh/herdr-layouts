@@ -62,6 +62,13 @@ Three regions: the rail down the left, the bar across the top of the rest, and t
 - A block stands 7px clear of the one before it. Projects sit under their machine's line when there is more than one machine, and that line stands 8px clear of the machine before it.
 - The picked row is raised (`#313244`). The list is at most 520px tall, then it scrolls.
 
+**The bell's and the tick's lists**
+
+- A popup 380px wide that hangs from under the bar, centered under the pill that opened it as far as the window's edge allows: a 44px row for each tab in that state.
+- A row has the tab's 24px orb with its state's ring and its label at 13px, peach for a tab that needs you. Under the label, at 11.5px, are its project's 14px tile and name, and a server icon and the machine's name when that is another machine. At the row's end is how long the tab has been in that state ("4m").
+- The tick's list has a 30px head with one button at its right end: two ticks, in green (`#a6e3a1`).
+- The picked row is raised (`#313244`). The list is at most 440px tall, then it scrolls.
+
 **Closed projects**
 
 - A popup 440px wide: a search field, then a 44px row for each project that was closed, the last closed first.
@@ -108,7 +115,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 **The status line**
 
 - Each tab that has a state is one bead. Those that need you come first, then the finished, the working and the idle.
-- Within a color the beads stand as their tabs' rows do in the rail, from top to bottom. The bell and the tick in the bar step through a color in that order too.
+- Within a color the beads stand as their tabs' rows do in the rail, from top to bottom. The lists the bell and the tick in the bar open have their tabs in that order too.
 - When a tab changes state, its bead takes the new color at once and slides to its new place in 420 ms. A bead on its way to the ones that need you passes over the others. One that comes to rest passes under them.
 - Hover a bead and it grows 4px taller, and its tab's row in the rail is drawn as under the pointer. In the rail narrower than 200px its logo is. Hover a row or a logo, and its bead grows the same way.
 - Click a bead to show its tab. Right-click it for the tab's menu.
@@ -119,11 +126,21 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 
 - Click a rail row, a bar pill or a bead of a status line to show that tab. Click a project's name in the rail to show the project.
 - Click a sub-agent's row for Herdr's peek at its terminal, over the shown tab. ⌘W or the peek's × closes the peek, and the sub-agent keeps running.
-- Click the bell or the tick in the bar to go to the next tab in that state.
+- Click the bell or the tick in the bar for a list of the tabs in that state ("The bell and the tick" below).
 - Click the project's name in the bar, or search, or press ⌘P, for the Go-to list. It opens on the shown tab.
 - Type in it to narrow the list: every word typed must be in a tab's label, its agent's title, its project, its machine or its program. ↑ and ↓ move, and Enter or a click shows the picked tab. A click on a project's line shows that project. Esc or ⌘P again closes the list.
 - Scroll over the bar to step through its tabs.
 - Hover a tab, its bead or a sub-agent for its words: a tab's title, project, machine, state, how long it has been working or idle, and how many sub-agents; a sub-agent's name, title and state.
+
+**The bell and the tick**
+
+- Click the bell for the tabs that need you, and the tick for those that finished. Click it again, click beside the list or press Esc to close it.
+- Click a row, or pick it with ↑ and ↓ and press Enter, to show that tab.
+- The list opens on the first tab after the one on show, in the rail's order, and on the first one when none comes after it.
+- It follows the tabs while it is open. A tab that leaves the state leaves the list, one that comes into it joins it, and the list closes once none is left.
+- The time on a row is how long the tab has been in that state. A tab that needs you only because a sub-agent does has no time.
+- Hover a row for the tab's words.
+- The two ticks at the head of the tick's list mark every tab in it as read, as if you had looked at each, in every Herdr that shows them. The rows leave and the list closes. A tab whose machine can't be reached stays, and a notice names it.
 
 **Tabs**
 
@@ -248,11 +265,11 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 **Mod**
 
 - `mods/glyph/`, whose `mod.json` is `{ "place": "none", "title": "Glyph" }`.
-- `main.js` picks a part from `props().role`: `rail.js`, `bar.js`, `pane.js`, `menu.js` (a popup the mod opens for a tab), `goto.js` (the Go-to list, a popup the bar opens), `history.js` (the list of closed projects, a popup the rail and the bar open) or `blank.js` (a project's empty page, as a tab's only pane).
+- `main.js` picks a part from `props().role`: `rail.js`, `bar.js`, `pane.js`, `menu.js` (a popup the mod opens for a tab), `goto.js` (the Go-to list, a popup the bar opens), `wants.js` (the list of the tabs that need you or that finished, a popup the bell and the tick open), `history.js` (the list of closed projects, a popup the rail and the bar open) or `blank.js` (a project's empty page, as a tab's only pane).
 - `data.js` shapes Herdr's lists into machines, projects and tabs. `ui.js` draws the tile, the orb, the bead and the icon button.
 - `transfer.js` is the transfer window, opened as a Herdr window overlay with props `{ "role": "transfer" }`. `copy.js` reads folders, starts, lists and ends copies, and finds out whether one machine can log in to another.
 - `fonts/`: Nunito Sans SemiBold and Bold, for Linux and Windows, as they come from `github.com/googlefonts/NunitoSans`, with their license beside them (`OFL.txt`, the SIL Open Font License).
-- `icons/`: 33 SVGs on a 24px grid with round strokes, drawn in `currentColor`. Program logos are Herdr's own, from `icons/` in Herdr's home (`~/.config/herdr-app`).
+- `icons/`: 34 SVGs on a 24px grid with round strokes, drawn in `currentColor`. Program logos are Herdr's own, from `icons/` in Herdr's home (`~/.config/herdr-app`).
 
 **From Herdr**
 
@@ -267,6 +284,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 **Programs**
 
 - The rail runs `hc machine ls --json` every 20 s, to learn of machines without projects and of those that need a login. The transfer window does too while it is open, for how ssh reaches each machine.
+- Marking finished tabs as read runs `hc label <terminal> herdr.seen=<turn>` for each of their agents that finished, sub-agents included, and `hc get <terminal> --json` first for one whose turn Herdr's listing lacks.
 - The rail runs `whoami` on every other machine in reach every 10 s, through Herdr's `exec`, and times it. It goes over the connection Herdr keeps to that machine.
 - The transfer window lists a folder by running `sh` on the machine that side shows, through Herdr's `exec`: a loop over the folder's names and `ls -lnA` for the sizes.
 - A copy is `scp -3 -r -o BatchMode=yes -o ConnectTimeout=20`, started on this computer with `hc run --bg --no-parent --no-notify --label glyph.copy=1`. The window reads its screen with `hc read`. When it ends the bar asks how with `hc get`, reads scp's last lines if it failed, and removes the terminal with `hc rm`.
@@ -396,6 +414,17 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - Copies of a mod share its modules. The list notes its overlay in a variable of `data.js` when it starts and clears it when Herdr calls its `close()`. That is how the bar knows to close the list when asked for it again.
 - It lists tabs only: no sub-agents, and none of the rows Herdr's picker has for a new tab or a new project.
 
+**The bell's and the tick's lists**
+
+- Herdr closes a popup at any press beside it, a press on the pill that opened it too. So the bar notes at the press whether that pill's list was on show, and the click that follows opens a list only when it was not. A list that went less than 0.4 s before the press counts as on show, unless it closed itself.
+- A click does not tell a mod where it was, so the list opens centered on where the press was, as far below the window's top as the Go-to list. Herdr moves a popup to fit the window, 8px clear of its edges, so near the right edge the list ends 8px from it.
+- That place is given in the window's pixels, which Herdr's zoom makes larger, so the bar multiplies by the zoom.
+- The list looks four times a second whether any tab is left in it, and closes once none is.
+- It lists tabs, as the bell and the tick count them. A sub-agent that needs you is listed by its tab.
+- Herdr has no command that marks an agent as read. Each Herdr writes a label on an agent's terminal, `herdr.seen`, with herdr-core's count of the times that agent stopped working (its turn) once someone has looked at it, and calls an agent that rests "done" while its turn is past that label (`docs/labels.md` in herdr-app's source). The read button writes that label as Herdr would, so the agents are read on every Herdr that shows them, a phone's too. It only raises a label, and leaves an agent that works or needs you alone.
+- An agent that finishes again after that is "done" once more: its turn has gone past the label.
+- glyph counts a sub-agent that finished as resting, so none makes its tab finished. The button marks them read too, since Herdr's own lists show them as finished.
+
 **Closed projects**
 
 - Herdr does not tell a mod that a project closes. The bar looks at Herdr's list of projects once a second and notes, for each project that has tabs, what its row would say. A project that is gone from Herdr's list has closed, and its note becomes its row.
@@ -489,6 +518,8 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - `herdr-app check mods/glyph` passes, and `herdr-app status` shows no errors with the layout on show.
 - With projects on two machines, each has a line with its name, and machines with nothing running share one dashed row.
 - An agent at work shows the turning blue arc. One that needs you pulses peach and raises the bell's count. One that finished wears the green ring and raises the tick's count.
+- Clicking the bell lists the tabs that need you under it, in the rail's order. Clicking a row shows that tab and closes the list. Clicking the bell again closes the list. The tick does the same for the tabs that finished.
+- With tabs finished, the two ticks at the head of the tick's list empty it and take the tick away from the bar. `hc get` on each of their agents has `herdr.seen` equal to its `turn`.
 - On macOS, Herdr's Dock icon wears the bell's count as a badge, and none when the bell is gone. `lsappinfo info -only StatusLabel -app Herdr` reads it back.
 - The status line on top has one bead for each tab that has a state: peach for those that need you, then green, blue and grey, with a mark under the bead of the tab on show.
 - Hovering a bead makes it taller and lights its tab's row. Clicking it shows that tab.

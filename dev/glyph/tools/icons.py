@@ -13,6 +13,8 @@ ICONS = {
     "minus": stroke('<path d="M5.5 12h13"/>', 2),
     "x": stroke('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', 2),
     "check": stroke('<path d="M5 12.6l4.6 4.6L19 7.4"/>', 2.6),
+    # Read: two ticks, the second a step behind the first.
+    "check-double": stroke('<path d="M2.5 12.8l4.4 4.4L16.4 7.6"/><path d="M12.4 16.4l.8.8 9.3-9.6"/>', 2.2),
     "bang": stroke('<path d="M12 5v8.5"/><path d="M12 18.6h.01"/>', 3.2),
     "bell": stroke('<path d="M10.3 20.5a2 2 0 0 0 3.4 0"/><path d="M3.3 15.3A1 1 0 0 0 4 17h16a1 1 0 0 0 .7-1.7C19.4 14 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.4 6-2.7 7.3"/>'),
     "search": stroke('<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>'),

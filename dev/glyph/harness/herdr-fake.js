@@ -18,12 +18,15 @@ const P = {
 };
 let n = 0;
 const PANES = [], TERMS = [];
+// herdr-core's count of the times a terminal stopped working, and the last of them someone
+// saw (the `herdr.seen` label): a finished agent is one turn past what was seen.
+const seen = (status) => (status === "done" ? { turn: 3, labels: { "herdr.seen": "2" } } : status ? { turn: 1, labels: { "herdr.seen": "1" } } : { turn: 0, labels: {} });
 // What a terminal started with `hc run`, and what those started: { prog, status, name, title,
 // gone, kids }. Each is addressed after its parent ("t6-1", "t6-1-1").
 function kids(parent, cwd, list = []) {
   list.forEach((k, i) => {
     const address = `${parent}-${i + 1}`, status = k.status ?? null;
-    TERMS.push({ address, state: k.gone ? "exited" : "live", status, parent, name: k.name ?? null, template: null, cwd, program: P[k.prog ?? "codex"], report: { state: status, title: k.title ?? null } });
+    TERMS.push({ address, state: k.gone ? "exited" : "live", status, parent, name: k.name ?? null, template: null, cwd, program: P[k.prog ?? "codex"], report: { state: status, title: k.title ?? null }, ...seen(status) });
     kids(address, cwd, k.kids);
   });
 }
@@ -31,7 +34,7 @@ function tab(space, name, prog, status, title, ago, extra = {}) {
   n += 1;
   const id = `${space.machine ? space.machine + "/" : ""}tb${n}`, pane = `p${n}`, term = `${space.machine ? space.machine + "/" : ""}t${n}`;
   PANES.push({ pane, terminal: term, tab: id, title: extra.untitled ? term : title ? `✳ ${title}` : P[prog].name, cwd: space.cwd, branch: space.branch, status, app: prog, program: P[prog], focused: Boolean(extra.active) && space.active, zoomed: false, movable: false });
-  TERMS.push({ address: term, state: "live", status, parent: null, program: P[prog], report: { state: status, title: title ?? null } });
+  TERMS.push({ address: term, state: "live", status, parent: null, program: P[prog], report: { state: status, title: title ?? null }, ...seen(status) });
   kids(term, space.cwd, extra.kids);
   return { id, index: space.tabs.length + 1, name: name ?? String(space.tabs.length + 1), named: Boolean(name), active: Boolean(extra.active), status, panes: 1, zoomed: false, settled: false, settled_at: null,
     changed_at: ago == null ? null : now - ago * 60000, working_since: status === "working" && ago != null ? now - ago * 60000 : null };
@@ -243,7 +246,7 @@ export const home = () => "/Users/me";
 // A test may say the mod is only being checked: globalThis.__checking = true.
 export const checking = () => Boolean(globalThis.__checking);
 // A test may set globalThis.__props to stand for another copy of the mod.
-export const props = () => (globalThis.__props ? globalThis.__props : ROLE === "pane" ? { pane: "__PANE__", terminal: "t3" } : ROLE === "menu" ? { role: "menu", tab: "__PANE__", overlay: "ov1" } : { role: ROLE });
+export const props = () => (globalThis.__props ? globalThis.__props : ROLE === "pane" ? { pane: "__PANE__", terminal: "t3" } : ROLE === "menu" ? { role: "menu", tab: "__PANE__", overlay: "ov1" } : ROLE === "wants" ? { role: "wants", status: "__PANE__", overlay: "ov1" } : { role: ROLE });
 // What the mod asked of hc and of the machines' own programs, apart from CALLS.
 export const ASKS = [];
 // hc: the machines, and for the transfer window a copy that starts (t90) and its meter.

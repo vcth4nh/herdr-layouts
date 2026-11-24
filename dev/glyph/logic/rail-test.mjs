@@ -5,7 +5,7 @@ import { PaneHead } from "./pane.mjs";
 import { Menu } from "./menu.mjs";
 import { byId, walk } from "./kit-stub.mjs";
 import { CALLS, ASKS, SHARED, AGENT_ORDER, panes, terminals, layout, spaces, agents } from "./herdr-fake.mjs";
-import { reach, lineUp, model, jump, PING, ORDER, arrange, tilde, way } from "./data.mjs";
+import { reach, lineUp, model, PING, ORDER, arrange, tilde, way } from "./data.mjs";
 
 let failed = 0, passed = 0;
 const ok = (cond, what) => { if (cond) passed++; else { failed++; console.log("FAIL:", what); } };
@@ -252,24 +252,6 @@ const HOVER = "#232334", RAISED = "#313244", ACCENT = "#cba6f7";
   CALLS.length = 0;
   bead("fleet", "alpha/tb10").node.handlers.on_click({}, cxn);
   eq([runs(), stopped], [[["pane.focus", { pane: "p10" }]], 1], "a click on a bead goes to its tab");
-  // The bar's bell and tick step through a state's tabs with jump(), in the order of that
-  // state's beads: from the tab on show to the next one, and from the last to the first.
-  const steps = (status, from) => {
-    const m = model(), was = m.flat.find((c) => c.shown);
-    const out = [];
-    for (let at = m.flat.find((c) => c.id === from), n = 0; n < 3; n++) {
-      for (const c of m.flat) c.shown = c === at;
-      CALLS.length = 0;
-      jump(m, status);
-      const went = Object.fromEntries(runs());
-      at = m.flat.find((c) => (went["pane.focus"] ? c.lead?.pane === went["pane.focus"].pane : c.id === went["tab.select"]?.id));
-      out.push(at?.id);
-    }
-    for (const c of m.flat) c.shown = c === was;
-    return out;
-  };
-  const peach = tabsOn("fleet").slice(0, 2), blue = tabsOn("fleet").slice(3, 6);
-  eq([steps("blocked", "alpha/tb9"), steps("working", "tb1")], [[peach[0], peach[1], peach[0]], blue], "the bell's steps are the beads that need you from left to right, and so for any state");
   CALLS.length = 0;
   bead("fleet", "tb2").node.handlers["on_mouse_down:right"]({}, cxn);
   eq([CALLS, stopped], [[["openOverlay", { mod: "glyph", kind: "popup", width: 200, props: { role: "menu", tab: "tb2" } }]], 2], "a right-click on a bead opens its tab's menu");
