@@ -246,13 +246,15 @@ export function model(machineInfo = []) {
       const agent = Boolean(p.program?.agent), had = Boolean(lead?.program?.agent);
       if (!lead || (agent && !had) || (agent === had && rank(p.status) > rank(lead.status))) lead = p;
     }
-    let status = c.status ?? null;
+    // The tab's state is Herdr's: the most urgent of the agents in its panes. Its sub-agents
+    // leave it alone, as in Herdr, which sends no notice for one either: a sub-agent reports
+    // to the agent that started it. Their rows and the dot on the tab's orb show them.
+    const status = c.status ?? null;
     // `list` is what the rail's lines show; `count` and `status` are the orb's dot.
     const subs = { count: 0, status: null, list: [] };
     for (const p of mine) if (p.terminal) subs.list.push(...below(s, p.terminal));
     subs.count = subs.list.length;
     for (const k of subs.list) if (rank(k.status) > rank(subs.status)) subs.status = k.status;
-    if (rank(subs.status) > rank(status)) status = subs.status;
     const term = lead ? termBy.get(lead.terminal) : null;
     const path = way(lead?.cwd).parts;
     const folder = path[path.length - 1] ?? "";
@@ -262,8 +264,7 @@ export function model(machineInfo = []) {
     const title = named ? c.name : own;
     return {
       id: c.id, index: c.index, name: c.name, named, active: c.active, shown: s.active && c.active,
-      // `status` takes in its sub-agents' states; `ownStatus` is its agents' alone.
-      status, ownStatus: c.status ?? null, subs, lead, program: lead?.program ?? null, panes: mine.length, zoomed: c.zoomed,
+      status, subs, lead, program: lead?.program ?? null, panes: mine.length, zoomed: c.zoomed,
       blank, careful, cwd: lead?.cwd ?? null,
       // Put away on this screen (tab.settle): Herdr's own steps through the tabs skip it.
       settled: Boolean(c.settled),

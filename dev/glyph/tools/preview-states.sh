@@ -44,7 +44,7 @@ for n in goto goto-find goto-sure; do python3 tools/spec2html.py $P/$n.html --on
 for n in history history-find history-linux; do python3 tools/spec2html.py $P/$n.html --only body --body $O/$n.txt --w 440 --h 234; shot $n 440,234; done
 python3 tools/spec2html.py $P/history-empty.html --only body --body $O/history-empty.txt --w 440 --h 94; shot history-empty 440,94
 # The lists the bell and the tick in the bar open: the tabs that need you, and those that finished.
-python3 tools/spec2html.py $P/wants.html --only body --body $O/wants.txt --w 380 --h 100; shot wants 380,100
+python3 tools/spec2html.py $P/wants.html --only body --body $O/wants.txt --w 380 --h 56; shot wants 380,56
 python3 tools/spec2html.py $P/wants-done.html --only body --body $O/wants-done.txt --w 380 --h 86; shot wants-done 380,86
 for n in transfer transfer-picked transfer-sure transfer-carry transfer-direct-idle transfer-direct transfer-direct-typed; do shot $n 880,560; done
 shot copies 1710,1073

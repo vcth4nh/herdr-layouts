@@ -107,7 +107,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - Blocked: a peach (`#fab387`) ring pulses and carries a "!" badge. The tab's label turns peach in the rail.
 - Done: a green (`#a6e3a1`) ring with a tick badge.
 - Idle: no ring. The logo fades to 75% after 15 minutes of rest and to 50% after two hours.
-- A tab takes the most urgent state of its agents and their sub-agents: blocked comes first, then done, working and idle. Sub-agents add one small dot in their most urgent color.
+- A tab takes the most urgent state of the agents in its panes: blocked comes first, then done, working and idle. Its sub-agents leave that alone, as in Herdr, and add one small dot in their most urgent color.
 - A sub-agent's row shows working and blocked as a tab does, and its error counts as blocked. Finished or idle, the row is dim.
 - The badge on the Dock icon follows the bell within about a second, for when Herdr is not the app in front. Tabs that are done are not counted there. The badge comes off when another layout is shown.
 - A bead moves as its orb's ring does. A lighter glint runs along a working bead and back, once every 2.6 s. A blocked bead pulses, a done one is still, and an idle one fades as its logo does.
@@ -138,7 +138,7 @@ Keys are written here as on a Mac. "Keys" under "Built from" gives the ones for 
 - Click a row, or pick it with ↑ and ↓ and press Enter, to show that tab.
 - The list opens on the first tab after the one on show, in the rail's order, and on the first one when none comes after it.
 - It follows the tabs while it is open. A tab that leaves the state leaves the list, one that comes into it joins it, and the list closes once none is left.
-- The time on a row is how long the tab has been in that state. A tab that needs you only because a sub-agent does has no time.
+- The time on a row is how long the tab has been in that state.
 - Hover a row for the tab's words.
 - The two ticks at the head of the tick's list mark every tab in it as read, as if you had looked at each, in every Herdr that shows them. The rows leave and the list closes. A tab whose machine can't be reached stays, and a notice names it.
 
@@ -357,10 +357,11 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - A row lasts as long as its terminal. A program an agent runs through `hc run` and waits for has a row until it exits, so rows come and go.
 - A sub-agent that was given a pane (`terminal.keep`, or keep in the peek) is a pane like any other and has no row. Closing that pane ends the sub-agent. What it started is listed under the tab that holds its pane.
 - The rail keeps times for tabs only, so a resting sub-agent does not fade by age as a tab does. It is dim at once.
+- Herdr gives a tab the state of the agents in its panes only, and posts no notice for a sub-agent, which reports to the agent that started it. glyph does the same. A sub-agent that needs you, one stopped at a usage limit among them, shows it on its own row and as the dot on its tab's orb. Its tab keeps its own agent's state, and the bell, its list and the Dock badge leave it out.
 
 **The status line**
 
-- A tab with no agent in it, such as a plain shell, has no state and no bead. Sub-agents have none either: a tab's bead takes their most urgent state, as its orb does. With no bead at all the rail has no status line on top, and a folded machine or project shows a hairline.
+- A tab with no agent in it, such as a plain shell, has no state and no bead. Sub-agents have none either, and leave their tab's bead as it is. With no bead at all the rail has no status line on top, and a folded machine or project shows a hairline.
 - Only what is placed by hand can slide, so the beads are not laid out by Herdr: the rail gives each its left edge and its width. For that it has to know how wide the line is. On top that is the rail's width less the margins. A folded machine's line gets what its name and bars leave, which the rail estimates for the first frame and then measures.
 - What was measured holds for the rail's width it was measured at. After a resize the rail goes by the estimate again until Herdr has laid the line out.
 - The rail takes a measured width to be in the window's pixels and divides it by Herdr's zoom, as the bar does with its tabs' widths. This was only tried at zoom 1.
@@ -420,10 +421,10 @@ One more command has no key: `transfer-show`, which a copy's notice sends when i
 - A click does not tell a mod where it was, so the list opens centered on where the press was, as far below the window's top as the Go-to list. Herdr moves a popup to fit the window, 8px clear of its edges, so near the right edge the list ends 8px from it.
 - That place is given in the window's pixels, which Herdr's zoom makes larger, so the bar multiplies by the zoom.
 - The list looks four times a second whether any tab is left in it, and closes once none is.
-- It lists tabs, as the bell and the tick count them. A sub-agent that needs you is listed by its tab.
+- It lists tabs, as the bell and the tick count them. A sub-agent that needs you is not listed, and neither is its tab for it ("Sub-agents" above).
 - Herdr has no command that marks an agent as read. Each Herdr writes a label on an agent's terminal, `herdr.seen`, with herdr-core's count of the times that agent stopped working (its turn) once someone has looked at it, and calls an agent that rests "done" while its turn is past that label (`docs/labels.md` in herdr-app's source). The read button writes that label as Herdr would, so the agents are read on every Herdr that shows them, a phone's too. It only raises a label, and leaves an agent that works or needs you alone.
 - An agent that finishes again after that is "done" once more: its turn has gone past the label.
-- glyph counts a sub-agent that finished as resting, so none makes its tab finished. The button marks them read too, since Herdr's own lists show them as finished.
+- A sub-agent makes no tab finished. The button still marks the finished sub-agents of the listed tabs read, since Herdr's own lists show them as finished.
 
 **Closed projects**
 

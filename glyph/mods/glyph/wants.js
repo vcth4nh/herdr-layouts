@@ -1,8 +1,8 @@
 // The tabs in one state: the list the bar's bell (they need you) and tick (they finished)
 // open under themselves. A row is a tab as the Go-to list has it, its logo with its state's
 // ring and its words, and under them its project and machine. At its end is how long the
-// tab has been in that state, unless a sub-agent put it there. The rows stand in the rail's
-// order, top to bottom, which is also the order of their beads in the status line.
+// tab has been in that state. The rows stand in the rail's order, top to bottom, which is
+// also the order of their beads in the status line.
 // Click a row, or pick it with up and down and press Enter, to go to that tab. Esc leaves.
 // It opens on the first tab after the one on show, from the top again after the last.
 // It follows the tabs as they change state, and closes once none is left in it.
@@ -103,9 +103,7 @@ export class Wants {
     const row = (c) => {
       const on = c === sel;
       const s = c.space;
-      // How long it has been in that state, when its own agents put it there: when a
-      // sub-agent did, Herdr gives no time for it.
-      const at = c.ownStatus === c.status ? since(c) : null;
+      const at = since(c);
       return h_flex().id(`want-${c.id}`).h(H).flex_none().pl(6).pr(10).gap(9).items_center().rounded(10).cursor_pointer()
         .when(on, (el) => el.bg(t.selected))
         .when(!on, (el) => el.hover((x) => x.bg(t.hover)))

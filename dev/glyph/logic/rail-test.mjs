@@ -155,7 +155,7 @@ eq(["t6-1", "t6-1-1", "t6-2"].map((a) => [text(byId(root, `sub-${a}`)), byId(roo
   ["Port the aliases", "Port the aliases, needs you"],
 ], "a sub-agent goes by its name, else by its title; hovering says the rest");
 ok(holder(root, "sub-t6-1-1").props.pl[0] > holder(root, "sub-t6-1").props.pl[0], "a nested one is set further in");
-ok(byId(root, "tab-tb6").props.tooltip[0].endsWith("needs you, 3 sub-agents"), "the tab still counts them and takes their most urgent state");
+ok(byId(root, "tab-tb6").props.tooltip[0].endsWith("working 12m, 3 sub-agents"), "the tab counts them, and keeps its own agent's state: as in Herdr, a sub-agent's error does not make it need you");
 CALLS.length = 0;
 byId(root, "sub-t6-2").handlers.on_click({}, cx);
 eq(runs(), [["terminal.peek", { terminal: "t6-2" }]], "a click peeks at a sub-agent");
@@ -222,20 +222,20 @@ const HOVER = "#232334", RAISED = "#313244", ACCENT = "#cba6f7";
   // On the rail: the sample fleet has 18 tabs with a state. The project on show is
   // alpha/sp4, on its tab alpha/tb9. Within a state the beads stand as the tabs' rows do
   // in the rail, top to bottom: this computer's, then alpha's, bravo's and foxtrot's.
-  const ORDER = ["tb3", "tb6", "alpha/tb10", "tb2", "alpha/tb8", "alpha/tb9",
+  const ORDER = ["tb3", "alpha/tb10", "tb2", "tb6", "alpha/tb8", "alpha/tb9",
     "tb1", "alpha/tb7", "alpha/tb11", "alpha/tb12", "alpha/tb13", "alpha/tb14", "alpha/tb15", "alpha/tb16", "alpha/tb18", "bravo/tb19", "bravo/tb20", "foxtrot/tb21"];
   eq(tabsOn("fleet"), ORDER, "the line on top: every tab that has a state, by state and then in the rail's order");
   eq(ORDER.slice(6), ids(root).filter((i) => i.startsWith("tab-")).map((i) => i.slice(4)).filter((id) => ORDER.indexOf(id) >= 6), "the idle beads are in the order of their rows");
   const all = beads("fleet");
-  eq(all.map((b) => b.color), ["blocked", "blocked", "done", "working", "working", "working", ...Array(12).fill("idle")].map((s) => COLOR[s]), "each bead is in its state's color");
+  eq(all.map((b) => b.color), ["blocked", "done", "working", "working", "working", "working", ...Array(12).fill("idle")].map((s) => COLOR[s]), "each bead is in its state's color");
   eq([all[0].x, all[17].end, all.every((b, i) => i === 0 || b.x === all[i - 1].end + 2), byId(root, "line-fleet").props.h[0]], [0, 230, true, 22], "the beads fill the rail between its 13px margins, 2px apart");
   eq([all[0].node.props.top[0], all[0].node.props.h[0], all[0].node.props.left[0], all[1].node.props.left[0] - (all[0].node.props.left[0] + all[0].node.props.w[0])], [0, 22, -1, 0], "a bead's column is as tall as the line and meets the next one: no press falls between two");
   ok(!byId(root, "fleet").props.tooltip && !byId(root, "line-fleet").props.tooltip, "the line itself has no hover words");
-  eq([all[1].node.props.tooltip[0], all[2].node.props.tooltip[0], all[3].node.props.tooltip[0]], ["Tidy the shell config, Home, needs you, 3 sub-agents", "gateway, acme-shop-backend @ alpha, finished", "Action review of the diff, notes-app, working 3m"], "a bead's hover words are its tab's");
+  eq([all[0].node.props.tooltip[0], all[1].node.props.tooltip[0], all[3].node.props.tooltip[0]], ["Stock importer: supplier detection, inventory-and-order-reports, needs you", "gateway, acme-shop-backend @ alpha, finished", "Tidy the shell config, Home, working 12m, 3 sub-agents"], "a bead's hover words are its tab's");
   // The motion of each state: one that needs you breathes, a working one has a glint that
   // runs along it, a finished one is still, and the idle fade as their logos do.
   const glint = (b) => b.pill.children[0]?.__node;
-  eq([all[0].pill.props.loop, all[2].pill.props.loop ?? null, all[2].pill.children.length, all[3].pill.props.loop ?? null], [["opacity", { from: 0.5, to: 1, period: 900 }], null, 0, null], "needs you: the bead breathes; finished and working: it does not");
+  eq([all[0].pill.props.loop, all[1].pill.props.loop ?? null, all[1].pill.children.length, all[2].pill.props.loop ?? null], [["opacity", { from: 0.5, to: 1, period: 900 }], null, 0, null], "needs you: the bead breathes; finished and working: it does not");
   eq([glint(all[3]).props.loop, glint(all[3]).props.w[0], all[3].end - all[3].x], [["left", { from: 0, to: 7, period: 2600 }], 4, 11], "working: a glint goes to the bead's far end and back");
   eq(all.slice(6).map((b) => b.pill.props.opacity[0]), [0.5, 0.5, 0.75, 0.5, 0.5, 0.75, 0.5, 0.5, 0.75, 0.5, 0.5, 0.5], "idle: as faint as the logo, by how long it has rested, wherever it stands");
   eq([all[0].pill.props.h[0], all[0].pill.all.transition.map((a) => a[0])], [5, ["height"]], "a bead is 5px tall");
@@ -300,7 +300,7 @@ const HOVER = "#232334", RAISED = "#313244", ACCENT = "#cba6f7";
   const before = bead("fleet", "tb1").x;
   Object.assign(tb1, { status: "blocked", changed_at: Date.now() });
   root = rail.render();
-  eq([tabsOn("fleet").slice(0, 4), bead("fleet", "tb1").color, before, bead("fleet", "tb1").x, moves(bead("fleet", "tb1").node).length], [["tb1", "tb3", "tb6", "alpha/tb10"], COLOR.blocked, 77, 0, 2], "a tab that now needs you: its bead joins those, where its row stands among theirs, and slides there");
+  eq([tabsOn("fleet").slice(0, 4), bead("fleet", "tb1").color, before, bead("fleet", "tb1").x, moves(bead("fleet", "tb1").node).length], [["tb1", "tb3", "alpha/tb10", "tb2"], COLOR.blocked, 77, 0, 2], "a tab that now needs you: its bead joins those, where its row stands among theirs, and slides there");
   Object.assign(tb1, was);
   root = rail.render();
   eq(tabsOn("fleet"), ORDER, "and back");
@@ -341,7 +341,7 @@ const HOVER = "#232334", RAISED = "#313244", ACCENT = "#cba6f7";
   layout().children[0].size.px = 160;
   root = rail.render();
   const slim = beads("fleet");
-  eq([slim.length, slim[17].end, slim.slice(0, 3).map((b) => b.end - b.x), slim[3].end - slim[3].x, glint(slim[3]).props.w[0]], [18, 134, [8, 8, 8], 5, 2], "logos only: the line is 134px, the three that want you keep 8px, and a 5px working bead still has its glint");
+  eq([slim.length, slim[17].end, slim.slice(0, 2).map((b) => b.end - b.x), slim[2].end - slim[2].x, glint(slim[2]).props.w[0]], [18, 134, [8, 8], 5, 2], "logos only: the line is 134px, the two that want you keep 8px, and a 5px working bead still has its glint");
   byId(root, "tab-alpha/tb10").handlers.on_hover(true, cxn);
   root = rail.render();
   eq([tall("alpha/tb10"), byId(root, "tab-alpha/tb10").props.bg?.[0]], [9, HOVER], "logos only: the pointer on a logo lifts its bead");
@@ -497,11 +497,11 @@ eq(runs(), [], "folding runs no command");
   eq(CALLS.map((c) => [c[0], c[1].mod, c[1].props]), [["openOverlay", "menu", { tab: "space", target: { id: "alpha/sp4" } }]], "a right-click on the tile still opens the project's menu");
   CALLS.length = 0;
   ok(!byId(new Rail(cx).render(), "tab-alpha/tb8"), "a new rail starts with it folded");
-  // Sub-agents' rows go with their tab's. The bead takes the tab's state, which is its
-  // sub-agents' most urgent one.
+  // Sub-agents' rows go with their tab's. The bead takes the tab's state, which its
+  // sub-agents leave alone.
   tuck("sp3").handlers.on_click({}, cx);
   root = rail.render();
-  eq([rowsOf("sp3"), beads("in-sp3").map((b) => [b.tab, b.color, b.end - b.x])], [[], [["tb6", COLOR.blocked, 190]]], "a folded project hides its sub-agents' rows, and its one bead still says it needs you");
+  eq([rowsOf("sp3"), beads("in-sp3").map((b) => [b.tab, b.color, b.end - b.x])], [[], [["tb6", COLOR.working, 190]]], "a folded project hides its sub-agents' rows, and its one bead says what its own agent does, not its sub-agent's error");
   // The logos-only rail: the line stands beside the tile, where the logos were, and is as
   // tall as the tile, so a press beside the tile lands on a bead.
   layout().children[0].size.px = 160;

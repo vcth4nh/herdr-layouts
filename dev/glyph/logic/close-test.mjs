@@ -720,11 +720,15 @@ for (const key of ["close", "close-pane"]) {
 
 // 14. The Dock icon wears the number of tabs that need you, wherever they are.
 {
+  // Two tabs need you: tb3, and acme.cpp, made so here. tb6 does not: only its sub-agent
+  // hit an error, which, as in Herdr, is not its tab's state.
+  const two = () => { sp("alpha/sp4").tabs[1].status = "blocked"; };
   world("sp2", 0);
+  two();
   BADGES.length = 0;
   const need = () => model().counts.blocked;
   const a = await bar();
-  eq([need(), BADGES], [2, ["2"]], "the bar's first look puts the number on the icon, and its second says nothing more");
+  eq([need(), BADGES], [2, ["2"]], "the bar's first look puts the number on the icon, and its second says nothing more; a sub-agent's error is not counted");
   sp("sp2").tabs[0].status = "idle";
   a.render();
   eq([need(), BADGES], [1, ["2", "1"]], "the number changes: the icon is told");
@@ -747,6 +751,7 @@ for (const key of ["close", "close-pane"]) {
   eq([need(), BADGES.at(-1), BADGES.length], [0, null, 4], "no tab needs you: no badge");
   // The bar goes (another layout, the mod loaded again): the badge goes with it.
   world("sp2", 0);
+  two();
   BADGES.length = 0;
   const b = await bar();
   b.b.gone();

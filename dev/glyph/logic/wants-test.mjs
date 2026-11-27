@@ -25,6 +25,9 @@ const rows = (root) => { const all = []; walk(root, (n) => { if (n.id?.startsWit
 const picked = (root) => rows(root).filter((id) => Boolean(byId(root, `want-${id}`).props.bg));
 const tabOf = (id) => spaces().flatMap((s) => s.tabs).find((c) => c.id === id);
 const showing = (sid) => { for (const s of spaces()) s.active = s.id === sid; };
+// A second tab that needs you, after tb3 in the rail. The sample's tb6 does not: its own
+// agent works, and its sub-agent's error is that sub-agent's, as in Herdr.
+tabOf("alpha/tb8").status = "blocked";
 
 // A list as the popup would hold it. The one before it is gone, as the app tells a copy
 // whose overlay closed.
@@ -43,13 +46,12 @@ const fresh = (status) => {
 // What it lists: the tabs in its state, in the rail's order, which is their beads' order.
 {
   const a = fresh("blocked");
-  eq(rows(a.root), ["tb3", "tb6"], "the tabs that need you, a sub-agent's error among them");
+  eq(rows(a.root), ["tb3", "alpha/tb8"], "the tabs that need you, and not one whose sub-agent hit an error");
   eq(rows(a.root), lineUp(model().flat).filter((c) => c.status === "blocked").map((c) => c.id), "in the order of their beads");
   eq(rows(fresh("done").root), ["alpha/tb10"], "the tick's list: the tabs that finished");
   const b = fresh("blocked");
   eq(text(byId(b.root, "want-tb3")), "Stock importer: supplier detection | IA | inventory-and-order-reports | 1m", "a row: its words, its project, and how long it has needed you");
-  eq(text(byId(b.root, "want-tb6")), "Tidy the shell config | Home | ", "a sub-agent's error gives no time: its tab's own is for another state");
-  eq(text(byId(fresh("done").root, "want-alpha/tb10")), "gateway | AS | acme-shop-backend | alpha | 6m", "another machine's tab names its machine");
+  eq(text(byId(b.root, "want-alpha/tb8")), "acme.cpp | AS | acme-shop-backend | alpha | 2m", "another machine's tab names its machine");
   eq(byId(b.root, "want-tb3").props.tooltip[0], "Stock importer: supplier detection, inventory-and-order-reports, needs you", "hovering a row says the rest");
   eq(byId(b.root, "want-list").props.h[0], 88, "the list is as tall as its rows");
 }
@@ -57,8 +59,8 @@ const fresh = (status) => {
 // Where it opens: on the first tab after the one on show, from the top after the last.
 {
   const a = fresh("blocked");
-  eq(picked(a.root), ["tb6"], "the shown tab needs you: the list opens on the next one");
-  showing("alpha/sp4");
+  eq(picked(a.root), ["alpha/tb8"], "the shown tab needs you: the list opens on the next one");
+  showing("bravo/sp6");
   eq(picked(fresh("blocked").root), ["tb3"], "past the last one, it opens on the first");
   showing("sp2");
 }
@@ -69,10 +71,10 @@ const fresh = (status) => {
   a.key("down");
   eq(picked(a.root), ["tb3"], "down goes around to the top");
   a.key("up");
-  eq(picked(a.root), ["tb6"], "up comes back");
+  eq(picked(a.root), ["alpha/tb8"], "up comes back");
   CALLS.length = 0;
   a.key("enter");
-  eq(CALLS, [["closeOverlay", "ov7"], ["run", "pane.focus", { pane: "p6" }]], "Enter shows the picked tab, and the list closes");
+  eq(CALLS, [["closeOverlay", "ov7"], ["run", "pane.focus", { pane: "p8" }]], "Enter shows the picked tab, and the list closes");
   const b = fresh("blocked");
   byId(b.root, "want-tb3").handlers.on_click({}, cx);
   eq(runs(), [["pane.focus", { pane: "p3" }]], "a click on a row shows its tab");
@@ -88,10 +90,10 @@ const fresh = (status) => {
   a.key("down");
   tabOf("tb3").status = "working";
   a.draw();
-  eq([rows(a.root), picked(a.root)], [["tb6"], ["tb6"]], "a tab that no longer needs you leaves the list");
+  eq([rows(a.root), picked(a.root)], [["alpha/tb8"], ["alpha/tb8"]], "a tab that no longer needs you leaves the list");
   tabOf("tb3").status = "blocked";
   a.draw();
-  eq([rows(a.root), picked(a.root)], [["tb3", "tb6"], ["tb6"]], "one that comes to need you joins it, and the pick stays");
+  eq([rows(a.root), picked(a.root)], [["tb3", "alpha/tb8"], ["alpha/tb8"]], "one that comes to need you joins it, and the pick stays");
   const b = fresh("done");
   CALLS.length = 0;
   fire(250);
